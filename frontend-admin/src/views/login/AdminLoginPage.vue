@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { login, type LoginParams } from '@/api/auth'
+import { clearToken } from '@/api/request'
 import { useAdminStore } from '@/stores/admin'
 import HexagonLogo from '@/components/HexagonLogo.vue'
 
@@ -47,14 +48,21 @@ async function handleLogin(formEl: FormInstance | undefined) {
     if (!valid) return
     loading.value = true
     try {
+      // 1. 调用登录接口获取 Token
       const res = await login(loginForm)
-      adminStore.setAdminToken(res.data.token)
+      // 2. 存储 Token
+      adminStore.setAdminToken(res.token)
+      // 3. 用 Token 拉取管理员信息（验证 Token 有效性）
       await adminStore.fetchAdminInfo()
+      // 4. 全部成功后跳转
       ElMessage.success('登录成功，欢迎回来')
       const redirect = (route.query.redirect as string) || '/dashboard'
       router.push(redirect)
     } catch (e) {
-      // 错误已由拦截器提示
+      // 登录或拉取信息失败，仅清除本地残留 Token（不调用登出接口，避免二次报错）
+      adminStore.setAdminToken('')
+      adminStore.adminInfo = null
+      clearToken()
     } finally {
       loading.value = false
     }

@@ -97,11 +97,29 @@ public class UserServiceImpl implements UserService {
      * 根据用户ID查询用户信息
      *
      * @param userId 用户ID
-     * @return 用户实体
+     * @return 用户实体（密码字段已脱敏）
      */
     @Override
     public User getById(Long userId) {
         User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_EXISTS);
+        }
+        user.setPassword(null);
+        return user;
+    }
+
+    /**
+     * 根据账号查询用户信息
+     *
+     * @param account 账号
+     * @return 用户实体（密码字段已脱敏）
+     * @throws BusinessException 账号不存在时抛出
+     */
+    @Override
+    public User getByAccount(String account) {
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getAccount, account));
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_EXISTS);
         }

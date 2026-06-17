@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -107,7 +108,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理404异常
+     * 处理404异常（无Handler）
      *
      * @param e NoHandlerFoundException
      * @return 统一响应
@@ -115,6 +116,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoHandlerFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result<Void> handleNotFound(NoHandlerFoundException e) {
+        return Result.error(ResultCode.NOT_FOUND);
+    }
+
+    /**
+     * 处理静态资源未找到异常
+     *
+     * <p>当请求路径未匹配任何Controller且静态资源也不存在时触发</p>
+     *
+     * @param e NoResourceFoundException
+     * @return 统一响应
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Result<Void> handleResourceNotFound(NoResourceFoundException e) {
+        log.warn("静态资源未找到: {}", e.getResourcePath());
         return Result.error(ResultCode.NOT_FOUND);
     }
 

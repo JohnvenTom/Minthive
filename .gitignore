@@ -1,0 +1,81 @@
+# ========================
+# Java / Maven
+# ========================
+target/
+*.jar
+*.war
+*.ear
+*.class
+hs_err_pid*
+
+# ========================
+# Node.js / npm
+# ========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ========================
+# Vite / 前端构建产物
+# ========================
+dist/
+*.local
+
+# ========================
+# IDE - IntelliJ IDEA
+# ========================
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ========================
+# IDE - VSCode
+# ========================
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.code-workspace
+
+# ========================
+# OS generated files
+# ========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# ========================
+# Environment & Config
+# ========================
+.env
+.env.local
+.env.*.local
+application-local.yml
+application-test.yml
+
+# ========================
+# Logs
+# ========================
+logs/
+*.log
+
+# ========================
+# Temporary files
+# ========================
+*.tmp
+*.bak
+*.swp
+*.swo
+*~

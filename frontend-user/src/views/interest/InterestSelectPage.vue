@@ -1,0 +1,756 @@
+<template>
+  <div class="interest-page">
+    <!-- 蜂巢粒子背景 -->
+    <div class="interest-page__bg">
+      <canvas ref="particleCanvas" class="interest-page__canvas"></canvas>
+      <div class="interest-page__hex-grid"></div>
+      <div class="interest-page__glow interest-page__glow--mint"></div>
+      <div class="interest-page__glow interest-page__glow--amber"></div>
+    </div>
+
+    <div class="interest-page__content">
+      <!-- 进度指示 -->
+      <div class="progress-bar">
+        <div class="progress-bar__step progress-bar__step--active">
+          <span class="progress-bar__dot">1</span>
+          <span class="progress-bar__label">选择兴趣</span>
+        </div>
+        <div class="progress-bar__line progress-bar__line--done"></div>
+        <div class="progress-bar__step">
+          <span class="progress-bar__dot">2</span>
+          <span class="progress-bar__label">完善资料</span>
+        </div>
+      </div>
+
+      <!-- 标题区 -->
+      <header class="interest-header">
+        <h1 class="interest-header__title">选择你感兴趣的领域</h1>
+        <p class="interest-header__subtitle">
+          至少选择 <span class="interest-header__min">3</span> 个，最多
+          <span class="interest-header__max">8</span> 个，我们将为你推荐相关内容
+        </p>
+      </header>
+
+      <!-- 已选计数器 -->
+      <div class="interest-counter">
+        <div class="interest-counter__bar">
+          <div
+            class="interest-counter__fill"
+            :style="{ width: `${(selectedInterests.length / 8) * 100}%` }"
+          ></div>
+        </div>
+        <span class="interest-counter__text">
+          已选 <strong>{{ selectedInterests.length }}</strong> / 8
+        </span>
+      </div>
+
+      <!-- 兴趣标签网格 -->
+      <div class="interest-grid">
+        <button
+          v-for="item in interestList"
+          :key="item.key"
+          :class="[
+            'interest-tag',
+            {
+              'interest-tag--selected': selectedInterests.includes(item.key),
+              'interest-tag--disabled':
+                !selectedInterests.includes(item.key) && selectedInterests.length >= 8
+            }
+          ]"
+          @click="toggleInterest(item.key)"
+        >
+          <span class="interest-tag__icon">{{ item.icon }}</span>
+          <span class="interest-tag__text">{{ item.label }}</span>
+          <span v-if="selectedInterests.includes(item.key)" class="interest-tag__check">
+            <svg viewBox="0 0 16 16" fill="none">
+              <path
+                d="M3 8.5L6.5 12L13 4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <!-- 底部操作区 -->
+      <div class="interest-actions">
+        <button class="interest-actions__skip" @click="handleSkip">跳过</button>
+        <button
+          :class="[
+            'interest-actions__done',
+            { 'interest-actions__done--active': selectedInterests.length >= 3 }
+          ]"
+          :disabled="selectedInterests.length < 3 || submitLoading"
+          @click="handleSubmit"
+        >
+          <span v-if="submitLoading" class="interest-actions__loading">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.3" />
+              <path d="M12 2a10 10 0 019.5 7" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <animateTransform
+                  attributeName="transform"
+                  type="rotate"
+                  from="0 12 12"
+                  to="360 12 12"
+                  dur="0.8s"
+                  repeatCount="indefinite"
+                />
+              </path>
+            </svg>
+          </span>
+          <span v-else>完成选择</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { updateInterests } from '@/api/user'
+import { useUserStore } from '@/stores/user'
+
+// ============================================================
+// 路由与Store
+// ============================================================
+const router = useRouter()
+const userStore = useUserStore()
+
+// ============================================================
+// 状态定义
+// ============================================================
+const selectedInterests = ref<string[]>([])
+const submitLoading = ref(false)
+
+// ============================================================
+// 粒子画布
+// ============================================================
+const particleCanvas = ref<HTMLCanvasElement | null>(null)
+let animationFrameId: number | null = null
+
+// ============================================================
+// 兴趣标签列表
+// ============================================================
+interface InterestItem {
+  key: string
+  label: string
+  icon: string
+}
+
+const interestList: InterestItem[] = [
+  { key: 'gaming', label: '游戏', icon: '🎮' },
+  { key: 'movie', label: '影视', icon: '🎬' },
+  { key: 'outdoor', label: '户外', icon: '🏕️' },
+  { key: 'reading', label: '读书', icon: '📚' },
+  { key: 'photography', label: '摄影', icon: '📷' },
+  { key: 'anime', label: '二次元', icon: '🌸' },
+  { key: 'music', label: '音乐', icon: '🎵' },
+  { key: 'food', label: '美食', icon: '🍜' },
+  { key: 'travel', label: '旅行', icon: '✈️' },
+  { key: 'craft', label: '手工', icon: '🧶' },
+  { key: 'sports', label: '运动', icon: '⚽' },
+  { key: 'tech', label: '科技', icon: '💻' },
+  { key: 'pet', label: '宠物', icon: '🐾' },
+  { key: 'fashion', label: '时尚', icon: '👗' },
+  { key: 'art', label: '艺术', icon: '🎨' },
+  { key: 'dance', label: '舞蹈', icon: '💃' },
+  { key: 'finance', label: '理财', icon: '💰' },
+  { key: 'health', label: '养生', icon: '🧘' },
+  { key: 'education', label: '教育', icon: '🎓' },
+  { key: 'design', label: '设计', icon: '✏️' },
+  { key: 'writing', label: '写作', icon: '✍️' },
+  { key: 'astrology', label: '星座', icon: '⭐' },
+  { key: 'cars', label: '汽车', icon: '🚗' },
+  { key: 'digital', label: '数码', icon: '📱' }
+]
+
+/**
+ * 切换兴趣标签选中状态
+ * @param {string} key - 兴趣标签的唯一标识
+ * @returns {void}
+ * @note 最多选择8个，超出时忽略操作；已选中的再次点击则取消
+ */
+function toggleInterest(key: string): void {
+  const index = selectedInterests.value.indexOf(key)
+  if (index > -1) {
+    selectedInterests.value.splice(index, 1)
+  } else {
+    if (selectedInterests.value.length >= 8) {
+      ElMessage.warning('最多只能选择8个兴趣标签')
+      return
+    }
+    selectedInterests.value.push(key)
+  }
+}
+
+/**
+ * 提交兴趣标签选择
+ * @description 调用API更新用户兴趣标签，成功后跳转首页
+ * @returns {Promise<void>}
+ * @throws 接口调用失败时通过ElMessage提示用户
+ */
+async function handleSubmit(): Promise<void> {
+  if (selectedInterests.value.length < 3) {
+    ElMessage.warning('请至少选择3个兴趣标签')
+    return
+  }
+
+  submitLoading.value = true
+  try {
+    await updateInterests(selectedInterests.value)
+    userStore.updateInterests(selectedInterests.value)
+    ElMessage.success('兴趣标签设置成功')
+    await router.push('/')
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : '设置失败，请稍后重试'
+    ElMessage.error(msg)
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+/**
+ * 跳过兴趣标签选择
+ * @description 直接跳转首页，不设置兴趣标签
+ * @returns {void}
+ */
+function handleSkip(): void {
+  router.push('/')
+}
+
+// ============================================================
+// 粒子动画
+// ============================================================
+
+interface Particle {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  size: number
+  opacity: number
+  color: string
+}
+
+/**
+ * 初始化粒子动画
+ * @description 在Canvas上绘制漂浮的六边形粒子，营造蜂巢氛围
+ * @returns {void}
+ */
+function initParticles(): void {
+  const canvas = particleCanvas.value
+  if (!canvas) return
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const resize = () => {
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+  }
+  resize()
+  window.addEventListener('resize', resize)
+
+  const particles: Particle[] = []
+  const count = Math.min(Math.floor(window.innerWidth / 30), 40)
+  const colors = ['#4ECDC4', '#6BCB77', '#FFB627', '#8FE3D6']
+
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      size: Math.random() * 2.5 + 0.8,
+      opacity: Math.random() * 0.4 + 0.08,
+      color: colors[Math.floor(Math.random() * colors.length)]
+    })
+  }
+
+  /**
+   * 绘制六边形
+   * @param {CanvasRenderingContext2D} context - Canvas 2D上下文
+   * @param {number} cx - 中心点X坐标
+   * @param {number} cy - 中心点Y坐标
+   * @param {number} size - 六边形半径
+   * @returns {void}
+   */
+  function drawHex(context: CanvasRenderingContext2D, cx: number, cy: number, size: number): void {
+    context.beginPath()
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i - Math.PI / 6
+      const px = cx + size * Math.cos(angle)
+      const py = cy + size * Math.sin(angle)
+      if (i === 0) context.moveTo(px, py)
+      else context.lineTo(px, py)
+    }
+    context.closePath()
+  }
+
+  function animate(): void {
+    if (!ctx || !canvas) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    particles.forEach((p) => {
+      p.x += p.vx
+      p.y += p.vy
+
+      if (p.x < 0) p.x = canvas.width
+      if (p.x > canvas.width) p.x = 0
+      if (p.y < 0) p.y = canvas.height
+      if (p.y > canvas.height) p.y = 0
+
+      ctx.globalAlpha = p.opacity
+      ctx.fillStyle = p.color
+      drawHex(ctx, p.x, p.y, p.size)
+      ctx.fill()
+    })
+
+    animationFrameId = requestAnimationFrame(animate)
+  }
+
+  animate()
+}
+
+onMounted(() => {
+  initParticles()
+})
+
+onUnmounted(() => {
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId)
+  }
+})
+</script>
+
+<style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+@use '@/styles/mixins.scss' as *;
+
+// ============================================================
+// 兴趣标签选择页 - 暗色沉浸式 + 蜂巢装饰
+// ============================================================
+
+.interest-page {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: $ink-900;
+}
+
+// ---------- 背景层 ----------
+.interest-page__bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.interest-page__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.interest-page__hex-grid {
+  position: absolute;
+  inset: 0;
+  @include honeycomb-bg(rgba(78, 205, 196, 0.03), 40px);
+}
+
+.interest-page__glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(140px);
+
+  &--mint {
+    width: 600px;
+    height: 600px;
+    top: -15%;
+    left: 10%;
+    background: radial-gradient(circle, rgba(78, 205, 196, 0.12) 0%, transparent 70%);
+  }
+
+  &--amber {
+    width: 400px;
+    height: 400px;
+    bottom: 5%;
+    right: 5%;
+    background: radial-gradient(circle, rgba(255, 182, 39, 0.08) 0%, transparent 70%);
+  }
+}
+
+// ---------- 内容区 ----------
+.interest-page__content {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: $space-8 $space-6 $space-12;
+  animation: fade-up 0.6s $ease-out both;
+
+  @include mobile {
+    padding: $space-5 $space-4 $space-10;
+  }
+}
+
+// ---------- 进度指示 ----------
+.progress-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-3;
+  margin-bottom: $space-10;
+
+  @include mobile {
+    margin-bottom: $space-6;
+  }
+
+  &__step {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+
+    &--active {
+      .progress-bar__dot {
+        background: $grad-mint;
+        color: $ink-900;
+        border-color: transparent;
+      }
+
+      .progress-bar__label {
+        color: #fff;
+      }
+    }
+  }
+
+  &__dot {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+    color: $ink-500;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    transition: all $dur-base $ease-out;
+  }
+
+  &__label {
+    font-size: 13px;
+    color: $ink-500;
+    transition: color $dur-base $ease-out;
+
+    @include mobile {
+      display: none;
+    }
+  }
+
+  &__line {
+    width: 60px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 1px;
+
+    &--done {
+      background: $grad-mint;
+    }
+  }
+}
+
+// ---------- 标题区 ----------
+.interest-header {
+  text-align: center;
+  margin-bottom: $space-6;
+
+  &__title {
+    font-family: $font-heading;
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: $space-3;
+
+    @include mobile {
+      font-size: 22px;
+    }
+  }
+
+  &__subtitle {
+    font-size: 15px;
+    color: $ink-300;
+    line-height: 1.6;
+  }
+
+  &__min {
+    color: $mint-500;
+    font-weight: 600;
+  }
+
+  &__max {
+    color: $amber-500;
+    font-weight: 600;
+  }
+}
+
+// ---------- 已选计数器 ----------
+.interest-counter {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  margin-bottom: $space-6;
+  padding: 0 $space-2;
+
+  &__bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    background: $grad-mint;
+    border-radius: 2px;
+    transition: width $dur-base $ease-spring;
+    min-width: 0;
+  }
+
+  &__text {
+    font-size: 13px;
+    color: $ink-300;
+    white-space: nowrap;
+
+    strong {
+      color: $mint-500;
+      font-size: 15px;
+    }
+  }
+}
+
+// ---------- 兴趣标签网格 ----------
+.interest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: $space-3;
+  margin-bottom: $space-10;
+
+  @include mobile {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: $space-2;
+  }
+}
+
+// ---------- 单个兴趣标签 ----------
+.interest-tag {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $space-1;
+  padding: $space-4 $space-2;
+  border-radius: $radius-md;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all $dur-base $ease-spring;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: $grad-mint;
+    opacity: 0;
+    transition: opacity $dur-base $ease-out;
+    border-radius: inherit;
+  }
+
+  &:hover:not(&--disabled) {
+    border-color: rgba(78, 205, 196, 0.25);
+    background: rgba(78, 205, 196, 0.06);
+    transform: translateY(-2px);
+  }
+
+  // 选中态
+  &--selected {
+    border-color: rgba(78, 205, 196, 0.5);
+    background: rgba(78, 205, 196, 0.1);
+    box-shadow: 0 0 20px rgba(78, 205, 196, 0.12);
+
+    &::before {
+      opacity: 0.06;
+    }
+
+    .interest-tag__icon {
+      transform: scale(1.1);
+    }
+
+    .interest-tag__text {
+      color: $mint-500;
+      font-weight: 600;
+    }
+  }
+
+  // 禁用态（已达上限且未选中）
+  &--disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  &__icon {
+    font-size: 28px;
+    position: relative;
+    z-index: 1;
+    transition: transform $dur-base $ease-spring;
+
+    @include mobile {
+      font-size: 24px;
+    }
+  }
+
+  &__text {
+    font-size: 13px;
+    color: $ink-300;
+    position: relative;
+    z-index: 1;
+    transition: all $dur-fast $ease-out;
+
+    @include mobile {
+      font-size: 12px;
+    }
+  }
+
+  // 勾选标记
+  &__check {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: $mint-500;
+    z-index: 2;
+    animation: check-pop 0.3s $ease-spring both;
+
+    svg {
+      width: 10px;
+      height: 10px;
+      color: $ink-900;
+    }
+  }
+}
+
+@keyframes check-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+// ---------- 底部操作区 ----------
+.interest-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-4;
+  padding-top: $space-6;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+
+  &__skip {
+    padding: $space-3 $space-6;
+    font-size: 14px;
+    color: $ink-500;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: $radius-sm;
+    cursor: pointer;
+    transition: all $dur-fast $ease-out;
+
+    &:hover {
+      color: $ink-300;
+      border-color: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.03);
+    }
+  }
+
+  &__done {
+    padding: $space-3 $space-8;
+    font-size: 15px;
+    font-weight: 600;
+    color: $ink-500;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: $radius-sm;
+    cursor: not-allowed;
+    transition: all $dur-base $ease-out;
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+
+    &--active {
+      color: $ink-900;
+      background: $grad-mint;
+      border-color: transparent;
+      cursor: pointer;
+      box-shadow: 0 0 0 0 rgba(78, 205, 196, 0);
+
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: $shadow-glow-mint;
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+
+    &:disabled:not(&--active) {
+      opacity: 0.5;
+    }
+  }
+
+  &__loading {
+    display: flex;
+    align-items: center;
+
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+}
+
+// ---------- 动画关键帧 ----------
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+</style>

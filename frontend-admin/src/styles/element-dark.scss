@@ -1,0 +1,272 @@
+@use 'variables.scss' as *;
+
+// ============================================================
+// Element Plus 暗色主题覆盖
+// ============================================================
+
+// 主色覆盖
+:root {
+  --el-color-primary: #{$color-primary};
+  --el-color-primary-light-3: #6FE0D7;
+  --el-color-primary-light-5: #8FE9E2;
+  --el-color-primary-light-7: #2A4A48;
+  --el-color-primary-light-8: #243A39;
+  --el-color-primary-light-9: #1F3332;
+  --el-color-primary-dark-2: #3FB8B0;
+
+  --el-color-warning: #{$color-warning};
+  --el-color-danger: #{$color-danger};
+  --el-color-success: #{$color-primary};
+
+  --el-bg-color: #{$bg-elevated};
+  --el-bg-color-page: #{$bg-base};
+  --el-bg-color-overlay: #{$bg-surface};
+
+  --el-text-color-primary: #{$text-primary};
+  --el-text-color-regular: #{$text-regular};
+  --el-text-color-secondary: #{$text-secondary};
+  --el-text-color-placeholder: #{$text-placeholder};
+
+  --el-border-color: #{$border-base};
+  --el-border-color-light: #{$border-light};
+  --el-border-color-lighter: #{$border-divider};
+  --el-border-color-extra-light: #{$border-divider};
+
+  --el-fill-color: #{$bg-surface};
+  --el-fill-color-light: #{$bg-elevated};
+  --el-fill-color-lighter: #{$bg-input};
+  --el-fill-color-blank: #{$bg-elevated};
+
+  --el-mask-color: rgba(26, 29, 46, 0.7);
+}
+
+// Card
+.el-card {
+  background: $bg-elevated;
+  border: 1px solid $border-base;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+
+  .el-card__header {
+    border-bottom: 1px solid $border-divider;
+    padding: 16px 20px;
+  }
+  .el-card__body {
+    padding: 20px;
+  }
+}
+
+// Button
+.el-button {
+  font-family: $font-body;
+  border-radius: $radius-md;
+
+  &--primary {
+    background: $color-primary;
+    border-color: $color-primary;
+    color: $bg-base;
+    font-weight: 500;
+    &:hover {
+      background: $color-primary-hover;
+      border-color: $color-primary-hover;
+      box-shadow: $shadow-glow-primary;
+    }
+  }
+  &--warning {
+    background: $color-warning;
+    border-color: $color-warning;
+    color: $bg-base;
+    &:hover {
+      box-shadow: $shadow-glow-warning;
+    }
+  }
+  &--danger {
+    background: $color-danger;
+    border-color: $color-danger;
+    &:hover {
+      box-shadow: $shadow-glow-danger;
+    }
+  }
+  &--default {
+    background: $bg-surface;
+    border-color: $border-light;
+    color: $text-regular;
+    &:hover {
+      color: $color-primary;
+      border-color: $color-primary;
+      background: rgba(78, 205, 196, 0.08);
+    }
+  }
+  &.is-text {
+    color: $color-primary;
+    &:hover {
+      background: rgba(78, 205, 196, 0.1);
+    }
+  }
+}
+
+// Input
+.el-input__wrapper {
+  background: $bg-input !important;
+  box-shadow: 0 0 0 1px $border-base inset !important;
+  border-radius: $radius-md;
+  &:hover {
+    box-shadow: 0 0 0 1px $color-primary inset !important;
+  }
+  &.is-focus {
+    box-shadow: 0 0 0 1px $color-primary inset, $shadow-glow-primary !important;
+  }
+}
+.el-input__inner {
+  color: $text-primary;
+  &::placeholder {
+    color: $text-placeholder;
+  }
+}
+
+// Select
+.el-select__wrapper {
+  background: $bg-input !important;
+  box-shadow: 0 0 0 1px $border-base inset !important;
+}
+
+// Table - 暗色斑马纹
+.el-table {
+  background: transparent;
+  color: $text-regular;
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: #{$bg-surface};
+  --el-table-header-text-color: #{$text-primary};
+  --el-table-border-color: #{$border-divider};
+  --el-table-row-hover-bg-color: #{$bg-hover};
+  --el-table-current-row-bg-color: rgba(78, 205, 196, 0.08);
+
+  th.el-table__cell {
+    background: $bg-surface !important;
+    font-weight: 600;
+    color: $text-primary;
+  }
+  tr {
+    background: transparent;
+    &:nth-child(even) td.el-table__cell {
+      background: rgba(35, 40, 66, 0.5);
+    }
+  }
+  td.el-table__cell {
+    border-bottom: 1px solid $border-divider;
+  }
+}
+
+// Pagination
+.el-pagination {
+  --el-pagination-bg-color: #{$bg-input};
+  --el-pagination-hover-color: #{$color-primary};
+  --el-pagination-button-color: #{$text-regular};
+  --el-pagination-button-bg-color: #{$bg-input};
+  .btn-prev, .btn-next, .el-pager li {
+    background: $bg-input !important;
+    color: $text-regular;
+    &.is-active {
+      background: $color-primary !important;
+      color: $bg-base !important;
+    }
+  }
+}
+
+// Dialog
+.el-dialog {
+  background: $bg-elevated;
+  border: 1px solid $border-base;
+  border-radius: $radius-lg;
+  .el-dialog__header {
+    border-bottom: 1px solid $border-divider;
+  }
+  .el-dialog__title {
+    color: $text-primary;
+  }
+}
+
+// Form
+.el-form-item__label {
+  color: $text-regular;
+}
+
+// Tag
+.el-tag {
+  border-radius: $radius-sm;
+  &--info {
+    background: rgba(122, 134, 184, 0.15);
+    border-color: rgba(122, 134, 184, 0.3);
+    color: $text-regular;
+  }
+}
+
+// Menu (侧边栏)
+.el-menu {
+  border-right: none;
+  background: transparent;
+}
+.el-menu-item, .el-sub-menu__title {
+  color: $text-regular;
+  &:hover {
+    background: rgba(78, 205, 196, 0.08);
+    color: $color-primary;
+  }
+}
+.el-menu-item.is-active {
+  color: $color-primary;
+  background: rgba(78, 205, 196, 0.12);
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: $color-primary;
+    box-shadow: $shadow-glow-primary;
+  }
+}
+
+// Tabs
+.el-tabs__item {
+  color: $text-secondary;
+  &.is-active {
+    color: $color-primary;
+  }
+}
+.el-tabs__active-bar {
+  background: $color-primary;
+}
+
+// Message
+.el-message {
+  background: $bg-surface !important;
+  border: 1px solid $border-light !important;
+}
+
+// Dropdown
+.el-dropdown-menu {
+  background: $bg-surface;
+  border: 1px solid $border-light;
+}
+.el-dropdown-menu__item {
+  color: $text-regular;
+  &:hover {
+    background: $bg-hover;
+    color: $color-primary;
+  }
+}
+
+// Switch
+.el-switch.is-checked .el-switch__core {
+  background: $color-primary;
+  border-color: $color-primary;
+}
+
+// DatePicker
+.el-date-editor.el-input__wrapper {
+  background: $bg-input !important;
+}

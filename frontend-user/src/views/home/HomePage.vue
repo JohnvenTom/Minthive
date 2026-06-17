@@ -1,0 +1,609 @@
+<template>
+  <div class="home-page">
+    <!-- 蜂巢装饰背景 -->
+    <div class="hex-bg" />
+
+    <!-- 顶部导航栏 -->
+    <header class="home-header">
+      <div class="header-inner">
+        <h1 class="logo gradient-text font-display">PulseSocial</h1>
+        <div class="header-actions">
+          <van-icon name="search" size="22" class="action-icon" @click="onSearch" />
+          <van-icon name="chat-o" size="22" class="action-icon" :badge="unreadCount || ''" @click="onMessage" />
+        </div>
+      </div>
+    </header>
+
+    <!-- Tab 切换栏 -->
+    <nav class="feed-tabs">
+      <div class="tabs-inner">
+        <button
+          v-for="tab in tabs"
+          :key="tab.value"
+          :class="['tab-btn', { active: activeTab === tab.value }]"
+          @click="switchTab(tab.value)"
+        >
+          <span class="tab-label">{{ tab.label }}</span>
+          <span v-if="activeTab === tab.value" class="tab-indicator" />
+        </button>
+      </div>
+    </nav>
+
+    <!-- 下拉刷新 -->
+    <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
+      <!-- 骨架屏 -->
+      <div v-if="loading && posts.length === 0" class="skeleton-grid">
+        <div v-for="i in 6" :key="i" class="skeleton-card shimmer">
+          <div class="skeleton-img" />
+          <div class="skeleton-text" />
+          <div class="skeleton-text short" />
+        </div>
+      </div>
+
+      <!-- 瀑布流信息流 -->
+      <div v-else-if="posts.length > 0" class="waterfall-container">
+        <div class="waterfall-column left-column">
+          <TransitionGroup name="card-anim">
+            <PostCard
+              v-for="post in leftPosts"
+              :key="post.id"
+              :post="post"
+              class="stagger-item"
+              @click="goDetail(post.id)"
+              @like="onLike"
+              @collect="onCollect"
+            />
+          </TransitionGroup>
+        </div>
+        <div class="waterfall-column right-column">
+          <TransitionGroup name="card-anim">
+            <PostCard
+              v-for="post in rightPosts"
+              :key="post.id"
+              :post="post"
+              class="stagger-item"
+              @click="goDetail(post.id)"
+              @like="onLike"
+              @collect="onCollect"
+            />
+          </TransitionGroup>
+        </div>
+      </div>
+
+      <!-- 空状态 -->
+      <EmptyState
+        v-else-if="!loading"
+        title="还没有帖子哦"
+        description="快去发布第一条动态吧"
+        icon="notes-o"
+      />
+    </van-pull-refresh>
+
+    <!-- 上拉加载更多 -->
+    <div v-if="posts.length > 0" class="load-more-area">
+      <LoadingSpinner v-if="loadingMore" />
+      <p v-else-if="!hasMore" class="no-more-text">已经到底啦 ~</p>
+    </div>
+
+    <!-- 新评论实时提醒浮窗 -->
+    <Transition name="slide-up">
+      <div v-if="newCommentTip" class="realtime-tip glass-card" @click="onRealtimeTipClick">
+        <van-icon name="chat-o" class="tip-icon" />
+        <span class="tip-text">{{ newCommentTip }}</span>
+        <van-icon name="cross" class="tip-close" @click.stop="newCommentTip = ''" />
+      </div>
+    </Transition>
+
+    <!-- 发帖 FAB -->
+    <button class="fab-create glass-card" @click="goCreate">
+      <van-icon name="edit" size="24" />
+    </button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { showToast } from 'vant'
+import PostCard from '@/components/PostCard.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import { useUserStore } from '@/stores/user'
+import { useChatStore } from '@/stores/chat'
+import { getFeed, toggleLike, toggleCollect } from '@/api/post'
+import { wsClient } from '@/utils/websocket'
+import type { Post } from '@/types'
+
+// ---------- 路由与Store ----------
+const router = useRouter()
+const userStore = useUserStore()
+const chatStore = useChatStore()
+
+// ---------- Tab 配置 ----------
+interface TabItem {
+  label: string
+  value: 'recommend' | 'latest' | 'hot'
+}
+
+const tabs: TabItem[] = [
+  { label: '推荐', value: 'recommend' },
+  { label: '最新', value: 'latest' },
+  { label: '最热', value: 'hot' }
+]
+
+// ---------- 响应式数据 ----------
+const activeTab = ref<'recommend' | 'latest' | 'hot'>('recommend')
+const posts = ref<Post[]>([])
+const loading = ref(false)
+const loadingMore = ref(false)
+const refreshing = ref(false)
+const hasMore = ref(true)
+const currentPage = ref(1)
+const pageSize = 10
+const newCommentTip = ref('')
+
+// ---------- 计算属性 ----------
+/** 未读消息数 */
+const unreadCount = computed(() => chatStore.unreadCount || 0)
+
+/** 瀑布流左列帖子 */
+const leftPosts = computed(() =>
+  posts.value.filter((_, i) => i % 2 === 0)
+)
+
+/** 瀑布流右列帖子 */
+const rightPosts = computed(() =>
+  posts.value.filter((_, i) => i % 2 !== 0)
+)
+
+// ---------- 数据加载 ----------
+
+/**
+ * 加载信息流数据
+ * @param {boolean} isRefresh - 是否为下拉刷新
+ * @returns {Promise<void>}
+ * @description 根据当前Tab模式请求信息流，支持首次加载和刷新
+ */
+async function fetchFeed(isRefresh = false): Promise<void> {
+  if (isRefresh) {
+    currentPage.value = 1
+    hasMore.value = true
+  }
+
+  try {
+    const res = await getFeed(activeTab.value, currentPage.value, pageSize)
+    const list = res.data?.list || []
+
+    if (isRefresh || currentPage.value === 1) {
+      posts.value = list
+    } else {
+      posts.value.push(...list)
+    }
+
+    hasMore.value = res.data?.hasMore ?? false
+  } catch (err: any) {
+    showToast('加载失败，请重试')
+  } finally {
+    loading.value = false
+    refreshing.value = false
+    loadingMore.value = false
+  }
+}
+
+/**
+ * 切换Tab
+ * @param {'recommend' | 'latest' | 'hot'} tab - 目标Tab
+ * @returns {void}
+ * @description 切换信息流模式并重新加载数据
+ */
+function switchTab(tab: 'recommend' | 'latest' | 'hot'): void {
+  if (activeTab.value === tab) return
+  activeTab.value = tab
+  loading.value = true
+  posts.value = []
+  fetchFeed(true)
+}
+
+/**
+ * 下拉刷新回调
+ * @returns {void}
+ */
+function onRefresh(): void {
+  fetchFeed(true)
+}
+
+/**
+ * 上拉加载更多
+ * @returns {Promise<void>}
+ * @description 滚动到底部时加载下一页数据
+ */
+async function onLoadMore(): Promise<void> {
+  if (loadingMore.value || !hasMore.value) return
+  loadingMore.value = true
+  currentPage.value++
+  await fetchFeed()
+}
+
+/**
+ * 点赞/取消点赞
+ * @param {Post} post - 目标帖子
+ * @returns {Promise<void>}
+ */
+async function onLike(post: Post): Promise<void> {
+  try {
+    await toggleLike(post.id, !post.liked)
+    post.liked = !post.liked
+    post.likeCount += post.liked ? 1 : -1
+  } catch {
+    showToast('操作失败')
+  }
+}
+
+/**
+ * 收藏/取消收藏
+ * @param {Post} post - 目标帖子
+ * @returns {Promise<void>}
+ */
+async function onCollect(post: Post): Promise<void> {
+  try {
+    await toggleCollect(post.id, !post.collected)
+    post.collected = !post.collected
+    post.collectCount += post.collected ? 1 : -1
+  } catch {
+    showToast('操作失败')
+  }
+}
+
+// ---------- 导航 ----------
+
+/**
+ * 跳转帖子详情
+ * @param {number} id - 帖子ID
+ */
+function goDetail(id: number): void {
+  router.push(`/post/${id}`)
+}
+
+/**
+ * 跳转发帖页
+ */
+function goCreate(): void {
+  router.push('/post/create')
+}
+
+/**
+ * 跳转搜索页
+ */
+function onSearch(): void {
+  router.push('/search')
+}
+
+/**
+ * 跳转消息页
+ */
+function onMessage(): void {
+  router.push('/chat')
+}
+
+// ---------- WebSocket 实时推送 ----------
+
+/**
+ * WebSocket 新评论推送处理
+ * @param {any} data - 推送数据
+ * @description 接收实时评论推送并显示浮窗提醒
+ */
+function onWsComment(data: any): void {
+  if (data?.nickname && data?.content) {
+    newCommentTip.value = `${data.nickname} 评论了: ${data.content.slice(0, 20)}...`
+    setTimeout(() => {
+      newCommentTip.value = ''
+    }, 5000)
+  }
+}
+
+/**
+ * 点击实时提醒浮窗
+ * @description 跳转到对应帖子详情
+ */
+function onRealtimeTipClick(): void {
+  newCommentTip.value = ''
+}
+
+// ---------- 无限滚动 ----------
+
+/**
+ * 滚动事件处理
+ * @description 检测滚动到底部触发加载更多
+ */
+function onScroll(): void {
+  const scrollTop = window.scrollY || document.documentElement.scrollTop
+  const windowHeight = window.innerHeight
+  const docHeight = document.documentElement.scrollHeight
+  if (scrollTop + windowHeight >= docHeight - 200) {
+    onLoadMore()
+  }
+}
+
+// ---------- 生命周期 ----------
+onMounted(() => {
+  loading.value = true
+  fetchFeed()
+  wsClient.on('comment', onWsComment)
+  window.addEventListener('scroll', onScroll, { passive: true })
+})
+
+onUnmounted(() => {
+  wsClient.off('comment', onWsComment)
+  window.removeEventListener('scroll', onScroll)
+})
+</script>
+
+<style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+@use '@/styles/mixins.scss' as *;
+
+.home-page {
+  min-height: 100vh;
+  background: $ink-50;
+  position: relative;
+  padding-bottom: 80px;
+}
+
+// ---------- 顶部导航 ----------
+.home-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  @include glass(20px, rgba(255, 255, 255, 0.82));
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-3 $space-4;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .logo {
+    font-size: 22px;
+    letter-spacing: -0.5px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: $space-4;
+    align-items: center;
+  }
+
+  .action-icon {
+    color: $ink-700;
+    transition: color $dur-fast $ease-out;
+    cursor: pointer;
+
+    &:hover {
+      color: $mint-500;
+    }
+  }
+}
+
+// ---------- Tab 切换 ----------
+.feed-tabs {
+  position: sticky;
+  top: 52px;
+  z-index: 99;
+  @include glass(16px, rgba(255, 255, 255, 0.78));
+  border-bottom: 1px solid $ink-100;
+
+  .tabs-inner {
+    display: flex;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 $space-4;
+    gap: $space-6;
+  }
+}
+
+.tab-btn {
+  position: relative;
+  padding: $space-3 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: $ink-500;
+  transition: color $dur-fast $ease-out;
+
+  &.active {
+    color: $ink-900;
+
+    .tab-label {
+      font-weight: 600;
+    }
+  }
+
+  &:hover {
+    color: $mint-600;
+  }
+}
+
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 3px;
+  border-radius: 2px;
+  background: $grad-mint;
+  animation: scale-in 0.3s $ease-spring both;
+}
+
+// ---------- 骨架屏 ----------
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $space-3;
+  padding: $space-4;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.skeleton-card {
+  border-radius: $radius-md;
+  overflow: hidden;
+  background: white;
+  padding: $space-3;
+}
+
+.skeleton-img {
+  width: 100%;
+  height: 160px;
+  border-radius: $radius-sm;
+  background: $ink-100;
+}
+
+.skeleton-text {
+  height: 14px;
+  margin-top: $space-3;
+  border-radius: $radius-xs;
+  background: $ink-100;
+
+  &.short {
+    width: 60%;
+  }
+}
+
+// ---------- 瀑布流 ----------
+.waterfall-container {
+  display: flex;
+  gap: $space-3;
+  padding: $space-4;
+  max-width: 1200px;
+  margin: 0 auto;
+  align-items: flex-start;
+
+  @include mobile {
+    padding: $space-3;
+    gap: $space-2;
+  }
+}
+
+.waterfall-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+
+  @include mobile {
+    gap: $space-2;
+  }
+}
+
+// ---------- 卡片动画 ----------
+.card-anim-enter-active {
+  animation: fade-up 0.5s $ease-out both;
+}
+
+.card-anim-leave-active {
+  animation: scale-in 0.3s $ease-out reverse both;
+}
+
+.stagger-item {
+  animation: fade-up 0.6s $ease-out both;
+
+  @for $i from 1 through 20 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.06}s;
+    }
+  }
+}
+
+// ---------- 加载更多 ----------
+.load-more-area {
+  display: flex;
+  justify-content: center;
+  padding: $space-6 0;
+}
+
+.no-more-text {
+  font-size: 13px;
+  color: $ink-300;
+}
+
+// ---------- 实时提醒浮窗 ----------
+.realtime-tip {
+  position: fixed;
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2 $space-4;
+  border-radius: $radius-pill;
+  box-shadow: $shadow-md;
+  max-width: 90vw;
+  cursor: pointer;
+  animation: fade-up 0.4s $ease-spring both;
+
+  .tip-icon {
+    color: $mint-500;
+    flex-shrink: 0;
+  }
+
+  .tip-text {
+    font-size: 13px;
+    color: $ink-700;
+    @include ellipsis-1;
+  }
+
+  .tip-close {
+    color: $ink-300;
+    flex-shrink: 0;
+    margin-left: $space-1;
+  }
+}
+
+.slide-up-enter-active {
+  animation: fade-up 0.4s $ease-spring both;
+}
+
+.slide-up-leave-active {
+  animation: fade-up 0.3s $ease-out reverse both;
+}
+
+// ---------- 发帖 FAB ----------
+.fab-create {
+  position: fixed;
+  right: $space-6;
+  bottom: 100px;
+  z-index: 150;
+  width: 56px;
+  height: 56px;
+  border-radius: $radius-lg;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  background: $grad-mint;
+  box-shadow: $shadow-glow-mint;
+  transition: transform $dur-base $ease-spring, box-shadow $dur-base $ease-out;
+  animation: ai-glow 3s ease-in-out infinite;
+
+  &:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 32px rgba(78, 205, 196, 0.6);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  @include mobile {
+    right: $space-4;
+    bottom: 80px;
+    width: 50px;
+    height: 50px;
+  }
+}
+</style>

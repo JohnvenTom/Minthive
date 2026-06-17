@@ -1,0 +1,84 @@
+// ============================================================
+// MintHive 设计系统 - SCSS Mixins
+// ============================================================
+
+// 六边形 clip-path
+@mixin hexagon($size: 48px) {
+  width: $size;
+  height: $size * 1.1547;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+// 蜂巢背景图案
+@mixin honeycomb-bg($color: rgba(78, 205, 196, 0.06), $size: 28px) {
+  background-image:
+    radial-gradient(circle at 50% 0%, $color 2px, transparent 2.5px),
+    radial-gradient(circle at 0% 25%, $color 2px, transparent 2.5px),
+    radial-gradient(circle at 100% 25%, $color 2px, transparent 2.5px),
+    radial-gradient(circle at 50% 50%, $color 2px, transparent 2.5px),
+    radial-gradient(circle at 0% 75%, $color 2px, transparent 2.5px),
+    radial-gradient(circle at 100% 75%, $color 2px, transparent 2.5px);
+  background-size: $size $size;
+}
+
+// 噪点纹理
+@mixin noise($opacity: 0.04) {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: $opacity;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+}
+
+// 毛玻璃
+@mixin glass($blur: 16px, $bg: rgba(255, 255, 255, 0.7)) {
+  background: $bg;
+  backdrop-filter: blur($blur) saturate(180%);
+  -webkit-backdrop-filter: blur($blur) saturate(180%);
+}
+
+// 单行省略
+@mixin ellipsis-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// 多行省略
+@mixin ellipsis($lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// 居中
+@mixin center($direction: row) {
+  display: flex;
+  flex-direction: $direction;
+  align-items: center;
+  justify-content: center;
+}
+
+// 自定义滚动条
+@mixin custom-scrollbar($w: 6px) {
+  &::-webkit-scrollbar { width: $w; height: $w; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(78, 205, 196, 0.3);
+    border-radius: $w;
+    &:hover { background: rgba(78, 205, 196, 0.5); }
+  }
+}
+
+// 响应式断点
+@mixin mobile {
+  @media (max-width: 768px) { @content; }
+}
+@mixin tablet {
+  @media (max-width: 1024px) { @content; }
+}

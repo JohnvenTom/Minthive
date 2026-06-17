@@ -1,0 +1,100 @@
+@use './variables.scss' as *;
+
+// ============================================================
+// MintHive 动效库
+// ============================================================
+
+// ---------- 蜂巢呼吸 ----------
+@keyframes hex-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+// ---------- 蜂巢旋转 ----------
+@keyframes hex-spin {
+  to { transform: rotate(360deg); }
+}
+
+// ---------- AI 加载蜂巢脉冲 ----------
+@keyframes ai-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(78, 205, 196, 0.6)); }
+  50% { transform: scale(1.15); filter: drop-shadow(0 0 20px rgba(255, 182, 39, 0.8)); }
+}
+
+// ---------- AI 按钮发光 ----------
+@keyframes ai-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(78, 205, 196, 0.4), 0 0 24px rgba(78, 205, 196, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(255, 182, 39, 0.6), 0 0 40px rgba(255, 182, 39, 0.3); }
+}
+
+// ---------- 卡片悬浮微动 ----------
+@keyframes card-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+// ---------- 渐入向上 ----------
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+// ---------- 渐入 ----------
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+// ---------- 缩放渐入 ----------
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+// ---------- 滑入左 ----------
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+// ---------- 滑入右 ----------
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+// ---------- 点赞爆炸 ----------
+@keyframes like-burst {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+// ---------- 闪烁加载 ----------
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+// ---------- 漂浮装饰 ----------
+@keyframes float-deco {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(10px, -10px) rotate(8deg); }
+  66% { transform: translate(-8px, 6px) rotate(-6deg); }
+}
+
+// ---------- 应用类 ----------
+.anim-fade-up { animation: fade-up 0.6s $ease-out both; }
+.anim-fade-in { animation: fade-in 0.5s ease both; }
+.anim-scale-in { animation: scale-in 0.4s $ease-spring both; }
+.anim-slide-left { animation: slide-in-left 0.5s $ease-out both; }
+.anim-slide-right { animation: slide-in-right 0.5s $ease-out both; }
+.anim-breathe { animation: hex-breathe 3s ease-in-out infinite; }
+.anim-float { animation: float-deco 8s ease-in-out infinite; }
+
+// ---------- 骨架屏 shimmer ----------
+.shimmer {
+  background: linear-gradient(90deg, #eceef5 25%, #f5f7fb 50%, #eceef5 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}

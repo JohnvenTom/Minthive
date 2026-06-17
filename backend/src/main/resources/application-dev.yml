@@ -1,0 +1,77 @@
+# 开发环境配置
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/minthive?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 3000ms
+
+# MinIO 本地对象存储配置
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: minthive
+
+# JWT 配置
+jwt:
+  secret: minthive-secret-key-2024-very-long-and-secure-for-jwt-signing-please-change-in-production
+  expire: 604800  # 单位秒，7天
+  header: Authorization
+  prefix: "Bearer "
+
+# AI 配置 (双模式: cloud / local)
+ai:
+  mode: local  # cloud | local
+  cloud:
+    base-url: https://api.openai.com
+    api-key: sk-your-openai-api-key
+    model: gpt-4o-mini
+    timeout: 8000
+  local:
+    base-url: http://localhost:11434
+    model: qwen3:7b
+    timeout: 8000
+  # 限流：每用户每日AI调用次数
+  rate-limit:
+    daily: 50
+  # 缓存开关
+  cache:
+    enabled: true
+    ttl: 3600
+  # 降级开关
+  fallback:
+    enabled: true
+    message: "AI助手暂时休息中，请稍后再试～"
+
+# 敏感词配置
+sensitive:
+  word:
+    path: classpath:sensitive-words.txt
+    # 备用：外部路径
+    external-path: D:/minthive/sensitive-words.txt
+
+# 防刷限制
+rate-limit:
+  post-daily: 50      # 每日发帖上限
+  comment-daily: 200  # 每日评论上限
+  message-daily: 100  # 每日私信上限
+
+# 文件上传限制
+file:
+  image-max-size: 5          # 单张图片最大MB
+  video-max-size: 20         # 视频最大MB
+  video-max-duration: 60     # 视频最大时长(秒)

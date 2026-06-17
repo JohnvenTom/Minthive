@@ -1,0 +1,74 @@
+// ============================================================
+// MintHive Admin 暗色主题变量定义
+// 美学方向：深色专业控制台 + 薄荷绿主操作色 + 琥珀警示色
+// ============================================================
+
+// 品牌色
+$color-primary: #4ECDC4;        // 薄荷绿 - 主操作色
+$color-primary-hover: #6FE0D7;
+$color-primary-active: #3FB8B0;
+
+// 警示色
+$color-warning: #FFB627;        // 琥珀 - 数据高亮/警示
+$color-danger: #FF5C6C;         // 高风险红
+$color-success: #4ECDC4;        // 复用薄荷绿
+$color-info: #7A86B8;           // 中性信息
+
+// 背景色层级
+$bg-base: #1A1D2E;              // 最深背景
+$bg-elevated: #232842;          // 卡片背景
+$bg-surface: #2A3050;           // 表格/悬浮层
+$bg-hover: #313860;             // hover 态
+$bg-input: #1F2340;             // 输入框
+
+// 文字色
+$text-primary: #E8ECF5;         // 主文字
+$text-regular: #B5BDD4;         // 常规文字
+$text-secondary: #7A86B8;       // 次要文字
+$text-placeholder: #5A6388;     // 占位文字
+
+// 边框
+$border-base: #2F3658;
+$border-light: #3A4270;
+$border-divider: #252B45;
+
+// 字体
+$font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Consolas', monospace;
+$font-title: 'Sora', 'Outfit', 'PingFang SC', sans-serif;
+$font-body: 'PingFang SC', 'Source Han Sans CN', 'Microsoft YaHei', sans-serif;
+
+// 圆角
+$radius-sm: 4px;
+$radius-md: 8px;
+$radius-lg: 12px;
+$radius-xl: 16px;
+
+// 阴影 - 发光效果
+$shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+$shadow-glow-primary: 0 0 20px rgba(78, 205, 196, 0.35);
+$shadow-glow-warning: 0 0 20px rgba(255, 182, 39, 0.35);
+$shadow-glow-danger: 0 0 20px rgba(255, 92, 108, 0.35);
+
+// 侧边栏
+$sidebar-width: 240px;
+$sidebar-collapsed-width: 72px;
+
+// 动效
+$transition-base: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+// 导出为 CSS 变量供 JS / SCSS 共用
+:root {
+  --color-primary: #{$color-primary};
+  --color-warning: #{$color-warning};
+  --color-danger: #{$color-danger};
+  --bg-base: #{$bg-base};
+  --bg-elevated: #{$bg-elevated};
+  --bg-surface: #{$bg-surface};
+  --text-primary: #{$text-primary};
+  --text-regular: #{$text-regular};
+  --text-secondary: #{$text-secondary};
+  --border-base: #{$border-base};
+  --font-mono: #{$font-mono};
+  --font-title: #{$font-title};
+  --sidebar-width: #{$sidebar-width};
+}

@@ -1,0 +1,113 @@
+// ============================================================
+// MintHive 薄荷蜂巢设计系统 - 设计变量
+// 主色：薄荷绿 / 强调：琥珀 / 深色：墨夜蓝
+// ============================================================
+
+// ---------- 品牌主色 ----------
+$mint-50:  #E8FBF8;
+$mint-100: #C4F4EC;
+$mint-300: #8FE3D6;
+$mint-500: #4ECDC4;   // 主薄荷
+$mint-600: #36B5AC;
+$mint-700: #2A8E87;
+
+$leaf-400: #8FE3A6;
+$leaf-500: #6BCB77;   // 嫩叶绿
+$leaf-600: #4FB05C;
+
+// ---------- 强调色 琥珀 ----------
+$amber-300: #FFD06A;
+$amber-500: #FFB627;  // 主琥珀
+$amber-600: #FF9F1C;
+$amber-700: #E07B00;
+
+// ---------- 辅助色 ----------
+$coral-500: #FF6B6B;  // 点赞红
+$rose-500:  #FF5C8A;  // 收藏粉
+$sky-500:   #4DA3FF;  // 链接蓝
+
+// ---------- 中性 / 深色 ----------
+$ink-900: #1A1D2E;    // 主深背景
+$ink-800: #232842;    // 卡片深背景
+$ink-700: #2D3142;    // 主文字
+$ink-500: #5A607A;    // 次要文字
+$ink-300: #9AA0BC;    // 辅助文字
+$ink-100: #E6E8F0;    // 分割线
+$ink-50:  #F5F7FB;    // 浅背景
+
+// ---------- 功能色 ----------
+$success: #4ECDC4;
+$warning: #FFB627;
+$danger:  #FF6B6B;
+$info:    #4DA3FF;
+
+// ---------- 渐变 ----------
+$grad-mint:   linear-gradient(135deg, #6BCB77 0%, #4ECDC4 100%);
+$grad-amber:  linear-gradient(135deg, #FFB627 0%, #FF9F1C 100%);
+$grad-sunset: linear-gradient(135deg, #FF6B6B 0%, #FFB627 100%);
+$grad-aurora: linear-gradient(135deg, #4ECDC4 0%, #6BCB77 50%, #FFB627 100%);
+$grad-night:  radial-gradient(circle at 20% 20%, #2A3358 0%, #1A1D2E 60%);
+
+// ---------- 阴影 ----------
+$shadow-xs: 0 2px 8px rgba(26, 29, 46, 0.06);
+$shadow-sm: 0 4px 16px rgba(26, 29, 46, 0.08);
+$shadow-md: 0 8px 28px rgba(26, 29, 46, 0.12);
+$shadow-lg: 0 16px 48px rgba(26, 29, 46, 0.16);
+$shadow-glow-mint:  0 0 24px rgba(78, 205, 196, 0.45);
+$shadow-glow-amber: 0 0 24px rgba(255, 182, 39, 0.45);
+
+// ---------- 圆角 ----------
+$radius-xs: 6px;
+$radius-sm: 10px;
+$radius-md: 16px;
+$radius-lg: 22px;
+$radius-xl: 32px;
+$radius-pill: 999px;
+
+// ---------- 字体 ----------
+$font-display: 'DM Serif Display', 'Outfit', 'Noto Sans SC', serif;
+$font-heading: 'Outfit', 'Noto Sans SC', sans-serif;
+$font-body: 'Noto Sans SC', 'Outfit', -apple-system, sans-serif;
+
+// ---------- 间距 ----------
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+$space-8: 32px;
+$space-10: 40px;
+$space-12: 48px;
+
+// ---------- 动效 ----------
+$ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+$ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+$dur-fast: 0.18s;
+$dur-base: 0.32s;
+$dur-slow: 0.6s;
+
+// ---------- CSS 变量导出（供 JS / 内联使用） ----------
+:root {
+  --mint-500: #{$mint-500};
+  --mint-600: #{$mint-600};
+  --leaf-500: #{$leaf-500};
+  --amber-500: #{$amber-500};
+  --amber-600: #{$amber-600};
+  --ink-900: #{$ink-900};
+  --ink-800: #{$ink-800};
+  --ink-700: #{$ink-700};
+  --ink-500: #{$ink-500};
+  --ink-300: #{$ink-300};
+  --ink-100: #{$ink-100};
+  --ink-50: #{$ink-50};
+  --coral-500: #{$coral-500};
+  --grad-mint: #{$grad-mint};
+  --grad-amber: #{$grad-amber};
+  --grad-aurora: #{$grad-aurora};
+  --shadow-glow-mint: #{$shadow-glow-mint};
+  --shadow-glow-amber: #{$shadow-glow-amber};
+  --font-display: #{$font-display};
+  --font-heading: #{$font-heading};
+  --font-body: #{$font-body};
+}

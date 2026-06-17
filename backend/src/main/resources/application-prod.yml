@@ -1,0 +1,86 @@
+# 生产环境配置
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://prod-mysql:3306/minthive?useUnicode=true&characterEncoding=utf8&useSSL=true&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:minthive}
+    password: ${MYSQL_PASSWORD}
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      connection-timeout: 30000
+      max-lifetime: 1800000
+  data:
+    redis:
+      host: ${REDIS_HOST:prod-redis}
+      port: 6379
+      password: ${REDIS_PASSWORD}
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 64
+          max-idle: 16
+          min-idle: 4
+          max-wait: 3000ms
+
+# MinIO 生产配置
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://prod-minio:9000}
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
+  bucket: ${MINIO_BUCKET:minthive}
+
+# JWT 生产配置
+jwt:
+  secret: ${JWT_SECRET}
+  expire: 604800
+  header: Authorization
+  prefix: "Bearer "
+
+# AI 生产配置 (默认本地私有化)
+ai:
+  mode: ${AI_MODE:local}
+  cloud:
+    base-url: ${AI_CLOUD_BASE_URL:https://api.openai.com}
+    api-key: ${AI_CLOUD_API_KEY}
+    model: ${AI_CLOUD_MODEL:gpt-4o-mini}
+    timeout: 8000
+  local:
+    base-url: ${AI_LOCAL_BASE_URL:http://localhost:11434}
+    model: ${AI_LOCAL_MODEL:qwen3:7b}
+    timeout: 8000
+  rate-limit:
+    daily: 50
+  cache:
+    enabled: true
+    ttl: 3600
+  fallback:
+    enabled: true
+    message: "AI助手暂时休息中，请稍后再试～"
+
+# 敏感词配置
+sensitive:
+  word:
+    path: classpath:sensitive-words.txt
+    external-path: /opt/minthive/sensitive-words.txt
+
+# 防刷限制
+rate-limit:
+  post-daily: 50
+  comment-daily: 200
+  message-daily: 100
+
+# 文件上传限制
+file:
+  image-max-size: 5
+  video-max-size: 20
+  video-max-duration: 60
+
+# 日志级别
+logging:
+  level:
+    com.minthive: info
+    org.springframework.web: warn
+  file:
+    name: /opt/minthive/logs/minthive.log

@@ -1,0 +1,932 @@
+<template>
+  <div class="chat-page">
+    <!-- 蜂巢装饰背景 -->
+    <div class="hex-bg" />
+
+    <!-- 顶部导航 -->
+    <header class="chat-header">
+      <div class="header-inner">
+        <button class="back-btn" @click="goBack">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="chat-user-info">
+          <div class="chat-user-avatar">
+            <img :src="targetUser.avatar || defaultAvatar" :alt="targetUser.nickname" />
+          </div>
+          <span class="chat-user-name font-heading">{{ targetUser.nickname }}</span>
+          <span v-if="wsConnected" class="online-dot" />
+        </div>
+        <div class="header-spacer" />
+      </div>
+    </header>
+
+    <!-- 聊天消息列表 -->
+    <div ref="messageListRef" class="message-list" @scroll="onScroll">
+      <!-- 加载更多 -->
+      <div v-if="hasMore" class="load-more-area">
+        <LoadingSpinner v-if="loadingMore" size="small" />
+        <button v-else class="load-more-btn" @click="loadMore">加载更多</button>
+      </div>
+
+      <!-- 消息列表 -->
+      <TransitionGroup name="msg-anim">
+        <div
+          v-for="msg in messages"
+          :key="msg.id"
+          :class="['msg-row', { 'is-self': msg.fromUserId === currentUserId }]"
+        >
+          <!-- 对方消息 -->
+          <template v-if="msg.fromUserId !== currentUserId">
+            <div class="msg-avatar">
+              <img :src="targetUser.avatar || defaultAvatar" :alt="targetUser.nickname" />
+            </div>
+            <div class="msg-bubble-wrap">
+              <!-- AI代回复标记 -->
+              <div v-if="msg.aiReply" class="ai-reply-tag">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L14.5 8.5L21 9.5L16.5 14L17.5 21L12 17.5L6.5 21L7.5 14L3 9.5L9.5 8.5L12 2Z" fill="currentColor"/>
+                </svg>
+                <span>AI代回复</span>
+              </div>
+              <!-- 文字消息 -->
+              <div v-if="msg.type === 'text'" class="msg-bubble other">{{ msg.content }}</div>
+              <!-- 图片消息 -->
+              <div v-else-if="msg.type === 'image'" class="msg-bubble other msg-image" @click="previewImage(msg.content)">
+                <img :src="msg.content" alt="图片" loading="lazy" />
+              </div>
+              <!-- 表情消息 -->
+              <div v-else-if="msg.type === 'emoji'" class="msg-bubble other msg-emoji">{{ msg.content }}</div>
+              <!-- 时间 -->
+              <span class="msg-time">{{ formatRelativeTime(msg.createTime) }}</span>
+            </div>
+          </template>
+
+          <!-- 自己的消息 -->
+          <template v-else>
+            <div class="msg-bubble-wrap is-self">
+              <!-- AI代回复标记 -->
+              <div v-if="msg.aiReply" class="ai-reply-tag self">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L14.5 8.5L21 9.5L16.5 14L17.5 21L12 17.5L6.5 21L7.5 14L3 9.5L9.5 8.5L12 2Z" fill="currentColor"/>
+                </svg>
+                <span>AI代回复</span>
+                <button class="revoke-btn" @click.stop="onRevokeAi(msg.id)">撤回</button>
+              </div>
+              <!-- 文字消息 -->
+              <div v-if="msg.type === 'text'" class="msg-bubble self">{{ msg.content }}</div>
+              <!-- 图片消息 -->
+              <div v-else-if="msg.type === 'image'" class="msg-bubble self msg-image" @click="previewImage(msg.content)">
+                <img :src="msg.content" alt="图片" loading="lazy" />
+              </div>
+              <!-- 表情消息 -->
+              <div v-else-if="msg.type === 'emoji'" class="msg-bubble self msg-emoji">{{ msg.content }}</div>
+              <!-- 已读状态 -->
+              <span class="msg-read-status">{{ msg.read ? '已读' : '未读' }}</span>
+              <!-- 时间 -->
+              <span class="msg-time">{{ formatRelativeTime(msg.createTime) }}</span>
+            </div>
+            <div class="msg-avatar">
+              <img :src="currentUserAvatar" alt="我" />
+            </div>
+          </template>
+        </div>
+      </TransitionGroup>
+
+      <!-- 空状态 -->
+      <EmptyState
+        v-if="!loading && messages.length === 0"
+        title="开始聊天吧"
+        description="发送第一条消息"
+        icon="chat-o"
+      />
+    </div>
+
+    <!-- 底部输入栏 -->
+    <footer class="chat-footer glass-card">
+      <div class="input-area">
+        <!-- 图片按钮 -->
+        <button class="tool-btn" @click="triggerImageUpload">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+            <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <input
+          ref="fileInputRef"
+          type="file"
+          accept="image/*"
+          class="hidden-input"
+          @change="onImageSelected"
+        />
+
+        <!-- 输入框 -->
+        <div class="input-wrap">
+          <input
+            v-model="inputText"
+            type="text"
+            class="msg-input"
+            placeholder="输入消息..."
+            @keydown.enter="onSend"
+          />
+        </div>
+
+        <!-- 发送按钮 -->
+        <button
+          :class="['send-btn', { active: inputText.trim() }]"
+          :disabled="!inputText.trim() || sending"
+          @click="onSend"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <!-- AI智能回复按钮 -->
+        <button
+          :class="['ai-btn', { loading: aiReplying }]"
+          :disabled="aiReplying"
+          @click="onAiReply"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L14.5 8.5L21 9.5L16.5 14L17.5 21L12 17.5L6.5 21L7.5 14L3 9.5L9.5 8.5L12 2Z" fill="currentColor"/>
+          </svg>
+          <span class="ai-label">{{ aiReplying ? '思考中...' : 'AI' }}</span>
+        </button>
+      </div>
+    </footer>
+
+    <!-- 图片预览 -->
+    <Teleport to="body">
+      <Transition name="preview-fade">
+        <div v-if="previewVisible" class="image-preview" @click="closePreview">
+          <img :src="previewUrl" alt="预览" />
+        </div>
+      </Transition>
+    </Teleport>
+  </div>
+</template>
+
+<script setup lang="ts">
+/**
+ * 私信聊天页面
+ * @description 与指定用户的实时聊天界面，支持文字/图片/表情消息，
+ *   AI代回复（琥珀色标识，可撤回），WebSocket实时收发，消息已读状态
+ */
+
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { showToast } from 'vant'
+import EmptyState from '@/components/EmptyState.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import { useUserStore } from '@/stores/user'
+import { useChatStore } from '@/stores/chat'
+import { getMessages, sendMessage as sendMessageApi, revokeAiMessage, markRead } from '@/api/message'
+import { aiReplyMessage } from '@/api/ai'
+import { uploadImage } from '@/api/file'
+import { wsClient } from '@/utils/websocket'
+import { formatRelativeTime } from '@/utils/format'
+import type { Message } from '@/types'
+
+// ---------- 路由与Store ----------
+const router = useRouter()
+const route = useRoute()
+const userStore = useUserStore()
+const chatStore = useChatStore()
+
+// ---------- 默认头像 ----------
+const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect fill="#4ECDC4" width="40" height="40"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16">U</text></svg>')
+
+// ---------- 响应式数据 ----------
+const messages = ref<Message[]>([])
+const inputText = ref('')
+const sending = ref(false)
+const loading = ref(false)
+const loadingMore = ref(false)
+const aiReplying = ref(false)
+const currentPage = ref(1)
+const hasMore = ref(true)
+const previewVisible = ref(false)
+const previewUrl = ref('')
+
+/** DOM引用 */
+const messageListRef = ref<HTMLElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+/** 聊天对象用户ID */
+const targetUserId = computed(() => Number(route.params.userId))
+
+/** 当前用户ID */
+const currentUserId = computed(() => userStore.userInfo?.id || 0)
+
+/** 当前用户头像 */
+const currentUserAvatar = computed(() => userStore.userInfo?.avatar || defaultAvatar)
+
+/** WebSocket连接状态 */
+const wsConnected = computed(() => chatStore.wsConnected)
+
+/** 聊天对象信息 */
+const targetUser = ref<{ nickname: string; avatar: string }>({
+  nickname: '用户',
+  avatar: defaultAvatar
+})
+
+// ---------- 数据加载 ----------
+
+/**
+ * 加载聊天消息列表
+ * @param {boolean} isRefresh - 是否为刷新操作
+ * @returns {Promise<void>}
+ * @description 从服务端获取与当前聊天对象的历史消息
+ */
+async function fetchMessages(isRefresh = false): Promise<void> {
+  if (isRefresh) {
+    currentPage.value = 1
+    hasMore.value = true
+  }
+  loading.value = true
+  try {
+    const res = await getMessages(targetUserId.value, currentPage.value, 30)
+    const list = res.data?.list || []
+    if (isRefresh || currentPage.value === 1) {
+      messages.value = list
+    } else {
+      messages.value = [...list, ...messages.value]
+    }
+    hasMore.value = res.data?.hasMore ?? false
+    await nextTick()
+    scrollToBottom()
+  } catch {
+    showToast('加载消息失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+/**
+ * 加载更多历史消息
+ * @returns {Promise<void>}
+ * @description 向上翻页加载更早的消息
+ */
+async function loadMore(): Promise<void> {
+  if (loadingMore.value || !hasMore.value) return
+  loadingMore.value = true
+  currentPage.value++
+  const prevHeight = messageListRef.value?.scrollHeight || 0
+  try {
+    const res = await getMessages(targetUserId.value, currentPage.value, 30)
+    const list = res.data?.list || []
+    messages.value = [...list, ...messages.value]
+    hasMore.value = res.data?.hasMore ?? false
+    await nextTick()
+    // 保持滚动位置
+    if (messageListRef.value) {
+      messageListRef.value.scrollTop = messageListRef.value.scrollHeight - prevHeight
+    }
+  } catch {
+    showToast('加载失败')
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+// ---------- 消息发送 ----------
+
+/**
+ * 发送消息
+ * @param {Event} [event] - 键盘事件（回车发送）
+ * @returns {Promise<void>}
+ * @description 发送文字消息，清空输入框并滚动到底部
+ */
+async function onSend(event?: Event): Promise<void> {
+  const content = inputText.value.trim()
+  if (!content || sending.value) return
+
+  sending.value = true
+  try {
+    const msg = await chatStore.sendMessage(targetUserId.value, content, 'text')
+    messages.value.push(msg)
+    inputText.value = ''
+    await nextTick()
+    scrollToBottom()
+  } catch {
+    showToast('发送失败')
+  } finally {
+    sending.value = false
+  }
+}
+
+/**
+ * 选择图片并发送
+ * @param {Event} event - 文件选择事件
+ * @returns {Promise<void>}
+ * @description 上传图片后发送图片消息
+ */
+async function onImageSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  try {
+    showToast('上传中...')
+    const res = await uploadImage(file)
+    const url = res.data?.url
+    if (url) {
+      const msg = await chatStore.sendMessage(targetUserId.value, url, 'image')
+      messages.value.push(msg)
+      await nextTick()
+      scrollToBottom()
+    }
+  } catch {
+    showToast('图片发送失败')
+  } finally {
+    input.value = ''
+  }
+}
+
+/**
+ * 触发图片上传
+ * @returns {void}
+ */
+function triggerImageUpload(): void {
+  fileInputRef.value?.click()
+}
+
+/**
+ * AI智能回复
+ * @returns {Promise<void>}
+ * @description 调用AI接口生成代回复消息并发送，带琥珀色标识
+ */
+async function onAiReply(): Promise<void> {
+  if (aiReplying.value) return
+  aiReplying.value = true
+  try {
+    // 构造聊天上下文
+    const context = messages.value
+      .slice(-10)
+      .map(m => `${m.fromUserId === currentUserId.value ? '我' : '对方'}: ${m.content}`)
+      .join('\n')
+
+    const res = await aiReplyMessage(targetUserId.value, context)
+    const content = res.data?.content
+    if (content) {
+      const msg = await chatStore.sendMessage(targetUserId.value, content, 'text')
+      // 标记为AI代回复
+      messages.value.push({ ...msg, aiReply: true })
+      await nextTick()
+      scrollToBottom()
+    }
+  } catch {
+    showToast('AI回复失败')
+  } finally {
+    aiReplying.value = false
+  }
+}
+
+/**
+ * 撤回AI代回复消息
+ * @param {number} msgId - 消息ID
+ * @returns {Promise<void>}
+ * @description 撤回AI代回复的消息，从列表中移除
+ */
+async function onRevokeAi(msgId: number): Promise<void> {
+  try {
+    await revokeAiMessage(msgId)
+    messages.value = messages.value.filter(m => m.id !== msgId)
+    showToast('已撤回')
+  } catch {
+    showToast('撤回失败')
+  }
+}
+
+// ---------- 图片预览 ----------
+
+/**
+ * 预览图片
+ * @param {string} url - 图片URL
+ * @returns {void}
+ */
+function previewImage(url: string): void {
+  previewUrl.value = url
+  previewVisible.value = true
+}
+
+/**
+ * 关闭图片预览
+ * @returns {void}
+ */
+function closePreview(): void {
+  previewVisible.value = false
+}
+
+// ---------- 滚动与导航 ----------
+
+/**
+ * 滚动到底部
+ * @returns {void}
+ */
+function scrollToBottom(): void {
+  if (messageListRef.value) {
+    messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+  }
+}
+
+/**
+ * 滚动事件处理
+ * @returns {void}
+ * @description 检测滚动到顶部触发加载更多
+ */
+function onScroll(): void {
+  if (!messageListRef.value) return
+  if (messageListRef.value.scrollTop < 100 && hasMore.value && !loadingMore.value) {
+    loadMore()
+  }
+}
+
+/**
+ * 返回上一页
+ * @returns {void}
+ */
+function goBack(): void {
+  chatStore.setCurrentChat(null)
+  router.back()
+}
+
+// ---------- WebSocket 实时收发 ----------
+
+/**
+ * WebSocket 新消息推送处理
+ * @param {any} data - 推送数据
+ * @description 收到新消息时添加到列表并滚动到底部
+ */
+function onWsMessage(data: any): void {
+  if (data?.fromUserId === targetUserId.value) {
+    messages.value.push(data as Message)
+    nextTick(() => scrollToBottom())
+    // 标记已读
+    markRead(targetUserId.value)
+  }
+}
+
+// ---------- 生命周期 ----------
+onMounted(async () => {
+  // 从chatStore获取聊天对象信息
+  if (chatStore.currentChat) {
+    targetUser.value = {
+      nickname: chatStore.currentChat.nickname,
+      avatar: chatStore.currentChat.avatar
+    }
+  }
+
+  await fetchMessages(true)
+  markRead(targetUserId.value)
+
+  chatStore.connectWs()
+  wsClient.on('message', onWsMessage)
+})
+
+onUnmounted(() => {
+  wsClient.off('message', onWsMessage)
+})
+</script>
+
+<style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+@use '@/styles/mixins.scss' as *;
+
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: $ink-50;
+  position: relative;
+  overflow: hidden;
+}
+
+// ---------- 蜂巢装饰背景 ----------
+.hex-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  @include honeycomb-bg(rgba(78, 205, 196, 0.03), 28px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+// ---------- 顶部导航 ----------
+.chat-header {
+  position: relative;
+  z-index: 100;
+  @include glass(20px, rgba(255, 255, 255, 0.88));
+  border-bottom: 1px solid rgba(78, 205, 196, 0.1);
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-3 $space-4;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .back-btn {
+    background: none;
+    border: none;
+    color: $ink-700;
+    cursor: pointer;
+    padding: $space-1;
+    border-radius: $radius-xs;
+    transition: background $dur-fast ease;
+
+    &:hover {
+      background: $ink-50;
+    }
+  }
+
+  .chat-user-info {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+  }
+
+  .chat-user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  .chat-user-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: $ink-900;
+  }
+
+  .online-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: $leaf-500;
+    animation: hex-breathe 2s ease-in-out infinite;
+  }
+
+  .header-spacer {
+    width: 32px;
+  }
+}
+
+// ---------- 消息列表 ----------
+.message-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: $space-3 $space-4;
+  position: relative;
+  z-index: 1;
+  @include custom-scrollbar;
+
+  @include mobile {
+    padding: $space-2 $space-3;
+  }
+}
+
+.load-more-area {
+  text-align: center;
+  padding: $space-3 0;
+}
+
+.load-more-btn {
+  font-size: 13px;
+  color: $mint-600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: $space-2 $space-4;
+  border-radius: $radius-pill;
+  transition: background $dur-fast ease;
+
+  &:hover {
+    background: $mint-50;
+  }
+}
+
+// ---------- 消息行 ----------
+.msg-row {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-2;
+  margin-bottom: $space-3;
+  animation: fade-up 0.35s $ease-out both;
+
+  &.is-self {
+    flex-direction: row-reverse;
+  }
+}
+
+.msg-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-top: 4px;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.msg-bubble-wrap {
+  max-width: 70%;
+  display: flex;
+  flex-direction: column;
+
+  &.is-self {
+    align-items: flex-end;
+  }
+}
+
+// ---------- 气泡样式 ----------
+.msg-bubble {
+  padding: $space-2 $space-3;
+  border-radius: $radius-md;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+  position: relative;
+
+  &.other {
+    background: #fff;
+    color: $ink-700;
+    border-bottom-left-radius: $radius-xs;
+    box-shadow: $shadow-xs;
+  }
+
+  &.self {
+    background: $grad-mint;
+    color: #fff;
+    border-bottom-right-radius: $radius-xs;
+  }
+
+  &.msg-image {
+    padding: 4px;
+    background: transparent;
+    box-shadow: none;
+    cursor: zoom-in;
+
+    img {
+      max-width: 200px;
+      max-height: 200px;
+      border-radius: $radius-sm;
+      object-fit: cover;
+    }
+
+    &.self {
+      background: transparent;
+    }
+  }
+
+  &.msg-emoji {
+    background: transparent;
+    box-shadow: none;
+    font-size: 36px;
+    padding: $space-1;
+
+    &.self {
+      background: transparent;
+    }
+  }
+}
+
+// ---------- AI代回复标记 ----------
+.ai-reply-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: $radius-pill;
+  background: rgba(255, 182, 39, 0.12);
+  color: $amber-500;
+  font-size: 11px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  width: fit-content;
+
+  &.self {
+    margin-left: auto;
+  }
+
+  svg {
+    animation: hex-breathe 2s ease-in-out infinite;
+  }
+
+  .revoke-btn {
+    background: none;
+    border: none;
+    color: $amber-600;
+    font-size: 11px;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    margin-left: 4px;
+
+    &:hover {
+      color: $amber-700;
+    }
+  }
+}
+
+// ---------- 消息时间与状态 ----------
+.msg-time {
+  font-size: 11px;
+  color: $ink-300;
+  margin-top: 4px;
+}
+
+.msg-read-status {
+  font-size: 11px;
+  color: $ink-300;
+  margin-top: 2px;
+}
+
+// ---------- 底部输入栏 ----------
+.chat-footer {
+  position: relative;
+  z-index: 100;
+  border-top: 1px solid $ink-100;
+  padding: $space-2 $space-3;
+  border-radius: 0;
+}
+
+.input-area {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.tool-btn {
+  background: none;
+  border: none;
+  color: $ink-500;
+  cursor: pointer;
+  padding: $space-2;
+  border-radius: $radius-sm;
+  transition: color $dur-fast ease, background $dur-fast ease;
+  flex-shrink: 0;
+
+  &:hover {
+    color: $mint-500;
+    background: $mint-50;
+  }
+}
+
+.hidden-input {
+  display: none;
+}
+
+.input-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.msg-input {
+  width: 100%;
+  padding: $space-2 $space-3;
+  border: 1px solid $ink-100;
+  border-radius: $radius-pill;
+  font-size: 14px;
+  color: $ink-700;
+  background: rgba(255, 255, 255, 0.6);
+  outline: none;
+  transition: border-color $dur-fast ease, box-shadow $dur-fast ease;
+
+  &::placeholder {
+    color: $ink-300;
+  }
+
+  &:focus {
+    border-color: $mint-500;
+    box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.15);
+  }
+}
+
+.send-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: $ink-100;
+  color: $ink-300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all $dur-fast $ease-out;
+  flex-shrink: 0;
+
+  &.active {
+    background: $grad-mint;
+    color: #fff;
+    box-shadow: $shadow-glow-mint;
+    animation: ai-glow 3s ease-in-out infinite;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+.ai-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: $space-2 $space-3;
+  border-radius: $radius-pill;
+  border: 1px solid $amber-500;
+  background: rgba(255, 182, 39, 0.08);
+  color: $amber-500;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all $dur-fast $ease-out;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  &:hover:not(.loading) {
+    background: rgba(255, 182, 39, 0.15);
+    box-shadow: $shadow-glow-amber;
+  }
+
+  &.loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+
+    svg {
+      animation: hex-spin 1.5s linear infinite;
+    }
+  }
+
+  .ai-label {
+    font-family: $font-heading;
+  }
+}
+
+// ---------- 消息动画 ----------
+.msg-anim-enter-active {
+  animation: fade-up 0.3s $ease-out both;
+}
+
+// ---------- 图片预览 ----------
+.image-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(26, 29, 46, 0.92);
+  @include center;
+  cursor: zoom-out;
+
+  img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: $radius-sm;
+  }
+}
+
+.preview-fade-enter-active,
+.preview-fade-leave-active {
+  transition: opacity $dur-base $ease-out;
+}
+.preview-fade-enter-from,
+.preview-fade-leave-to {
+  opacity: 0;
+}
+
+// ---------- 响应式 ----------
+@include mobile {
+  .chat-header .header-inner {
+    padding: $space-2 $space-3;
+  }
+
+  .msg-bubble-wrap {
+    max-width: 80%;
+  }
+
+  .ai-btn .ai-label {
+    display: none;
+  }
+}
+</style>

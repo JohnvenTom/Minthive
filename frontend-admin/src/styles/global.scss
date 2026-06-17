@@ -1,0 +1,145 @@
+@use 'variables.scss' as *;
+
+// ============================================================
+// 全局基础样式
+// ============================================================
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: $font-body;
+  background-color: $bg-base;
+  color: $text-primary;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// 标题字体
+h1, h2, h3, h4, h5, h6 {
+  font-family: $font-title;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+// 等宽数据字体
+.mono {
+  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
+}
+
+// 滚动条
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: $bg-base;
+}
+::-webkit-scrollbar-thumb {
+  background: $border-light;
+  border-radius: 4px;
+  &:hover {
+    background: $color-primary;
+  }
+}
+
+// 链接
+a {
+  color: $color-primary;
+  text-decoration: none;
+  transition: $transition-base;
+  &:hover {
+    color: $color-primary-hover;
+  }
+}
+
+// 通用容器
+.page-container {
+  padding: 20px 24px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+// 卡片基础
+.base-card {
+  background: $bg-elevated;
+  border: 1px solid $border-base;
+  border-radius: $radius-lg;
+  padding: 20px;
+  box-shadow: $shadow-card;
+}
+
+// 页面标题
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 22px;
+      background: $color-primary;
+      border-radius: 2px;
+      box-shadow: $shadow-glow-primary;
+    }
+  }
+}
+
+// 入场动画
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+// 蜂巢装饰背景
+.hex-bg {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image: radial-gradient(circle at center, transparent 30%, $bg-base 70%);
+}
+
+// 工具类
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 16px; }
+.gap-lg { gap: 24px; }
+.mt-sm { margin-top: 8px; }
+.mt-md { margin-top: 16px; }
+.mt-lg { margin-top: 24px; }

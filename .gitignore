@@ -64,6 +64,8 @@ Desktop.ini
 .env.*.local
 application-local.yml
 application-test.yml
+backend/.env
+!backend/.env.example
 
 # ========================
 # Logs

@@ -8,21 +8,20 @@ import com.minthive.common.RedisConstants;
 import com.minthive.entity.SystemMsg;
 import com.minthive.mapper.SystemMsgMapper;
 import com.minthive.service.SystemMsgService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 /**
  * 系统消息服务实现
  */
+@RequiredArgsConstructor
 @Service
 public class SystemMsgServiceImpl implements SystemMsgService {
 
-    @Autowired
-    private SystemMsgMapper systemMsgMapper;
+    private final SystemMsgMapper systemMsgMapper;
 
-    @Autowired
-    private StringRedisTemplate stringRedisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
     /**
      * 推送系统消息

@@ -9,22 +9,21 @@ import com.minthive.entity.Post;
 import com.minthive.mapper.PostMapper;
 import com.minthive.service.PostService;
 import com.minthive.service.SensitiveWordService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
  * 帖子服务实现
  */
 @Slf4j
+@RequiredArgsConstructor
 @Service
 public class PostServiceImpl implements PostService {
 
-    @Autowired
-    private PostMapper postMapper;
+    private final PostMapper postMapper;
 
-    @Autowired
-    private SensitiveWordService sensitiveWordService;
+    private final SensitiveWordService sensitiveWordService;
 
     /**
      * 发布帖子

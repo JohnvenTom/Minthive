@@ -5,7 +5,6 @@ import com.minthive.security.UserContext;
 import com.minthive.service.FollowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -16,8 +15,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/follow")
 public class FollowController {
 
-    @Autowired
-    private FollowService followService;
+    private final FollowService followService;
+
+    /**
+     * 构造器注入 FollowService
+     *
+     * @param followService 关注服务
+     */
+    public FollowController(FollowService followService) {
+        this.followService = followService;
+    }
 
     /**
      * 关注用户

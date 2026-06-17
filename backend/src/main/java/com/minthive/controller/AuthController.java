@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,11 +24,19 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 public class AuthController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+    private final RedisUtil redisUtil;
 
-    @Autowired
-    private RedisUtil redisUtil;
+    /**
+     * 构造器注入 UserService 和 RedisUtil
+     *
+     * @param userService 用户服务
+     * @param redisUtil   Redis工具类
+     */
+    public AuthController(UserService userService, RedisUtil redisUtil) {
+        this.userService = userService;
+        this.redisUtil = redisUtil;
+    }
 
     /**
      * 用户注册

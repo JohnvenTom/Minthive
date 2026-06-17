@@ -5,20 +5,19 @@ import com.minthive.entity.User;
 import com.minthive.mapper.AiUserLogMapper;
 import com.minthive.mapper.UserMapper;
 import com.minthive.service.AiUserLogService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
  * AI用户行为日志服务实现
  */
+@RequiredArgsConstructor
 @Service
 public class AiUserLogServiceImpl implements AiUserLogService {
 
-    @Autowired
-    private AiUserLogMapper aiUserLogMapper;
+    private final AiUserLogMapper aiUserLogMapper;
 
-    @Autowired
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
 
     /**
      * 记录用户行为日志

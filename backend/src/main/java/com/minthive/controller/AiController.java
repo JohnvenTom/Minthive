@@ -7,7 +7,6 @@ import com.minthive.common.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.Data;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,11 +22,19 @@ import java.util.List;
 @RequestMapping("/api/ai")
 public class AiController {
 
-    @Autowired
-    private AiContext aiContext;
+    private final AiContext aiContext;
+    private final AiRateLimiter aiRateLimiter;
 
-    @Autowired
-    private AiRateLimiter aiRateLimiter;
+    /**
+     * 构造器注入 AiContext 和 AiRateLimiter
+     *
+     * @param aiContext     AI上下文
+     * @param aiRateLimiter AI限流器
+     */
+    public AiController(AiContext aiContext, AiRateLimiter aiRateLimiter) {
+        this.aiContext = aiContext;
+        this.aiRateLimiter = aiRateLimiter;
+    }
 
     /**
      * AI 一键生成帖子文案

@@ -7,7 +7,6 @@ import com.minthive.security.UserContext;
 import com.minthive.service.PostService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -18,8 +17,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/post")
 public class PostController {
 
-    @Autowired
-    private PostService postService;
+    private final PostService postService;
+
+    /**
+     * 构造器注入 PostService
+     *
+     * @param postService 帖子服务
+     */
+    public PostController(PostService postService) {
+        this.postService = postService;
+    }
 
     /**
      * 发布帖子

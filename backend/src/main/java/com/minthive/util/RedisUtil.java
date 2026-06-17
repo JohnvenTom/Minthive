@@ -1,7 +1,7 @@
 package com.minthive.util;
 
 import com.minthive.common.RedisConstants;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -15,13 +15,12 @@ import java.util.concurrent.TimeUnit;
  * <p>注意事项：所有 Key 应使用 RedisConstants 中定义的前缀</p>
  */
 @Component
+@RequiredArgsConstructor
 public class RedisUtil {
 
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
-    @Autowired
-    private StringRedisTemplate stringRedisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
     /**
      * 写入对象缓存(带过期时间)

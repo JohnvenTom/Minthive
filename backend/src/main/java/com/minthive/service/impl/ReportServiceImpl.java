@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.entity.Report;
 import com.minthive.mapper.ReportMapper;
 import com.minthive.service.ReportService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -13,11 +13,11 @@ import java.time.LocalDateTime;
 /**
  * 举报工单服务实现
  */
+@RequiredArgsConstructor
 @Service
 public class ReportServiceImpl implements ReportService {
 
-    @Autowired
-    private ReportMapper reportMapper;
+    private final ReportMapper reportMapper;
 
     /**
      * 提交举报

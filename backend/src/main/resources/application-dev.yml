@@ -36,7 +36,7 @@ jwt:
 
 # AI 配置 (双模式: cloud / local)
 ai:
-  mode: local  # cloud | local
+  mode: cloud  # cloud | local
   cloud:
     base-url: https://api.openai.com
     api-key: ${AI_CLOUD_DEV_API_KEY:sk-your-openai-api-key}

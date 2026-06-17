@@ -1,7 +1,7 @@
 package com.minthive.ai;
 
 import com.minthive.config.AiConfig;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
@@ -14,18 +14,16 @@ import java.util.List;
  * <p>注意事项：切换模式无需改动代码，仅需修改配置</p>
  */
 @Component
+@RequiredArgsConstructor
 public class AiContext {
 
-    @Autowired
-    private AiConfig aiConfig;
+    private final AiConfig aiConfig;
 
-    @Autowired
     @Qualifier("cloudAiService")
-    private AiService cloudAiService;
+    private final AiService cloudAiService;
 
-    @Autowired
     @Qualifier("localAiService")
-    private AiService localAiService;
+    private final AiService localAiService;
 
     /**
      * 获取当前生效的 AI 服务实现

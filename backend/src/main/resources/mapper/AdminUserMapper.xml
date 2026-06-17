@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.minthive.mapper.AdminUserMapper">
+
+    <!--
+        用户分页查询（含统计子查询）
+        字段名对齐前端 UserInfo: userId, account, nickname, avatar, phone,
+        gender, status(NORMAL/BANNED), postCount, followCount, fansCount,
+        registerTime, lastLoginTime, interests
+    -->
+    <select id="selectUserListWithStats" resultType="java.util.Map">
+        SELECT
+            u.id AS userId,
+            u.account,
+            u.nickname,
+            COALESCE(u.avatar, '') AS avatar,
+            u.phone,
+            u.gender,
+            CASE u.status WHEN 1 THEN 'NORMAL' ELSE 'BANNED' END AS status,
+            (SELECT COUNT(*) FROM post WHERE user_id = u.id AND deleted = 0) AS postCount,
+            (SELECT COUNT(*) FROM follow WHERE user_id = u.id) AS followCount,
+            (SELECT COUNT(*) FROM follow WHERE follow_user_id = u.id) AS fansCount,
+            u.register_time AS registerTime,
+            (SELECT MAX(action_time) FROM ai_user_log WHERE user_id = u.id) AS lastLoginTime,
+            CASE
+                WHEN u.interest_tags IS NULL OR u.interest_tags = '' THEN ''
+                ELSE u.interest_tags
+            END AS interests
+        FROM `user` u
+        <where>
+            u.deleted = 0 AND u.cancel_status = 0
+            <if test="status != null">
+                AND u.status = #{status}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (u.nickname LIKE CONCAT('%', #{keyword}, '%') OR u.account LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY u.register_time DESC
+    </select>
+
+</mapper>

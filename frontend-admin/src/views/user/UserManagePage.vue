@@ -73,8 +73,8 @@ async function loadList() {
   loading.value = true
   try {
     const res = await getUserList(query)
-    userList.value = res.data.list
-    total.value = res.data.total
+    userList.value = res.list
+    total.value = res.total
   } catch (e) {
     // 拦截器已提示
   } finally {
@@ -107,7 +107,7 @@ function handleReset() {
 async function handleDetail(row: UserInfo) {
   try {
     const res = await getUserDetail(row.userId)
-    detailData.value = res.data
+    detailData.value = res
     detailVisible.value = true
   } catch (e) {
     // ignore
@@ -200,7 +200,7 @@ async function handleCleanZombie() {
   try {
     await ElMessageBox.confirm('将清理长期未登录且无发帖的僵尸账号，此操作不可撤销，是否继续？', '清理确认', { type: 'warning' })
     const res = await cleanZombieUsers()
-    ElMessage.success(`已清理 ${res.data.cleaned} 个僵尸账号`)
+    ElMessage.success(`已清理 ${res.cleaned} 个僵尸账号`)
     loadList()
   } catch (e) {
     // ignore

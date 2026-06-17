@@ -132,10 +132,10 @@
 
 // Table - 暗色斑马纹
 .el-table {
-  background: transparent;
+  background: $bg-elevated !important;
   color: $text-regular;
-  --el-table-bg-color: transparent;
-  --el-table-tr-bg-color: transparent;
+  --el-table-bg-color: #{$bg-elevated};
+  --el-table-tr-bg-color: #{$bg-elevated};
   --el-table-header-bg-color: #{$bg-surface};
   --el-table-header-text-color: #{$text-primary};
   --el-table-border-color: #{$border-divider};
@@ -148,12 +148,13 @@
     color: $text-primary;
   }
   tr {
-    background: transparent;
+    background: $bg-elevated !important;
     &:nth-child(even) td.el-table__cell {
-      background: rgba(35, 40, 66, 0.5);
+      background: $bg-hover !important;
     }
   }
   td.el-table__cell {
+    background: $bg-elevated !important;
     border-bottom: 1px solid $border-divider;
   }
 }

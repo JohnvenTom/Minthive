@@ -96,7 +96,7 @@ async function loadAnnouncements() {
   announceLoading.value = true
   try {
     const res = await getAnnouncements()
-    announcements.value = res.data
+    announcements.value = res
   } catch (e) {
     // ignore
   } finally {
@@ -163,7 +163,7 @@ async function loadBanners() {
   bannerLoading.value = true
   try {
     const res = await getBanners()
-    banners.value = res.data
+    banners.value = res
   } catch (e) {
     // ignore
   } finally {
@@ -234,7 +234,7 @@ async function loadRules() {
   rulesLoading.value = true
   try {
     const res = await getPlatformRules()
-    Object.assign(rulesForm, res.data)
+    Object.assign(rulesForm, res)
   } catch (e) {
     // ignore
   } finally {
@@ -261,7 +261,7 @@ async function loadOperators() {
   operatorLoading.value = true
   try {
     const res = await getOperators()
-    operators.value = res.data
+    operators.value = res
   } catch (e) {
     // ignore
   } finally {
@@ -339,7 +339,7 @@ async function loadAiSwitch() {
   aiLoading.value = true
   try {
     const res = await getAiSwitch()
-    Object.assign(aiForm, res.data)
+    Object.assign(aiForm, res)
   } catch (e) {
     // ignore
   } finally {

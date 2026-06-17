@@ -88,6 +88,7 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 .chart-card {
   height: 100%;
+  overflow: visible;
 }
 .chart-header {
   display: flex;
@@ -111,5 +112,6 @@ onBeforeUnmount(() => {
 }
 .chart-body {
   width: 100%;
+  overflow: visible;
 }
 </style>

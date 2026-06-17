@@ -74,8 +74,8 @@ async function loadList() {
   try {
     const res = await getReportList(query)
     // 前端兜底按风险等级降序排序
-    reportList.value = res.data.list.sort((a, b) => riskWeight[b.riskLevel] - riskWeight[a.riskLevel])
-    total.value = res.data.total
+    reportList.value = res.list.sort((a, b) => riskWeight[b.riskLevel] - riskWeight[a.riskLevel])
+    total.value = res.total
   } catch (e) {
     // ignore
   } finally {
@@ -90,7 +90,7 @@ async function loadList() {
 async function handleDetail(row: ReportWorkOrder) {
   try {
     const res = await getReportDetail(row.workOrderId)
-    detailData.value = res.data
+    detailData.value = res
     detailVisible.value = true
   } catch (e) {
     // ignore

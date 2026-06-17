@@ -79,8 +79,8 @@ async function loadPostList() {
   try {
     const api = activeTab.value === 'pending' ? getPendingList : getPublishedList
     const res = await api(query)
-    postList.value = res.data.list
-    total.value = res.data.total
+    postList.value = res.list
+    total.value = res.total
   } catch (e) {
     // ignore
   } finally {
@@ -95,8 +95,8 @@ async function loadSensitiveList() {
   sensitiveLoading.value = true
   try {
     const res = await getSensitiveWords(sensitiveQuery)
-    sensitiveList.value = res.data.list
-    sensitiveTotal.value = res.data.total
+    sensitiveList.value = res.list
+    sensitiveTotal.value = res.total
   } catch (e) {
     // ignore
   } finally {
@@ -229,7 +229,7 @@ async function confirmImport() {
   }
   try {
     const res = await importSensitiveWords(words, importCategory.value)
-    ElMessage.success(`成功导入 ${res.data.imported} 个敏感词`)
+    ElMessage.success(`成功导入 ${res.imported} 个敏感词`)
     importVisible.value = false
     importText.value = ''
     loadSensitiveList()

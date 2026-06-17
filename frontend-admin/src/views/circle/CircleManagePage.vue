@@ -90,8 +90,8 @@ async function loadList() {
   loading.value = true
   try {
     const res = await getCircleList(query)
-    circleList.value = res.data.list
-    total.value = res.data.total
+    circleList.value = res.list
+    total.value = res.total
   } catch (e) {
     // ignore
   } finally {
@@ -106,8 +106,8 @@ async function loadApplyList() {
   loading.value = true
   try {
     const res = await getCircleApplyList(applyQuery)
-    applyList.value = res.data.list
-    applyTotal.value = res.data.total
+    applyList.value = res.list
+    applyTotal.value = res.total
   } catch (e) {
     // ignore
   } finally {
@@ -216,11 +216,12 @@ async function confirmTransfer() {
 /**
  * 切换推荐位
  * @param row 行数据
+ * @param val 开关新值（true=推荐, false=取消）
  */
-async function handleRecommend(row: CircleInfo) {
+async function handleRecommend(row: CircleInfo, val: boolean) {
   try {
-    await setRecommend(row.circleId, !row.recommended)
-    ElMessage.success(row.recommended ? '已取消推荐' : '已设为推荐')
+    await setRecommend(row.circleId, val)
+    ElMessage.success(val ? '已设为推荐' : '已取消推荐')
     loadList()
   } catch (e) {
     // ignore
@@ -341,7 +342,7 @@ onMounted(() => {
             </el-tag>
           </template>
           <template #recommended="{ row }">
-            <el-switch :model-value="row.recommended" @change="handleRecommend(row)" />
+            <el-switch :model-value="!!row.recommended" @change="(val: boolean) => handleRecommend(row, val)" />
           </template>
           <template #status="{ row }">
             <StatusTag :status="row.status" type="circle" />

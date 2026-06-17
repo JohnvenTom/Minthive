@@ -28,6 +28,13 @@ ALTER TABLE follow AUTO_INCREMENT = 1;
 ALTER TABLE report AUTO_INCREMENT = 1;
 ALTER TABLE circle_user AUTO_INCREMENT = 1;
 ALTER TABLE ai_user_log AUTO_INCREMENT = 1;
+
+-- 确保circle表有recommend字段（兼容旧版本）
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'circle' AND COLUMN_NAME = 'recommend');
+SET @sql = IF(@col_exists = 0, 'ALTER TABLE `circle` ADD COLUMN `recommend` TINYINT NOT NULL DEFAULT 0 COMMENT ''是否推荐:0否 1是'' AFTER `status`', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================

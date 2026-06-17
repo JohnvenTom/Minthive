@@ -1,9 +1,11 @@
 package com.minthive.controller.admin;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
 import com.minthive.entity.User;
+import com.minthive.mapper.AdminUserMapper;
 import com.minthive.mapper.UserMapper;
 import com.minthive.util.BcryptUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,10 +27,10 @@ import java.util.Map;
 public class AdminUserController {
 
     private final UserMapper userMapper;
+    private final AdminUserMapper adminUserMapper;
 
     /**
-     * 分页查询用户列表
-     * <p>支持按关键词搜索（账号/昵称）和状态筛选</p>
+     * 分页查询用户列表（含统计子查询，字段对齐前端 UserInfo）
      *
      * @param page    页码（默认1）
      * @param pageSize 每页大小（默认10）
@@ -43,14 +45,8 @@ public class AdminUserController {
             @RequestParam(defaultValue = "10") long pageSize,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer status) {
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<User>()
-                .like(keyword != null && !keyword.isBlank(), User::getNickname, keyword)
-                .or().like(keyword != null && !keyword.isBlank(), User::getAccount, keyword)
-                .eq(status != null, User::getStatus, status)
-                .orderByDesc(User::getId);
-        Page<User> p = userMapper.selectPage(new Page<>(page, pageSize), wrapper);
-        // 脱敏密码字段
-        p.getRecords().forEach(u -> u.setPassword(null));
+        IPage<Map<String, Object>> p = adminUserMapper.selectUserListWithStats(
+                new Page<>(page, pageSize), keyword, status);
         Map<String, Object> data = new HashMap<>(4);
         data.put("list", p.getRecords());
         data.put("total", p.getTotal());
@@ -60,19 +56,40 @@ public class AdminUserController {
     }
 
     /**
-     * 用户详情
+     * 用户详情（字段对齐前端 UserInfo）
      *
      * @param userId 用户ID
-     * @return 用户信息（密码已脱敏）
+     * @return 用户信息
      */
     @Operation(summary = "用户详情")
     @GetMapping("/detail")
-    public Result<User> detail(@RequestParam Long userId) {
-        User user = userMapper.selectById(userId);
-        if (user != null) {
-            user.setPassword(null);
-        }
-        return Result.success(user);
+    public Result<Map<String, Object>> detail(@RequestParam Long userId) {
+        IPage<Map<String, Object>> p = adminUserMapper.selectUserListWithStats(
+                new Page<>(1, 1), null, null);
+        Map<String, Object> detail = p.getRecords().stream()
+                .filter(u -> userId.equals(((Number) u.get("userId")).longValue()))
+                .findFirst()
+                .orElseGet(() -> {
+                    User u = userMapper.selectById(userId);
+                    Map<String, Object> m = new HashMap<>();
+                    if (u != null) {
+                        m.put("userId", u.getId());
+                        m.put("account", u.getAccount());
+                        m.put("nickname", u.getNickname());
+                        m.put("avatar", u.getAvatar() != null ? u.getAvatar() : "");
+                        m.put("phone", u.getPhone());
+                        m.put("gender", u.getGender());
+                        m.put("status", u.getStatus() == 1 ? "NORMAL" : "BANNED");
+                        m.put("postCount", 0);
+                        m.put("followCount", 0);
+                        m.put("fansCount", 0);
+                        m.put("registerTime", u.getRegisterTime() != null ? u.getRegisterTime().toString() : "");
+                        m.put("lastLoginTime", "");
+                        m.put("interests", u.getInterestTags() != null ? u.getInterestTags().split(",") : new String[0]);
+                    }
+                    return m;
+                });
+        return Result.success(detail);
     }
 
     /**

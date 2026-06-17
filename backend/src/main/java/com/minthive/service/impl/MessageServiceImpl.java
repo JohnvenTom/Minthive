@@ -8,7 +8,7 @@ import com.minthive.common.ResultCode;
 import com.minthive.entity.Message;
 import com.minthive.mapper.MessageMapper;
 import com.minthive.service.MessageService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,11 +16,11 @@ import java.util.List;
 /**
  * 私信消息服务实现
  */
+@RequiredArgsConstructor
 @Service
 public class MessageServiceImpl implements MessageService {
 
-    @Autowired
-    private MessageMapper messageMapper;
+    private final MessageMapper messageMapper;
 
     /**
      * 发送私信

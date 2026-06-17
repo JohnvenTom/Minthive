@@ -10,7 +10,7 @@ import com.minthive.entity.CircleUser;
 import com.minthive.mapper.CircleMapper;
 import com.minthive.mapper.CircleUserMapper;
 import com.minthive.service.CircleService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -18,14 +18,13 @@ import org.springframework.util.StringUtils;
 /**
  * 圈子服务实现
  */
+@RequiredArgsConstructor
 @Service
 public class CircleServiceImpl implements CircleService {
 
-    @Autowired
-    private CircleMapper circleMapper;
+    private final CircleMapper circleMapper;
 
-    @Autowired
-    private CircleUserMapper circleUserMapper;
+    private final CircleUserMapper circleUserMapper;
 
     /**
      * 创建圈子

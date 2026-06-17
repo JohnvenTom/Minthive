@@ -2,7 +2,7 @@ package com.minthive.service.impl;
 
 import com.minthive.service.SensitiveWordService;
 import com.minthive.util.SensitiveWordUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,11 +15,11 @@ import java.util.Set;
 /**
  * 敏感词服务实现
  */
+@RequiredArgsConstructor
 @Service
 public class SensitiveWordServiceImpl implements SensitiveWordService {
 
-    @Autowired
-    private SensitiveWordUtil sensitiveWordUtil;
+    private final SensitiveWordUtil sensitiveWordUtil;
 
     /**
      * 检测文本是否包含敏感词

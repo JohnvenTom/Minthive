@@ -6,7 +6,6 @@ import com.minthive.security.UserContext;
 import com.minthive.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -17,8 +16,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/report")
 public class ReportController {
 
-    @Autowired
-    private ReportService reportService;
+    private final ReportService reportService;
+
+    /**
+     * 构造器注入 ReportService
+     *
+     * @param reportService 举报服务
+     */
+    public ReportController(ReportService reportService) {
+        this.reportService = reportService;
+    }
 
     /**
      * 提交举报

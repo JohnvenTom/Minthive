@@ -2,8 +2,8 @@ package com.minthive.ai;
 
 import com.minthive.common.RedisConstants;
 import com.minthive.config.AiConfig;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -17,13 +17,12 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AiCacheManager {
 
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
-    @Autowired
-    private AiConfig aiConfig;
+    private final AiConfig aiConfig;
 
     /**
      * 读取缓存

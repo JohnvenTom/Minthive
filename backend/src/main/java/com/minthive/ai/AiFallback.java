@@ -1,8 +1,8 @@
 package com.minthive.ai;
 
 import com.minthive.config.AiConfig;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -16,10 +16,10 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AiFallback {
 
-    @Autowired
-    private AiConfig aiConfig;
+    private final AiConfig aiConfig;
 
     /**
      * 生成帖子文案降级

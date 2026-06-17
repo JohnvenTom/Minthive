@@ -7,7 +7,6 @@ import com.minthive.security.UserContext;
 import com.minthive.service.CircleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -18,8 +17,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/circle")
 public class CircleController {
 
-    @Autowired
-    private CircleService circleService;
+    private final CircleService circleService;
+
+    /**
+     * 构造器注入 CircleService
+     *
+     * @param circleService 圈子服务
+     */
+    public CircleController(CircleService circleService) {
+        this.circleService = circleService;
+    }
 
     /**
      * 创建圈子

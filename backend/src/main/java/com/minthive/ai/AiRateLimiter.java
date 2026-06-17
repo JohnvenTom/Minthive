@@ -5,8 +5,8 @@ import com.minthive.common.ResultCode;
 import com.minthive.common.RedisConstants;
 import com.minthive.config.AiConfig;
 import com.minthive.security.UserContext;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -22,13 +22,12 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AiRateLimiter {
 
-    @Autowired
-    private StringRedisTemplate stringRedisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
-    @Autowired
-    private AiConfig aiConfig;
+    private final AiConfig aiConfig;
 
     /**
      * 校验当前用户是否超出每日 AI 调用上限

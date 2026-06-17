@@ -250,10 +250,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- 初始数据
 -- ============================================================
 
--- 管理员账号 (密码: admin123, Bcrypt加密)
--- 实际Bcrypt哈希值由后端启动后通过注册接口生成，此处使用占位
+-- 管理员账号 (密码: admin123, Bcrypt加密, strength=10)
 INSERT INTO `user` (`account`, `password`, `phone`, `nickname`, `bio`, `role`, `status`)
-VALUES ('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '13800000000', '平台管理员', 'MintHive平台超级管理员', 2, 1);
+VALUES ('admin', '$2b$10$sO9SaS7A8UOiOpPFojpBzOgQkstUlUbkY08rZsG83otSfNwrtIAxS', '13800000000', '平台管理员', 'MintHive平台超级管理员', 2, 1);
 
 -- 默认圈子分类数据
 INSERT INTO `circle` (`owner_id`, `name`, `category`, `intro`, `type`, `member_count`, `status`, `notice`)

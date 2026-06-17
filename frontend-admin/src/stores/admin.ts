@@ -25,12 +25,13 @@ export const useAdminStore = defineStore('admin', () => {
 
   /**
    * 拉取当前管理员信息
+   * @returns 管理员信息对象（含角色、权限等）
    */
   async function fetchAdminInfo() {
     if (!token.value) return
-    const res = await getAdminInfo()
-    adminInfo.value = res.data
-    return res.data
+    const info = await getAdminInfo()
+    adminInfo.value = info
+    return info
   }
 
   /**

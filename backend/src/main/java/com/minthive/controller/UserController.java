@@ -6,7 +6,6 @@ import com.minthive.security.UserContext;
 import com.minthive.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -17,8 +16,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/user")
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+
+    /**
+     * 构造器注入 UserService
+     *
+     * @param userService 用户服务
+     */
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
 
     /**
      * 查询当前登录用户信息

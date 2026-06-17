@@ -1,6 +1,7 @@
 package com.minthive.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.BusinessException;
 import com.minthive.common.Constants;
 import com.minthive.common.ResultCode;
@@ -11,8 +12,8 @@ import com.minthive.security.JwtUtils;
 import com.minthive.service.UserService;
 import com.minthive.util.BcryptUtil;
 import com.minthive.util.RedisUtil;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,17 +24,15 @@ import java.time.LocalDateTime;
  * <p>功能描述：用户注册、登录、信息维护等业务实现</p>
  */
 @Slf4j
+@RequiredArgsConstructor
 @Service
 public class UserServiceImpl implements UserService {
 
-    @Autowired
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
 
-    @Autowired
-    private JwtUtils jwtUtils;
+    private final JwtUtils jwtUtils;
 
-    @Autowired
-    private RedisUtil redisUtil;
+    private final RedisUtil redisUtil;
 
     /**
      * 用户注册
@@ -98,11 +97,29 @@ public class UserServiceImpl implements UserService {
      * 根据用户ID查询用户信息
      *
      * @param userId 用户ID
-     * @return 用户实体
+     * @return 用户实体（密码字段已脱敏）
      */
     @Override
     public User getById(Long userId) {
         User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_EXISTS);
+        }
+        user.setPassword(null);
+        return user;
+    }
+
+    /**
+     * 根据账号查询用户信息
+     *
+     * @param account 账号
+     * @return 用户实体（密码字段已脱敏）
+     * @throws BusinessException 账号不存在时抛出
+     */
+    @Override
+    public User getByAccount(String account) {
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getAccount, account));
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_EXISTS);
         }

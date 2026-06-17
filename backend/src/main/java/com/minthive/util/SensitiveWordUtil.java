@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -201,7 +202,7 @@ public class SensitiveWordUtil {
             }
             length++;
             current = (Map<Character, Object>) next;
-            if (END_YES.charAt(0) == current.get(IS_END.charAt(0))) {
+            if (Objects.equals(END_YES.charAt(0), current.get(IS_END.charAt(0)))) {
                 isEnd = true;
                 break;
             }

@@ -7,17 +7,17 @@ import com.minthive.common.ResultCode;
 import com.minthive.entity.Comment;
 import com.minthive.mapper.CommentMapper;
 import com.minthive.service.CommentService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
  * 评论服务实现
  */
+@RequiredArgsConstructor
 @Service
 public class CommentServiceImpl implements CommentService {
 
-    @Autowired
-    private CommentMapper commentMapper;
+    private final CommentMapper commentMapper;
 
     /**
      * 发表评论

@@ -6,7 +6,6 @@ import com.minthive.security.UserContext;
 import com.minthive.service.MessageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,8 +18,16 @@ import java.util.List;
 @RequestMapping("/api/message")
 public class MessageController {
 
-    @Autowired
-    private MessageService messageService;
+    private final MessageService messageService;
+
+    /**
+     * 构造器注入 MessageService
+     *
+     * @param messageService 消息服务
+     */
+    public MessageController(MessageService messageService) {
+        this.messageService = messageService;
+    }
 
     /**
      * 发送私信

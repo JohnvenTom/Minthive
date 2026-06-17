@@ -4,18 +4,18 @@ import com.minthive.common.BusinessException;
 import com.minthive.common.ResultCode;
 import com.minthive.service.FileService;
 import com.minthive.util.MinioUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 文件服务实现
  */
+@RequiredArgsConstructor
 @Service
 public class FileServiceImpl implements FileService {
 
-    @Autowired
-    private MinioUtil minioUtil;
+    private final MinioUtil minioUtil;
 
     /**
      * 上传文件到 MinIO

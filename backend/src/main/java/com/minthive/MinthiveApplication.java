@@ -4,14 +4,15 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration;
 
 /**
  * MintHive 兴趣社交平台后端启动类
  *
  * <p>功能描述：SpringBoot 应用入口，启用异步支持，扫描 MyBatis Mapper 接口</p>
- * <p>注意事项：MapperScan 路径必须覆盖所有 mapper 子包</p>
+ * <p>注意事项：排除 OpenAiAutoConfiguration，项目使用自定义 AiService 双模式实现</p>
  */
-@SpringBootApplication
+@SpringBootApplication(exclude = {OpenAiAutoConfiguration.class})
 @EnableAsync
 @MapperScan("com.minthive.mapper")
 public class MinthiveApplication {

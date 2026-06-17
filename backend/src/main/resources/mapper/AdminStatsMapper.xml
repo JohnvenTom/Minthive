@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.minthive.mapper.AdminStatsMapper">
+
+    <!-- 核心指标：一次性查询所有平台运营数据 -->
+    <select id="selectCoreMetrics" resultType="java.util.Map">
+        SELECT
+            (SELECT COUNT(*) FROM `user` WHERE deleted = 0 AND cancel_status = 0)                          AS totalUsers,
+            (SELECT COUNT(*) FROM `user` WHERE deleted = 0 AND cancel_status = 0
+             AND DATE(register_time) = CURDATE())                                                         AS todayRegister,
+            (SELECT COUNT(DISTINCT user_id) FROM (
+                SELECT user_id FROM post WHERE DATE(create_time) = CURDATE() AND deleted = 0
+                UNION
+                SELECT user_id FROM comment WHERE DATE(create_time) = CURDATE() AND deleted = 0
+                UNION
+                SELECT user_id FROM like_collect WHERE DATE(create_time) = CURDATE()
+            ) t)                                                                                           AS dau,
+            (SELECT COUNT(DISTINCT user_id) FROM (
+                SELECT user_id FROM post WHERE create_time >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND deleted = 0
+                UNION
+                SELECT user_id FROM comment WHERE create_time >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND deleted = 0
+                UNION
+                SELECT user_id FROM like_collect WHERE create_time >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            ) t)                                                                                           AS mau,
+            (SELECT COUNT(*) FROM post WHERE deleted = 0)                                                  AS totalPosts,
+            (SELECT COUNT(*) FROM post WHERE deleted = 0 AND DATE(create_time) = CURDATE())               AS todayPosts,
+            (SELECT COALESCE(SUM(like_count), 0) + COALESCE(SUM(comment_count), 0) + COALESCE(SUM(collect_count), 0)
+             FROM post WHERE deleted = 0)
+            + (SELECT COUNT(*) FROM like_collect)
+            + (SELECT COUNT(*) FROM comment WHERE deleted = 0)                                            AS totalInteractions,
+            (SELECT COUNT(*) FROM report WHERE status = 0)                                                AS pendingReports
+    </select>
+
+    <!-- 注册趋势：按天统计新增用户数 -->
+    <select id="selectRegisterTrend" resultType="java.util.Map">
+        SELECT DATE(register_time) AS date, COUNT(*) AS value
+        FROM `user`
+        WHERE deleted = 0 AND cancel_status = 0
+          AND register_time >= #{startDate}
+          AND register_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY DATE(register_time)
+        ORDER BY date ASC
+    </select>
+
+    <!-- 日活趋势：按天统计有互动行为的独立用户数 -->
+    <select id="selectDauTrend" resultType="java.util.Map">
+        SELECT d.date, COALESCE(t.cnt, 0) AS value
+        FROM (
+            SELECT DATE_SUB(CURDATE(), INTERVAL n DAY) AS date
+            FROM (SELECT 0 n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+                  UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9
+                  UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14
+                  UNION SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19
+                  UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24
+                  UNION SELECT 25 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29) nums
+            WHERE DATE_SUB(CURDATE(), INTERVAL n DAY) BETWEEN #{startDate} AND #{endDate}
+        ) d
+        LEFT JOIN (
+            SELECT DATE(action_time) AS dt, COUNT(DISTINCT user_id) AS cnt
+            FROM ai_user_log
+            WHERE action_time >= #{startDate}
+              AND action_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(action_time)
+        ) t ON d.date = t.dt
+        ORDER BY d.date ASC
+    </select>
+
+    <!-- 发帖趋势：按天统计帖子数 -->
+    <select id="selectPostTrend" resultType="java.util.Map">
+        SELECT DATE(create_time) AS date, COUNT(*) AS value
+        FROM post
+        WHERE deleted = 0
+          AND create_time >= #{startDate}
+          AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY DATE(create_time)
+        ORDER BY date ASC
+    </select>
+
+    <!-- 互动趋势：按天分别统计点赞/评论/收藏 -->
+    <select id="selectInteractionTrend" resultType="java.util.Map">
+        SELECT d.date,
+               COALESCE(lk.cnt, 0)   AS likeCount,
+               COALESCE(cm.cnt, 0)    AS commentCount,
+               COALESCE(cl.cnt, 0)    AS collectCount
+        FROM (
+            SELECT DATE_SUB(CURDATE(), INTERVAL n DAY) AS date
+            FROM (SELECT 0 n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+                  UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9
+                  UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14
+                  UNION SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19
+                  UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24
+                  UNION SELECT 25 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29) nums
+            WHERE DATE_SUB(CURDATE(), INTERVAL n DAY) BETWEEN #{startDate} AND #{endDate}
+        ) d
+        LEFT JOIN (
+            SELECT DATE(create_time) AS dt, COUNT(*) AS cnt
+            FROM like_collect
+            WHERE create_time >= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) lk ON d.date = lk.dt
+        LEFT JOIN (
+            SELECT DATE(create_time) AS dt, COUNT(*) AS cnt
+            FROM comment
+            WHERE deleted = 0 AND create_time >= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) cm ON d.date = cm.dt
+        LEFT JOIN (
+            SELECT DATE(create_time) AS dt, COUNT(*) AS cnt
+            FROM like_collect
+            WHERE type = 3 AND create_time >= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) cl ON d.date = cl.dt
+        ORDER BY d.date ASC
+    </select>
+
+    <!-- 圈子活跃排行 -->
+    <select id="selectCircleActiveRank" resultType="java.util.Map">
+        SELECT c.id       AS circleId,
+               c.name     AS name,
+               COALESCE(c.member_count, 0) AS memberCount,
+               COALESCE(p.postCount, 0)      AS postCount,
+               COALESCE(p.interactionCount, 0)AS interactionCount
+        FROM circle c
+        LEFT JOIN (
+            SELECT circle_id,
+                   COUNT(*)                              AS postCount,
+                   COALESCE(SUM(like_count), 0)
+                 + COALESCE(SUM(comment_count), 0)
+                 + COALESCE(SUM(collect_count), 0)       AS interactionCount
+            FROM post
+            WHERE deleted = 0
+            GROUP BY circle_id
+        ) p ON c.id = p.circle_id
+        WHERE c.deleted = 0 AND c.status = 1
+        ORDER BY interactionCount DESC, postCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 举报工单趋势 -->
+    <select id="selectReportTrend" resultType="java.util.Map">
+        SELECT DATE(create_time) AS date, COUNT(*) AS value
+        FROM report
+        WHERE create_time >= #{startDate}
+          AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY DATE(create_time)
+        ORDER BY date ASC
+    </select>
+
+</mapper>

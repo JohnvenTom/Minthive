@@ -1,7 +1,7 @@
 package com.minthive.util;
 
 import com.minthive.security.JwtUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,10 +11,10 @@ import org.springframework.stereotype.Component;
  * <p>注意事项：保持与 security 包 JwtUtils 一致的行为</p>
  */
 @Component
+@RequiredArgsConstructor
 public class JwtUtil {
 
-    @Autowired
-    private JwtUtils jwtUtils;
+    private final JwtUtils jwtUtils;
 
     /**
      * 生成 Token

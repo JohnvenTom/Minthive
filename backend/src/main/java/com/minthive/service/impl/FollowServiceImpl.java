@@ -6,17 +6,17 @@ import com.minthive.common.ResultCode;
 import com.minthive.entity.Follow;
 import com.minthive.mapper.FollowMapper;
 import com.minthive.service.FollowService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
  * 关注服务实现
  */
+@RequiredArgsConstructor
 @Service
 public class FollowServiceImpl implements FollowService {
 
-    @Autowired
-    private FollowMapper followMapper;
+    private final FollowMapper followMapper;
 
     /**
      * 关注用户

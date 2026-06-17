@@ -4,17 +4,17 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.minthive.entity.LikeCollect;
 import com.minthive.mapper.LikeCollectMapper;
 import com.minthive.service.LikeCollectService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
  * 点赞收藏服务实现
  */
+@RequiredArgsConstructor
 @Service
 public class LikeCollectServiceImpl implements LikeCollectService {
 
-    @Autowired
-    private LikeCollectMapper likeCollectMapper;
+    private final LikeCollectMapper likeCollectMapper;
 
     /**
      * 点赞/收藏(幂等)

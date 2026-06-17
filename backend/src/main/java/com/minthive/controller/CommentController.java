@@ -7,7 +7,6 @@ import com.minthive.security.UserContext;
 import com.minthive.service.CommentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -18,8 +17,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/comment")
 public class CommentController {
 
-    @Autowired
-    private CommentService commentService;
+    private final CommentService commentService;
+
+    /**
+     * 构造器注入 CommentService
+     *
+     * @param commentService 评论服务
+     */
+    public CommentController(CommentService commentService) {
+        this.commentService = commentService;
+    }
 
     /**
      * 发表评论

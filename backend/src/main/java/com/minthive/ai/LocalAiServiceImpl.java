@@ -1,7 +1,7 @@
 package com.minthive.ai;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -15,10 +15,10 @@ import java.util.List;
  */
 @Slf4j
 @Service("localAiService")
+@RequiredArgsConstructor
 public class LocalAiServiceImpl implements AiService {
 
-    @Autowired
-    private AiFallback aiFallback;
+    private final AiFallback aiFallback;
 
     /**
      * AI 一键生成帖子文案(本地)

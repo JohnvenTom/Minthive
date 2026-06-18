@@ -1,11 +1,15 @@
 package com.minthive.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
+import com.minthive.entity.User;
 import com.minthive.security.UserContext;
 import com.minthive.service.FollowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 关注控制器
@@ -62,5 +66,54 @@ public class FollowController {
     @GetMapping("/{followUserId}")
     public Result<Boolean> isFollowing(@PathVariable Long followUserId) {
         return Result.success(followService.isFollowing(UserContext.getUserId(), followUserId));
+    }
+
+    /**
+     * 获取用户的关注列表
+     *
+     * <p>查询指定用户关注的用户列表，分页返回</p>
+     *
+     * @param userId  目标用户ID
+     * @param current 当前页码，默认1
+     * @param size    每页条数，默认20
+     * @return 分页用户列表
+     */
+    @Operation(summary = "获取关注列表")
+    @GetMapping("/{userId}/following")
+    public Result<Page<User>> followingList(@PathVariable Long userId,
+                                            @RequestParam(defaultValue = "1") long current,
+                                            @RequestParam(defaultValue = "20") long size) {
+        return Result.success(followService.getFollowingList(userId, current, size));
+    }
+
+    /**
+     * 获取用户的粉丝列表
+     *
+     * <p>查询关注指定用户的粉丝列表，分页返回</p>
+     *
+     * @param userId  目标用户ID
+     * @param current 当前页码，默认1
+     * @param size    每页条数，默认20
+     * @return 分页用户列表
+     */
+    @Operation(summary = "获取粉丝列表")
+    @GetMapping("/{userId}/followers")
+    public Result<Page<User>> followersList(@PathVariable Long userId,
+                                            @RequestParam(defaultValue = "1") long current,
+                                            @RequestParam(defaultValue = "20") long size) {
+        return Result.success(followService.getFollowersList(userId, current, size));
+    }
+
+    /**
+     * 推荐好友
+     *
+     * <p>简单实现：返回最近注册的10个非当前用户（后续可接入AI推荐）</p>
+     *
+     * @return 推荐用户列表，最多10条
+     */
+    @Operation(summary = "推荐好友")
+    @GetMapping("/recommend")
+    public Result<List<User>> recommend() {
+        return Result.success(followService.recommendUsers(UserContext.getUserId()));
     }
 }

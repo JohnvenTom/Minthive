@@ -7,14 +7,22 @@
       @click="togglePanel"
     >
       <svg width="32" height="37" viewBox="0 0 28 32" fill="none">
-        <path d="M14 0L27 8V24L14 32L1 24V8L14 0Z" fill="url(#fab-grad)" />
-        <path d="M14 8L20 12V20L14 24L8 20V12L14 8Z" fill="rgba(255,255,255,0.25)" />
         <defs>
           <linearGradient id="fab-grad" x1="0" y1="0" x2="28" y2="32">
             <stop offset="0%" stop-color="#6BCB77" />
             <stop offset="100%" stop-color="#4ECDC4" />
           </linearGradient>
+          <!-- 六边形边缘发光滤镜：基于形状实际轮廓扩散，而非矩形边界框 -->
+          <filter id="fab-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
+        <path d="M14 0L27 8V24L14 32L1 24V8L14 0Z" fill="url(#fab-grad)" filter="url(#fab-glow)" />
+        <path d="M14 8L20 12V20L14 24L8 20V12L14 8Z" fill="rgba(255,255,255,0.25)" />
       </svg>
       <span class="ai-assistant__fab-icon">
         <svg v-if="!isOpen" width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -154,9 +162,11 @@ async function sendMessage(): Promise<void> {
 
   try {
     const res = await aiChat(text)
+    // 后端返回 Result<String>，data 字段直接是回答文本
+    const answer = typeof res.data === 'string' ? res.data : (res.data as any)?.answer
     messages.value.push({
       role: 'ai',
-      content: res.data?.answer || '抱歉，我暂时无法回答这个问题，请稍后再试。'
+      content: answer || '抱歉，我暂时无法回答这个问题，请稍后再试。'
     })
   } catch {
     messages.value.push({
@@ -187,7 +197,7 @@ async function scrollToBottom(): Promise<void> {
 .ai-assistant {
   position: fixed;
   bottom: 80px;
-  right: 20px;
+  right: 84px;  /* 避免与发帖 FAB（right:20px, width:56px）重叠 */
   z-index: 200;
 
   // ---------- 悬浮按钮 ----------
@@ -199,7 +209,6 @@ async function scrollToBottom(): Promise<void> {
     background: none;
     cursor: pointer;
     animation: hex-breathe 3s ease-in-out infinite;
-    filter: drop-shadow(0 4px 16px rgba(78, 205, 196, 0.4));
     transition: transform $dur-base $ease-spring;
 
     &:hover {
@@ -402,19 +411,45 @@ async function scrollToBottom(): Promise<void> {
   }
 }
 
-// ---------- 面板过渡动画 ----------
+// ---------- 面板过渡动画（从FAB按钮向上弹出） ----------
 .panel-slide-enter-active {
-  animation: scale-in 0.3s $ease-spring;
+  animation: fab-pop-in 0.35s $ease-spring both;
 }
 .panel-slide-leave-active {
-  animation: fade-in 0.2s ease reverse;
+  animation: fab-pop-out 0.2s ease both;
+}
+
+@keyframes fab-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.92);
+    transform-origin: bottom right;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transform-origin: bottom right;
+  }
+}
+
+@keyframes fab-pop-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transform-origin: bottom right;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+    transform-origin: bottom right;
+  }
 }
 
 // ---------- 移动端适配 ----------
 @include mobile {
   .ai-assistant {
     bottom: 72px;
-    right: 12px;
+    right: 76px;  /* 移动端发帖 FAB 在 right:16px width:50px，AI按钮左移避免重叠 */
 
     &__panel {
       width: calc(100vw - 24px);

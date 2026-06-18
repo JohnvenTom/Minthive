@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.Data;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.util.*;
 
 /**
  * AI 接口控制器(6 大 AI 能力)
@@ -135,6 +135,34 @@ public class AiController {
     @GetMapping("/remaining")
     public Result<Integer> remaining() {
         return Result.success(aiRateLimiter.remaining());
+    }
+
+    /**
+     * AI 兴趣推荐
+     *
+     * <p>功能描述：基于用户兴趣推荐圈子和用户，简化实现为随机推荐</p>
+     * <p>注意事项：当前为随机推荐3个圈子ID和3个用户ID，后续可接入真实AI推荐算法</p>
+     *
+     * @return 推荐结果Map，包含 circles（圈子ID列表）和 users（用户ID列表）
+     */
+    @Operation(summary = "AI兴趣推荐")
+    @GetMapping("/recommend")
+    public Result<Map<String, List<Integer>>> recommend() {
+        Random random = new Random();
+        Map<String, List<Integer>> result = new HashMap<>();
+        // 随机推荐3个圈子ID
+        result.put("circles", Arrays.asList(
+                random.nextInt(100) + 1,
+                random.nextInt(100) + 1,
+                random.nextInt(100) + 1
+        ));
+        // 随机推荐3个用户ID
+        result.put("users", Arrays.asList(
+                random.nextInt(1000) + 1,
+                random.nextInt(1000) + 1,
+                random.nextInt(1000) + 1
+        ));
+        return Result.success(result);
     }
 
     /**

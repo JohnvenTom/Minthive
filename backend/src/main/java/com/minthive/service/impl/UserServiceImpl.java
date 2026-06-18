@@ -6,7 +6,11 @@ import com.minthive.common.BusinessException;
 import com.minthive.common.Constants;
 import com.minthive.common.ResultCode;
 import com.minthive.common.RedisConstants;
+import com.minthive.entity.LikeCollect;
+import com.minthive.entity.Post;
 import com.minthive.entity.User;
+import com.minthive.mapper.LikeCollectMapper;
+import com.minthive.mapper.PostMapper;
 import com.minthive.mapper.UserMapper;
 import com.minthive.security.JwtUtils;
 import com.minthive.service.UserService;
@@ -31,6 +35,10 @@ import java.util.List;
 public class UserServiceImpl implements UserService {
 
     private final UserMapper userMapper;
+
+    private final PostMapper postMapper;
+
+    private final LikeCollectMapper likeCollectMapper;
 
     private final JwtUtils jwtUtils;
 
@@ -323,5 +331,113 @@ public class UserServiceImpl implements UserService {
         update.setInterestTags(String.join(",", interests));
         userMapper.updateById(update);
         log.info("用户兴趣标签更新: userId={}, tags={}", userId, update.getInterestTags());
+    }
+
+    /**
+     * 更新用户头像
+     *
+     * <p>功能描述：将头像URL更新到用户记录中</p>
+     *
+     * @param userId 用户ID
+     * @param avatar 头像URL地址
+     */
+    @Override
+    public void updateAvatar(Long userId, String avatar) {
+        User update = new User();
+        update.setId(userId);
+        update.setAvatar(avatar);
+        userMapper.updateById(update);
+        log.info("用户头像更新成功: userId={}, avatar={}", userId, avatar);
+    }
+
+    /**
+     * 查询指定用户的已审核帖子列表（分页）
+     *
+     * <p>功能描述：根据用户ID查询该用户所有审核通过的帖子，按发布时间倒序排列</p>
+     *
+     * @param userId  目标用户ID
+     * @param current 当前页码（从1开始）
+     * @param size    每页条数
+     * @return 分页帖子列表（仅包含 auditStatus=1 的帖子）
+     */
+    @Override
+    public Page<Post> getUserPosts(Long userId, long current, long size) {
+        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+                .eq(Post::getUserId, userId)
+                .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
+                .orderByDesc(Post::getCreateTime);
+        return postMapper.selectPage(new Page<>(current, size), wrapper);
+    }
+
+    /**
+     * 查询当前登录用户的收藏帖子列表（分页）
+     *
+     * <p>功能描述：通过 like_collect 表（type=collect_post）获取目标ID列表，
+     * 再关联查询 post 表返回收藏的帖子详情</p>
+     *
+     * @param userId  当前登录用户ID
+     * @param current 当前页码（从1开始）
+     * @param size    每页条数
+     * @return 分页收藏帖子列表
+     */
+    @Override
+    public Page<Post> getCollects(Long userId, long current, long size) {
+        // 1. 分页查询 like_collect 表中 type=collect_post 的记录
+        Page<LikeCollect> lcPage = likeCollectMapper.selectPage(
+                new Page<>(current, size),
+                new LambdaQueryWrapper<LikeCollect>()
+                        .eq(LikeCollect::getUserId, userId)
+                        .eq(LikeCollect::getType, Constants.LC_TYPE_COLLECT_POST)
+                        .orderByDesc(LikeCollect::getCreateTime)
+        );
+        if (lcPage.getRecords().isEmpty()) {
+            return new Page<>(current, size, 0);
+        }
+        // 2. 提取 targetId 列表（即帖子ID）
+        java.util.List<Long> postIds = lcPage.getRecords().stream()
+                .map(LikeCollect::getTargetId)
+                .collect(java.util.stream.Collectors.toList());
+        // 3. 根据 ID 列表批量查询帖子
+        java.util.List<Post> posts = postMapper.selectBatchIds(postIds);
+        // 4. 组装分页结果
+        Page<Post> result = new Page<>(current, size, lcPage.getTotal());
+        result.setRecords(posts);
+        return result;
+    }
+
+    /**
+     * 查询当前登录用户的点赞帖子列表（分页）
+     *
+     * <p>功能描述：通过 like_collect 表（type=like_post）获取目标ID列表，
+     * 再关联查询 post 表返回点赞的帖子详情</p>
+     *
+     * @param userId  当前登录用户ID
+     * @param current 当前页码（从1开始）
+     * @param size    每页条数
+     * @return 分页点赞帖子列表
+     */
+    @Override
+    public Page<Post> getLikes(Long userId, long current, long size) {
+        // 1. 分页查询 like_collect 表中 type=like_post 的记录
+        Page<LikeCollect> lcPage = likeCollectMapper.selectPage(
+                new Page<>(current, size),
+                new LambdaQueryWrapper<LikeCollect>()
+                        .eq(LikeCollect::getUserId, userId)
+                        .eq(LikeCollect::getType, Constants.LC_TYPE_LIKE_POST)
+                        .orderByDesc(LikeCollect::getCreateTime)
+        );
+        if (lcPage.getRecords().isEmpty()) {
+            return new Page<>(current, size, 0);
+        }
+        // 2. 提取 targetId 列表（即帖子ID）
+        java.util.List<Long> postIds = lcPage.getRecords().stream()
+                .map(LikeCollect::getTargetId)
+                .collect(java.util.stream.Collectors.toList());
+        // 3. 根据 ID 列表批量查询帖子
+        java.util.List<Post> posts = postMapper.selectBatchIds(postIds);
+        // 4. 组装分页结果
+        Page<Post> result = new Page<>(current, size, lcPage.getTotal());
+        result.setRecords(posts);
+        return result;
     }
 }

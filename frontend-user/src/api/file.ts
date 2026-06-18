@@ -14,7 +14,7 @@ export function uploadImage(file: File) {
   const formData = new FormData()
   formData.append('file', file)
   return request<{ url: string }>({
-    url: '/file/upload/image',
+    url: '/file/upload',
     method: 'post',
     data: formData,
     headers: { 'Content-Type': 'multipart/form-data' }
@@ -29,7 +29,7 @@ export function uploadVideo(file: File) {
   const formData = new FormData()
   formData.append('file', file)
   return request<{ url: string }>({
-    url: '/file/upload/video',
+    url: '/file/upload',
     method: 'post',
     data: formData,
     headers: { 'Content-Type': 'multipart/form-data' },

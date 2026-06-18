@@ -13,6 +13,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * 搜索控制器
  */
@@ -72,5 +75,54 @@ public class SearchController {
                                              @RequestParam(defaultValue = "1") long current,
                                              @RequestParam(defaultValue = "10") long size) {
         return Result.success(circleService.page(current, size, null, keyword));
+    }
+
+    /**
+     * 全局搜索
+     *
+     * <p>根据 type 参数分发到对应的搜索方法，支持用户/帖子/圈子/话题等类型</p>
+     *
+     * @param keyword 搜索关键词
+     * @param type    搜索类型：all(全部)/user(用户)/post(帖子)/circle(圈子)/topic(话题)，默认all
+     * @param current 当前页码，默认1
+     * @return 分页搜索结果
+     */
+    @Operation(summary = "全局搜索")
+    @GetMapping
+    public Result<?> search(@RequestParam String keyword,
+                            @RequestParam(defaultValue = "all") String type,
+                            @RequestParam(defaultValue = "1") long current) {
+        long size = 10;
+        switch (type.toLowerCase()) {
+            case "user":
+                return Result.success(userService.searchByKeyword(keyword, current, size));
+            case "post":
+                return Result.success(postService.searchByKeyword(keyword, current, size));
+            case "circle":
+                return Result.success(circleService.page(current, size, null, keyword));
+            case "topic":
+                // 话题搜索暂无独立服务，返回空结果
+                return Result.success(new Page<>(current, size));
+            case "all":
+            default:
+                // all 类型：并行搜索多种资源并合并结果（简化为仅搜索用户）
+                return Result.success(userService.searchByKeyword(keyword, current, size));
+        }
+    }
+
+    /**
+     * 获取热门搜索词
+     *
+     * <p>简单实现：返回预设的热门词数组（后续可接入热搜统计）</p>
+     *
+     * @return 热门搜索词列表
+     */
+    @Operation(summary = "热门搜索词")
+    @GetMapping("/hot")
+    public Result<List<String>> hotSearch() {
+        List<String> hotKeywords = Arrays.asList(
+                "Vue3", "React", "Java", "SpringBoot", "前端", "后端"
+        );
+        return Result.success(hotKeywords);
     }
 }

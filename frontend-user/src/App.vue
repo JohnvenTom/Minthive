@@ -140,6 +140,9 @@
         <span class="ai-fab__text">AI</span>
       </div>
     </button>
+
+    <!-- AI 助手聊天面板 -->
+    <AiAssistant v-if="appStore.showAiAssistant" />
   </div>
 </template>
 
@@ -152,6 +155,7 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useChatStore } from '@/stores/chat'
+import AiAssistant from '@/components/AiAssistant.vue'
 
 const route = useRoute()
 const appStore = useAppStore()
@@ -440,7 +444,7 @@ onUnmounted(() => {
 // ---------- AI 悬浮按钮 ----------
 .ai-fab {
   position: fixed;
-  bottom: 90px;
+  bottom: 160px;
   right: 20px;
   z-index: 90;
   border: none;

@@ -188,4 +188,77 @@ public class PostServiceImpl implements PostService {
         update.setCollectCount(newVal);
         postMapper.updateById(update);
     }
+
+    /**
+     * 转发帖子
+     *
+     * <p>功能描述：创建一条新帖，内容引用原帖，sharePostId 指向原帖ID，
+     * 审核状态设为通过（AUDIT_PASS）</p>
+     *
+     * @param post       转发时的附加内容（可为空）
+     * @param sharePostId 原帖ID
+     * @param userId     转发用户ID
+     * @return 创建的转发帖子
+     * @throws BusinessException 原帖不存在时抛出
+     */
+    @Override
+    public Post share(Post post, Long sharePostId, Long userId) {
+        // 校验原帖是否存在
+        Post original = postMapper.selectById(sharePostId);
+        if (original == null) {
+            throw new BusinessException(ResultCode.POST_NOT_EXISTS);
+        }
+        // 构建转发帖
+        post.setUserId(userId);
+        post.setSharePostId(sharePostId);
+        post.setAuditStatus(Constants.AUDIT_PASS);
+        post.setLikeCount(0);
+        post.setCommentCount(0);
+        post.setCollectCount(0);
+        // 如果没有附加内容，使用原帖内容作为引用
+        if (post.getContent() == null || post.getContent().trim().isEmpty()) {
+            post.setContent("转发: " + original.getContent());
+        }
+        postMapper.insert(post);
+        log.info("帖子转发成功: postId={}, originalPostId={}, userId={}", post.getId(), sharePostId, userId);
+        return post;
+    }
+
+    /**
+     * 保存草稿
+     *
+     * <p>功能描述：将帖子以草稿形式保存（auditStatus=0），不进行敏感词审核</p>
+     *
+     * @param post   帖子实体（内容、图片等）
+     * @param userId 发布用户ID
+     * @return 保存后的草稿帖子
+     */
+    @Override
+    public Post saveDraft(Post post, Long userId) {
+        post.setUserId(userId);
+        post.setAuditStatus(Constants.AUDIT_PENDING); // 0 = 草稿/待审
+        post.setLikeCount(0);
+        post.setCommentCount(0);
+        post.setCollectCount(0);
+        postMapper.insert(post);
+        log.info("草稿保存成功: postId={}, userId={}", post.getId(), userId);
+        return post;
+    }
+
+    /**
+     * 查询当前用户的草稿列表
+     *
+     * <p>功能描述：查询指定用户所有 auditStatus=0 的草稿帖子，按更新时间倒序排列</p>
+     *
+     * @param userId 用户ID
+     * @return 草稿帖子列表
+     */
+    @Override
+    public java.util.List<Post> getDraftList(Long userId) {
+        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+                .eq(Post::getUserId, userId)
+                .eq(Post::getAuditStatus, Constants.AUDIT_PENDING)
+                .orderByDesc(Post::getUpdateTime);
+        return postMapper.selectList(wrapper);
+    }
 }

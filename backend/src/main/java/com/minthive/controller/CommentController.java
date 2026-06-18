@@ -1,10 +1,12 @@
 package com.minthive.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.minthive.common.Constants;
 import com.minthive.common.Result;
 import com.minthive.entity.Comment;
 import com.minthive.security.UserContext;
 import com.minthive.service.CommentService;
+import com.minthive.service.LikeCollectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
@@ -19,13 +21,17 @@ public class CommentController {
 
     private final CommentService commentService;
 
+    private final LikeCollectService likeCollectService;
+
     /**
-     * 构造器注入 CommentService
+     * 构造器注入
      *
-     * @param commentService 评论服务
+     * @param commentService     评论服务
+     * @param likeCollectService 点赞收藏服务
      */
-    public CommentController(CommentService commentService) {
+    public CommentController(CommentService commentService, LikeCollectService likeCollectService) {
         this.commentService = commentService;
+        this.likeCollectService = likeCollectService;
     }
 
     /**
@@ -67,6 +73,36 @@ public class CommentController {
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         commentService.delete(id, UserContext.getUserId());
+        return Result.success();
+    }
+
+    /**
+     * 点赞评论
+     *
+     * <p>功能描述：对指定评论进行点赞操作，调用 likeCollectService 记录点赞关系</p>
+     *
+     * @param id 评论ID
+     * @return 操作结果
+     */
+    @Operation(summary = "点赞评论")
+    @PostMapping("/{id}/like")
+    public Result<Void> like(@PathVariable Long id) {
+        likeCollectService.like(UserContext.getUserId(), id, Constants.LC_TYPE_LIKE_COMMENT);
+        return Result.success();
+    }
+
+    /**
+     * 取消点赞评论
+     *
+     * <p>功能描述：取消对指定评论的点赞操作，调用 likeCollectService 删除点赞记录</p>
+     *
+     * @param id 评论ID
+     * @return 操作结果
+     */
+    @Operation(summary = "取消点赞评论")
+    @DeleteMapping("/{id}/like")
+    public Result<Void> unlike(@PathVariable Long id) {
+        likeCollectService.unlike(UserContext.getUserId(), id, Constants.LC_TYPE_LIKE_COMMENT);
         return Result.success();
     }
 }

@@ -28,7 +28,7 @@
           <img :src="post.avatar || '/default-avatar.png'" class="author-avatar" alt="头像" />
           <div class="author-info">
             <span class="author-name">{{ post.nickname }}</span>
-            <span class="post-time">{{ formatTime(post.createTime) }}</span>
+            <span class="post-time">{{ formatRelativeTime(post.createTime) }}</span>
           </div>
           <span v-if="post.aiGenerated" class="ai-badge">
             <van-icon name="magic-o" />
@@ -225,7 +225,7 @@ import { getComments, createComment, toggleCommentLike, deleteComment } from '@/
 import { aiGenerateComment } from '@/api/ai'
 import { report } from '@/api/report'
 import { wsClient } from '@/utils/websocket'
-import { formatTime } from '@/utils/format'
+import { formatRelativeTime } from '@/utils/format'
 import type { Post, Comment, AiCommentSuggestion } from '@/types'
 
 // ---------- 路由与Store ----------

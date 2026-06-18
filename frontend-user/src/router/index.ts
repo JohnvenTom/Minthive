@@ -31,7 +31,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'Home',
     component: () => import('@/views/home/HomePage.vue'),
-    meta: { requiresAuth: true, transition: 'fade-slide', title: '首页' }
+    meta: { requiresAuth: false, transition: 'fade-slide', title: '首页' }
   },
   {
     path: '/post/:id',
@@ -62,6 +62,10 @@ const routes: RouteRecordRaw[] = [
     name: 'Messages',
     component: () => import('@/views/message/MessageCenterPage.vue'),
     meta: { requiresAuth: true, transition: 'fade-slide', title: '消息通知' }
+  },
+  {
+    path: '/chat',
+    redirect: '/messages'
   },
   {
     path: '/chat/:userId',

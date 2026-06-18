@@ -262,7 +262,7 @@ function handleDeleteAccount(): void {
   &__section-title {
     font-size: 13px;
     font-weight: 600;
-    color: $ink-400;
+    color: $ink-500;
     margin-bottom: $space-2;
     padding-left: $space-1;
   }
@@ -302,7 +302,7 @@ function handleDeleteAccount(): void {
   }
 
   &__arrow {
-    color: $ink-200;
+    color: $ink-300;
   }
 
   &__logout {
@@ -361,7 +361,7 @@ function handleDeleteAccount(): void {
 
   &__about-desc {
     font-size: 13px;
-    color: $ink-400;
+    color: $ink-500;
     text-align: center;
   }
 
@@ -369,7 +369,7 @@ function handleDeleteAccount(): void {
     padding: $space-4;
     font-size: 13px;
     line-height: 1.8;
-    color: $ink-600;
+    color: $ink-700;
 
     p {
       margin-bottom: $space-2;

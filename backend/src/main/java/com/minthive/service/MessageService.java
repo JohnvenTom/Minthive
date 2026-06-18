@@ -56,25 +56,25 @@ public interface MessageService {
     List<Map<String, Object>> getChatList(Long userId);
 
     /**
-     * 获取通知列表（占位实现）
+     * 获取通知列表
      *
-     * <p>简化实现：返回空列表占位（通知系统可后续完善）</p>
+     * <p>聚合五类通知数据（点赞/评论/关注/圈子/系统），支持按类型筛选和分页</p>
      *
      * @param userId   当前用户ID
-     * @param type     通知类型（可选），如 like/comment/circle/system
-     * @param current  当前页码，默认1
+     * @param type     通知类型（可选），如 like/comment/follow/circle/system，空字符串表示全部
+     * @param page     当前页码，默认1
      * @param size     每页条数，默认10
-     * @return 分页通知列表（当前为空）
+     * @return 分页通知列表，每条通知包含 id/type/fromUserId/fromNickname/fromAvatar/targetId/content/read/createTime
      */
-    Page<Map<String, Object>> getNotificationList(Long userId, String type, long current, long size);
+    Page<Map<String, Object>> getNotificationList(Long userId, String type, long page, long size);
 
     /**
-     * 获取各类型未读消息统计（占位实现）
+     * 获取各类型未读消息统计
      *
-     * <p>简化实现：返回全零占位（包含 like/comment/message/circle/system 各类型未读数）</p>
+     * <p>实时统计五类通知的未读数量：like/comment/follow/message/circle/system</p>
      *
      * @param userId 当前用户ID
-     * @return 未读统计Map，键为类型名(like/comment/message/circle/system)，值为未读数量
+     * @return 未读统计Map，键为类型名(like/comment/follow/message/circle/system)，值为未读数量
      */
     Map<String, Integer> getUnreadCount(Long userId);
 }

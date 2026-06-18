@@ -480,13 +480,17 @@ watch(() => route.params.id, (newId) => {
 // ---------- 头像 ----------
 .profile-avatar-wrap {
   position: relative;
+  @include hexagon(92px); /* 与 avatar-ring 同尺寸，作为定位基准 */
   margin-bottom: $space-4;
 }
 
 .hex-avatar {
   @include hexagon(80px);
   overflow: hidden;
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 2;
 
   img {
@@ -499,9 +503,8 @@ watch(() => route.params.id, (newId) => {
 .avatar-ring {
   position: absolute;
   @include hexagon(92px);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  left: 0;
   background: $grad-mint;
   opacity: 0.3;
   z-index: 1;
@@ -764,6 +767,10 @@ watch(() => route.params.id, (newId) => {
 @include mobile {
   .hero-inner {
     padding: $space-6 $space-3 $space-4;
+  }
+
+  .profile-avatar-wrap {
+    @include hexagon(74px); /* 与移动端 avatar-ring 同尺寸 */
   }
 
   .hex-avatar {

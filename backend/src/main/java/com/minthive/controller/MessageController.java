@@ -111,9 +111,9 @@ public class MessageController {
     @GetMapping("/notifications")
     public Result<Page<Map<String, Object>>> notifications(
             @RequestParam(required = false) String type,
-            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
-        return Result.success(messageService.getNotificationList(UserContext.getUserId(), type, current, pageSize));
+        return Result.success(messageService.getNotificationList(UserContext.getUserId(), type, page, pageSize));
     }
 
     /**

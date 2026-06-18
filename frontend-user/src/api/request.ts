@@ -45,7 +45,7 @@ function redirectToLogin(): void {
   }, 800)
 }
 
-// ---------- 响应拦截器：统一错误处理 ----------
+// ---------- 响应拦截器：统一错误处理 + 分页格式兼容 ----------
 service.interceptors.response.use(
   (response) => {
     const res = response.data as ApiResponse
@@ -54,6 +54,22 @@ service.interceptors.response.use(
       return response
     }
     if (res.code === 200) {
+      /**
+       * 兼容后端 MyBatis-Plus Page 返回格式
+       * 后端返回: { records, total, current, size, pages }
+       * 前端期望: { list, total, page, pageSize, hasMore }
+       */
+      const data = res.data
+      if (data && typeof data === 'object' && 'records' in data && !('list' in data)) {
+        const page = data as any
+        // 兼容后端 MyBatis-Plus Page 格式，同时保留 records 和 list 字段
+        Object.assign(page, {
+          list: page.records || [],
+          page: page.current || 1,
+          pageSize: page.size || 10,
+          hasMore: (page.current || 1) < (page.pages || 1)
+        })
+      }
       return res
     }
     // 业务错误

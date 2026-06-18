@@ -5,7 +5,11 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.BusinessException;
 import com.minthive.common.Constants;
 import com.minthive.common.ResultCode;
+import com.minthive.entity.Comment;
+import com.minthive.entity.LikeCollect;
 import com.minthive.entity.Post;
+import com.minthive.mapper.CommentMapper;
+import com.minthive.mapper.LikeCollectMapper;
 import com.minthive.mapper.PostMapper;
 import com.minthive.service.PostService;
 import com.minthive.service.SensitiveWordService;
@@ -25,6 +29,10 @@ public class PostServiceImpl implements PostService {
 
     private final SensitiveWordService sensitiveWordService;
 
+    private final CommentMapper commentMapper;
+
+    private final LikeCollectMapper likeCollectMapper;
+
     /**
      * 发布帖子
      *
@@ -40,9 +48,6 @@ public class PostServiceImpl implements PostService {
         }
         post.setContent(sensitiveWordService.replace(post.getContent()));
         post.setAuditStatus(Constants.AUDIT_PASS);
-        post.setLikeCount(0);
-        post.setCommentCount(0);
-        post.setCollectCount(0);
         postMapper.insert(post);
         log.info("帖子发布成功: id={}, userId={}", post.getId(), post.getUserId());
         return post;
@@ -60,6 +65,7 @@ public class PostServiceImpl implements PostService {
         if (post == null) {
             throw new BusinessException(ResultCode.POST_NOT_EXISTS);
         }
+        enrichPostCounts(post);
         return post;
     }
 
@@ -77,7 +83,9 @@ public class PostServiceImpl implements PostService {
                 .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
                 .eq(circleId != null, Post::getCircleId, circleId)
                 .orderByDesc(Post::getCreateTime);
-        return postMapper.selectPage(new Page<>(current, size), wrapper);
+        Page<Post> result = postMapper.selectPage(new Page<>(current, size), wrapper);
+        enrichPageCounts(result);
+        return result;
     }
 
     /**
@@ -125,68 +133,47 @@ public class PostServiceImpl implements PostService {
             wrapper.like(Post::getContent, keyword);
         }
         wrapper.orderByDesc(Post::getCreateTime);
-        return postMapper.selectPage(new Page<>(current, size), wrapper);
+        Page<Post> result = postMapper.selectPage(new Page<>(current, size), wrapper);
+        enrichPageCounts(result);
+        return result;
     }
 
     /**
      * 获取首页信息流（推荐/最新/最热）
      *
-     * @param sortType 排序类型: latest(最新) / hot(最热)
+     * <p>三种排序模式：</p>
+     * <ul>
+     *   <li>recommend: 综合推荐（按互动热度加权，兼顾时间新鲜度）</li>
+     *   <li>latest: 最新发布（纯时间倒序）</li>
+     *   <li>hot: 最热帖子（按点赞数降序，同赞时新帖优先）</li>
+     * </ul>
+     *
+     * @param sortType 排序类型: recommend(推荐) / latest(最新) / hot(最热)
      * @param current  当前页
      * @param size     每页大小
-     * @return 分页帖子列表（仅已审核、公开的帖子）
+     * @return 分页帖子列表（仅已审核、公开的帖子，已填充实时计数字段）
      */
     @Override
     public Page<Post> feed(String sortType, long current, long size) {
-        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-                .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
-                .eq(Post::getVisibility, 0); // 仅公开帖子
+        Page<Post> result;
 
-        // 根据排序类型排序：hot按点赞数降序，latest按时间降序
         if ("hot".equals(sortType)) {
-            wrapper.orderByDesc(Post::getLikeCount)
-                  .orderByDesc(Post::getCreateTime);
+            // 最热：从 like_collect 表子查询统计点赞数，按点赞数降序
+            result = postMapper.selectHotFeed(new Page<>(current, size));
+        } else if ("recommend".equals(sortType)) {
+            // 推荐：综合排序（评论数权重 + 点赞数权重 + 时间衰减），使用自定义SQL
+            result = postMapper.selectRecommendFeed(new Page<>(current, size));
         } else {
-            // 默认按时间倒序
-            wrapper.orderByDesc(Post::getCreateTime);
+            // 最新：默认按发布时间倒序
+            LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+                    .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
+                    .eq(Post::getVisibility, 0)
+                    .orderByDesc(Post::getCreateTime);
+            result = postMapper.selectPage(new Page<>(current, size), wrapper);
         }
-        return postMapper.selectPage(new Page<>(current, size), wrapper);
-    }
 
-    /**
-     * 更新帖子点赞数（+1 或 -1）
-     *
-     * @param postId 帖子ID
-     * @param delta  变化量（正数增加，负数减少）
-     */
-    @Override
-    public void updateLikeCount(Long postId, int delta) {
-        Post update = new Post();
-        update.setId(postId);
-        // 防止计数变为负数
-        Post existing = postMapper.selectById(postId);
-        if (existing == null) return;
-        int newVal = Math.max(0, existing.getLikeCount() + delta);
-        update.setLikeCount(newVal);
-        postMapper.updateById(update);
-    }
-
-    /**
-     * 更新帖子收藏数（+1 或 -1）
-     *
-     * @param postId 帖子ID
-     * @param delta  变化量（正数增加，负数减少）
-     */
-    @Override
-    public void updateCollectCount(Long postId, int delta) {
-        Post update = new Post();
-        update.setId(postId);
-        // 防止计数变为负数
-        Post existing = postMapper.selectById(postId);
-        if (existing == null) return;
-        int newVal = Math.max(0, existing.getCollectCount() + delta);
-        update.setCollectCount(newVal);
-        postMapper.updateById(update);
+        enrichPageCounts(result);
+        return result;
     }
 
     /**
@@ -212,9 +199,6 @@ public class PostServiceImpl implements PostService {
         post.setUserId(userId);
         post.setSharePostId(sharePostId);
         post.setAuditStatus(Constants.AUDIT_PASS);
-        post.setLikeCount(0);
-        post.setCommentCount(0);
-        post.setCollectCount(0);
         // 如果没有附加内容，使用原帖内容作为引用
         if (post.getContent() == null || post.getContent().trim().isEmpty()) {
             post.setContent("转发: " + original.getContent());
@@ -237,9 +221,6 @@ public class PostServiceImpl implements PostService {
     public Post saveDraft(Post post, Long userId) {
         post.setUserId(userId);
         post.setAuditStatus(Constants.AUDIT_PENDING); // 0 = 草稿/待审
-        post.setLikeCount(0);
-        post.setCommentCount(0);
-        post.setCollectCount(0);
         postMapper.insert(post);
         log.info("草稿保存成功: postId={}, userId={}", post.getId(), userId);
         return post;
@@ -260,5 +241,45 @@ public class PostServiceImpl implements PostService {
                 .eq(Post::getAuditStatus, Constants.AUDIT_PENDING)
                 .orderByDesc(Post::getUpdateTime);
         return postMapper.selectList(wrapper);
+    }
+
+    // ========== 实时统计计数（从关联表动态计算）==========
+
+    /**
+     * 实时统计单个帖子的互动数据
+     *
+     * @param post 帖子实体
+     * @description 从 comment 表和 like_collect 表实时查询评论数、点赞数、收藏数，
+     * 覆盖 post 表中的冗余计数字段，确保数据准确一致
+     */
+    private void enrichPostCounts(Post post) {
+        Long postId = post.getId();
+        // 评论数：comment 表中未逻辑删除的记录数
+        long commentCount = commentMapper.selectCount(
+                new LambdaQueryWrapper<Comment>().eq(Comment::getPostId, postId));
+        // 点赞数：like_collect 表中 type=1(点赞帖子) 的记录数
+        long likeCount = likeCollectMapper.selectCount(
+                new LambdaQueryWrapper<LikeCollect>().eq(LikeCollect::getTargetId, postId).eq(LikeCollect::getType, 1));
+        // 收藏数：like_collect 表中 type=3(收藏帖子) 的记录数
+        long collectCount = likeCollectMapper.selectCount(
+                new LambdaQueryWrapper<LikeCollect>().eq(LikeCollect::getTargetId, postId).eq(LikeCollect::getType, 3));
+
+        post.setCommentCount((int) commentCount);
+        post.setLikeCount((int) likeCount);
+        post.setCollectCount((int) collectCount);
+    }
+
+    /**
+     * 实时分页帖子列表的互动数据
+     *
+     * @param page 分页结果
+     * @description 遍历分页结果中的每条帖子，调用 enrichPostCounts 实时统计
+     */
+    private void enrichPageCounts(Page<Post> page) {
+        if (page.getRecords() != null) {
+            for (Post post : page.getRecords()) {
+                enrichPostCounts(post);
+            }
+        }
     }
 }

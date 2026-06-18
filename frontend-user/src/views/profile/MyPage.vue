@@ -402,6 +402,7 @@ onMounted(() => {
 // ---------- 头像 ----------
 .my-avatar-wrap {
   position: relative;
+  @include hexagon(84px); /* 与 avatar-ring 同尺寸，作为定位基准 */
   margin-bottom: $space-3;
   cursor: pointer;
   transition: transform $dur-base $ease-spring;
@@ -414,7 +415,10 @@ onMounted(() => {
 .hex-avatar {
   @include hexagon(72px);
   overflow: hidden;
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 2;
 
   img {
@@ -427,9 +431,8 @@ onMounted(() => {
 .avatar-ring {
   position: absolute;
   @include hexagon(84px);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  left: 0;
   background: $grad-mint;
   opacity: 0.25;
   z-index: 1;
@@ -723,6 +726,10 @@ onMounted(() => {
 @include mobile {
   .hero-inner {
     padding: $space-6 $space-3 $space-4;
+  }
+
+  .my-avatar-wrap {
+    @include hexagon(70px); /* 与移动端 avatar-ring 同尺寸 */
   }
 
   .hex-avatar {

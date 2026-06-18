@@ -37,7 +37,11 @@ public class Comment implements Serializable {
     /** 评论图片(JSON) */
     private String images;
 
-    /** 点赞数 */
+    /**
+     * 点赞数（非持久化字段）
+     * @description 不对应数据库列，由后端从 like_collect 表实时统计后填充返回给前端
+     */
+    @TableField(exist = false)
     private Integer likeCount;
 
     /** AI评论标记:0手动 1AI生成 */

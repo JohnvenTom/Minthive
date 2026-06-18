@@ -5,6 +5,8 @@
  *   用于实时评论、私信、通知推送
  */
 
+import { getToken } from './token'
+
 type MessageHandler = (data: any) => void
 
 interface WsOptions {
@@ -38,8 +40,10 @@ class WsClient {
 
   /**
    * 建立连接
+   * @description 未登录（URL为空）时跳过连接，避免无效请求
    */
   connect(): void {
+    if (!this.url) return
     if (this.ws && this.ws.readyState === WebSocket.OPEN) return
     this.isManualClose = false
     try {
@@ -160,11 +164,33 @@ class WsClient {
     this.ws?.close()
     this.ws = null
   }
+
+  /**
+   * 登录后调用：刷新 Token 并重新连接
+   * @description 用于用户在页面加载后登录的场景，重新构建带 token 的 URL 并建立连接
+   */
+  connectWithToken(): void {
+    const newUrl = buildWsUrl()
+    if (!newUrl) return
+    this.close()
+    this.url = newUrl
+    this.reconnectCount = 0
+    this.connect()
+  }
 }
 
-// 单例：连接地址由环境决定
-const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/chat`
+/**
+ * 构建带 Token 的 WebSocket 连接地址
+ * @description 未登录时返回空字符串，WsClient.connect() 会跳过连接
+ */
+function buildWsUrl(): string {
+  const token = getToken()
+  if (!token) return ''
+  const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
+  return `${protocol}://${location.host}/ws/${token}`
+}
 
-export const wsClient = new WsClient({ url: wsUrl })
+// 单例：连接地址由 token 动态决定
+export const wsClient = new WsClient({ url: buildWsUrl() })
 
 export default wsClient

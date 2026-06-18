@@ -1,5 +1,7 @@
 package com.minthive.ai;
 
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import java.util.List;
 
 /**
@@ -55,12 +57,23 @@ public interface AiService {
     AiDetectResult detectContent(String text, String imageBase64);
 
     /**
-     * AI 智能问答
+     * AI 智能问答（同步，一次性返回完整回答）
      *
      * @param question 用户提问
      * @return 平台规则标准化回答
      */
     String smartQa(String question);
+
+    /**
+     * AI 智能问答（流式输出）
+     *
+     * <p>通过 SSE (Server-Sent Events) 逐块推送 AI 回复文本，
+     * 前端可实现打字机效果</p>
+     *
+     * @param question 用户提问
+     * @return SseEmitter 流式发射器，每个事件携带一段文本片段
+     */
+    SseEmitter smartQaStream(String question);
 
     /**
      * AI 内容检测结果封装

@@ -1,5 +1,6 @@
 package com.minthive;
 
+import com.minthive.config.EnvLoader;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -23,6 +24,8 @@ public class MinthiveApplication {
      * @param args 启动参数
      */
     public static void main(String[] args) {
+        // 在 Spring 启动前加载 .env 环境变量，使 yml 中的 ${ENV_KEY:默认值} 能正确解析
+        EnvLoader.load();
         SpringApplication.run(MinthiveApplication.class, args);
         System.out.println("====================================");
         System.out.println("  MintHive 兴趣社交平台后端启动成功  ");

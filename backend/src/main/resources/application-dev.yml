@@ -38,14 +38,14 @@ jwt:
 ai:
   mode: cloud  # cloud | local
   cloud:
-    base-url: https://api.openai.com
+    base-url: https://apihub.agnes-ai.com
     api-key: ${AI_CLOUD_DEV_API_KEY:sk-your-openai-api-key}
-    model: gpt-4o-mini
-    timeout: 8000
+    model: agnes-2.0-flash
+    timeout: 30000
   local:
     base-url: http://localhost:11434
     model: qwen3:7b
-    timeout: 8000
+    timeout: 30000
   # 限流：每用户每日AI调用次数
   rate-limit:
     daily: 50

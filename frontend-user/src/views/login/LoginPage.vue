@@ -338,6 +338,7 @@ import { User, Lock, Iphone, Message } from '@element-plus/icons-vue'
 import { loginByPassword, loginBySms, register, sendSmsCode } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 import { setToken } from '@/utils/token'
+import wsClient from '@/utils/websocket'
 import type { FormInstance, FormRules } from 'element-plus'
 
 // ============================================================
@@ -507,6 +508,7 @@ async function handleLogin(): Promise<void> {
 
       setToken(res.data.token)
       userStore.setUser(res.data.user)
+      wsClient.connectWithToken()
 
       ElMessage.success('登录成功')
 
@@ -546,6 +548,7 @@ async function handleRegister(): Promise<void> {
 
       setToken(res.data.token)
       userStore.setUser(res.data.user)
+      wsClient.connectWithToken()
 
       ElMessage.success('注册成功')
       await router.push('/interest-select')

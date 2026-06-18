@@ -7,7 +7,9 @@ import com.minthive.common.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.Data;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.*;
 
@@ -124,6 +126,24 @@ public class AiController {
         String result = aiContext.smartQa(dto.getQuestion());
         aiRateLimiter.increment();
         return Result.success(result);
+    }
+
+    /**
+     * AI 智能问答（流式输出）
+     *
+     * <p>通过 SSE (Server-Sent Events) 逐块推送 AI 回复，
+     * 前端可实现打字机效果，用户体验更流畅</p>
+     *
+     * @param dto 请求参数(用户提问)
+     * @return SseEmitter 流式发射器
+     */
+    @Operation(summary = "AI智能问答(流式)")
+    @PostMapping(value = "/qa/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter qaStream(@RequestBody QaDto dto) {
+        aiRateLimiter.checkLimit();
+        SseEmitter emitter = aiContext.smartQaStream(dto.getQuestion());
+        aiRateLimiter.increment();
+        return emitter;
     }
 
     /**

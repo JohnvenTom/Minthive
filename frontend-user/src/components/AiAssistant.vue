@@ -76,17 +76,15 @@
             </div>
           </div>
 
-          <!-- 加载状态 -->
+          <!-- 流式输出中 -->
           <div v-if="isLoading" class="ai-assistant__msg is-ai">
             <div class="ai-assistant__msg-avatar">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <path d="M12 2L14.5 8.5L21 9.5L16.5 14L17.5 21L12 17.5L6.5 21L7.5 14L3 9.5L9.5 8.5L12 2Z" fill="#FFB627"/>
               </svg>
             </div>
-            <div class="ai-assistant__msg-bubble ai-assistant__loading">
-              <span class="ai-assistant__loading-dot"></span>
-              <span class="ai-assistant__loading-dot"></span>
-              <span class="ai-assistant__loading-dot"></span>
+            <div class="ai-assistant__msg-bubble">
+              {{ streamingText }}<span class="ai-assistant__cursor"></span>
             </div>
           </div>
         </div>
@@ -122,7 +120,7 @@
  */
 
 import { ref, nextTick } from 'vue'
-import { aiChat } from '@/api/ai'
+import { aiChatStream } from '@/api/ai'
 
 /** 面板是否展开 */
 const isOpen = ref(false)
@@ -130,8 +128,11 @@ const isOpen = ref(false)
 /** 输入框文本 */
 const inputText = ref('')
 
-/** 是否正在加载AI回复 */
+/** 是否正在加载AI回复（流式输出中） */
 const isLoading = ref(false)
+
+/** 流式输出控制器（用于中断请求） */
+let abortController: AbortController | null = null
 
 /** 消息列表 */
 const messages = ref<Array<{ role: 'user' | 'ai'; content: string }>>([
@@ -141,14 +142,20 @@ const messages = ref<Array<{ role: 'user' | 'ai'; content: string }>>([
 /** 消息列表DOM引用 */
 const messagesRef = ref<HTMLElement | null>(null)
 
+/**
+ * 流式输出中的文本（独立于 messages 数组，避免出现空气泡）
+ * @description 流式接收期间实时追加内容，结束后推入 messages 并清空
+ */
+const streamingText = ref('')
+
 /** 切换面板展开/收起 */
 function togglePanel(): void {
   isOpen.value = !isOpen.value
 }
 
 /**
- * 发送消息
- * @description 发送用户消息并调用AI问答接口获取回复
+ * 发送消息（流式输出）
+ * @description 发送用户消息后通过 SSE 流式接收 AI 回复，逐字显示打字机效果
  */
 async function sendMessage(): Promise<void> {
   const text = inputText.value.trim()
@@ -157,26 +164,38 @@ async function sendMessage(): Promise<void> {
   messages.value.push({ role: 'user', content: text })
   inputText.value = ''
   isLoading.value = true
+  streamingText.value = '' // 重置流式文本
 
   await scrollToBottom()
 
-  try {
-    const res = await aiChat(text)
-    // 后端返回 Result<String>，data 字段直接是回答文本
-    const answer = typeof res.data === 'string' ? res.data : (res.data as any)?.answer
-    messages.value.push({
-      role: 'ai',
-      content: answer || '抱歉，我暂时无法回答这个问题，请稍后再试。'
-    })
-  } catch {
-    messages.value.push({
-      role: 'ai',
-      content: '网络异常，请稍后再试。'
-    })
-  } finally {
-    isLoading.value = false
-    await scrollToBottom()
-  }
+  abortController = aiChatStream(
+    text,
+    // onChunk：每收到一段文本就追加到流式文本
+    (chunk) => {
+      streamingText.value += chunk
+      autoScroll()
+    },
+    // onDone：流结束，将完整内容推入消息列表
+    () => {
+      if (streamingText.value) {
+        messages.value.push({ role: 'ai', content: streamingText.value })
+        streamingText.value = ''
+      }
+      isLoading.value = false
+      scrollToBottom()
+    },
+    // onError：错误处理
+    (err) => {
+      console.error('[AI] 流式请求失败:', err)
+      messages.value.push({
+        role: 'ai',
+        content: streamingText.value || '抱歉，我暂时无法回答这个问题，请稍后再试。'
+      })
+      streamingText.value = ''
+      isLoading.value = false
+      scrollToBottom()
+    }
+  )
 }
 
 /**
@@ -186,6 +205,21 @@ async function scrollToBottom(): Promise<void> {
   await nextTick()
   if (messagesRef.value) {
     messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+  }
+}
+
+/**
+ * 流式输出时自动滚动（节流，避免频繁滚动）
+ * @description 每 100ms 最多滚动一次，流式输出期间保持消息可见
+ */
+let lastScrollTime = 0
+function autoScroll(): void {
+  const now = Date.now()
+  if (now - lastScrollTime > 100) {
+    lastScrollTime = now
+    if (messagesRef.value) {
+      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+    }
   }
 }
 </script>
@@ -335,6 +369,22 @@ async function scrollToBottom(): Promise<void> {
     align-items: center;
     gap: 4px;
     padding: $space-2 $space-3;
+  }
+
+  /** 流式输出时的闪烁光标 */
+  &__cursor {
+    display: inline-block;
+    width: 2px;
+    height: 14px;
+    background: $mint-500;
+    margin-left: 1px;
+    vertical-align: text-bottom;
+    animation: cursor-blink 1s step-end infinite;
+  }
+
+  @keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
   }
 
   &__loading-dot {

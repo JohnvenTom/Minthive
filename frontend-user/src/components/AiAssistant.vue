@@ -148,6 +148,12 @@ const messagesRef = ref<HTMLElement | null>(null)
  */
 const streamingText = ref('')
 
+/**
+ * 流式文本缓冲区（非响应式，避免 Vue 重渲染/HMR 导致数据丢失）
+ * @description 所有 chunk 先拼接到此变量，再同步到 streamingText ref 用于渲染
+ */
+let streamBuffer = ''
+
 /** 切换面板展开/收起 */
 function togglePanel(): void {
   isOpen.value = !isOpen.value
@@ -161,24 +167,34 @@ async function sendMessage(): Promise<void> {
   const text = inputText.value.trim()
   if (!text || isLoading.value) return
 
+  // 如果有正在进行的流式请求，先中断它（避免并发写入导致数据混乱）
+  if (abortController) {
+    abortController.abort()
+    abortController = null
+  }
+
   messages.value.push({ role: 'user', content: text })
   inputText.value = ''
   isLoading.value = true
-  streamingText.value = '' // 重置流式文本
+  streamingText.value = '' // 重置流式文本显示
+  streamBuffer = ''         // 重置缓冲区（数据真相源）
 
   await scrollToBottom()
 
   abortController = aiChatStream(
     text,
-    // onChunk：每收到一段文本就追加到流式文本
+    // onChunk：每收到一段文本就追加到缓冲区（纯字符串拼接），再同步到响应式变量
     (chunk) => {
-      streamingText.value += chunk
+      streamBuffer = streamBuffer + chunk
+      streamingText.value = streamBuffer  // 同步到模板渲染
       autoScroll()
     },
     // onDone：流结束，将完整内容推入消息列表
     () => {
-      if (streamingText.value) {
-        messages.value.push({ role: 'ai', content: streamingText.value })
+      abortController = null
+      if (streamBuffer) {
+        messages.value.push({ role: 'ai', content: streamBuffer })
+        streamBuffer = ''
         streamingText.value = ''
       }
       isLoading.value = false
@@ -186,11 +202,11 @@ async function sendMessage(): Promise<void> {
     },
     // onError：错误处理
     (err) => {
+      abortController = null
       console.error('[AI] 流式请求失败:', err)
-      messages.value.push({
-        role: 'ai',
-        content: streamingText.value || '抱歉，我暂时无法回答这个问题，请稍后再试。'
-      })
+      const finalText = streamBuffer || '抱歉，我暂时无法回答这个问题，请稍后再试。'
+      messages.value.push({ role: 'ai', content: finalText })
+      streamBuffer = ''
       streamingText.value = ''
       isLoading.value = false
       scrollToBottom()

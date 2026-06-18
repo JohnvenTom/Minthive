@@ -112,12 +112,27 @@ export function aiChatStream(
 ): AbortController {
   const controller = new AbortController()
 
-  // 获取基础 URL（兼容代理和直接访问场景）
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
+  // 防重入守卫：确保回调只触发一次，避免流结束后继续写入导致数据混乱
+  let settled = false
+  const settle = (fn: () => void) => {
+    if (settled) return
+    settled = true
+    fn()
+  }
+
+  // 获取基础 URL
+  // 注意：SSE 流式接口必须直连后端，不能走 Vite 代理
+  // 原因：http-proxy 会缓冲/截断长连接 SSE 流，导致 fetch reader 提前收到 done
+  // 开发环境：使用当前页面的 hostname + 后端端口，避免跨域
+  const baseUrl = import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:8080` : '')
+  console.log('[AI Stream] 开始请求:', `${baseUrl}/api/ai/qa/stream`)
+
   fetch(`${baseUrl}/api/ai/qa/stream`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
       // 携带认证 Token
       ...(localStorage.getItem('minthive_token')
         ? { Authorization: `Bearer ${localStorage.getItem('minthive_token')}` }
@@ -127,61 +142,102 @@ export function aiChatStream(
     signal: controller.signal
   })
     .then(async (response) => {
-      if (!response.ok || !response.body) {
-        throw new Error(`HTTP ${response.status}`)
+      console.log('[AI Stream] 响应状态:', response.status, response.headers.get('content-type'))
+
+      if (!response.ok) {
+        // 尝试读取错误信息（非流式响应）
+        const errorText = await response.text().catch(() => '')
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+
+      if (!response.body) {
+        throw new Error('response.body 为空，浏览器可能不支持流式读取')
       }
 
       const reader = response.body.getReader()
-      const decoder = new TextDecoder()
+      const decoder = new TextDecoder('utf-8')
       let buffer = ''
 
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (done) {
+          console.log('[AI Stream] 流读取完成, 剩余buffer:', buffer)
+          break
+        }
 
         buffer += decoder.decode(value, { stream: true })
 
-        // 按 SSE 格式拆分：data: {...}\n\n
-        const lines = buffer.split('\n')
+        // 按 SSE 格式拆分：兼容 \n 和 \r\n 换行风格
+        const lines = buffer.split(/\r?\n/)
         buffer = lines.pop() || '' // 最后一个可能不完整的行放回缓冲区
 
         for (const line of lines) {
           const trimmed = line.trim()
-          if (!trimmed.startsWith('data: ')) continue
-          const data = trimmed.slice(6).trim()
+          // 跳过空行和注释行
+          if (!trimmed || trimmed.startsWith(':')) continue
 
-          if (data === '[DONE]') {
-            onDone()
-            return
-          }
+          // 处理 event 字段行（跳过，只关注 data 行）
+          if (trimmed.startsWith('event:')) continue
 
-          try {
-            // 后端 SseEmitter.event().name("message").data(text) 发送纯文本
-            // 后端若转发原始 OpenAI chunk 则为 JSON（含 choices[0].delta.content）
-            const trimmedData = data.trim()
-            if (!trimmedData) continue
+          // 处理 data 行
+          if (trimmed.startsWith('data: ')) {
+            const data = trimmed.slice(6).trim()
 
-            // 尝试按 JSON 解析（OpenAI 原始 chunk 格式）
-            if (trimmedData.startsWith('{')) {
-              const json = JSON.parse(trimmedData)
-              const content = json?.choices?.[0]?.delta?.content ?? ''
-              if (content) onChunk(content)
-            } else {
-              // 纯文本，直接作为内容推送
-              onChunk(trimmedData)
+            // 流结束标记
+            if (data === '[DONE]') {
+              console.log('[AI Stream] 收到 [DONE] 标记')
+              settle(onDone)
+              return
             }
-          } catch {
-            // 非 JSON 且非正常文本的行忽略
+
+            try {
+              const trimmedData = data.trim()
+              if (!trimmedData) continue
+
+              // 已结束的流不再处理新数据
+              if (settled) {
+                console.warn('[AI Stream] 收到数据但流已结束, 忽略:', trimmedData)
+                continue
+              }
+
+              // 尝试按 JSON 解析（OpenAI 原始 chunk 格式）
+              if (trimmedData.startsWith('{')) {
+                try {
+                  const json = JSON.parse(trimmedData)
+                  const content = json?.choices?.[0]?.delta?.content ?? ''
+                  if (content) {
+                    console.log('[AI Stream] chunk(JSON):', content)
+                    onChunk(content)
+                  }
+                } catch (parseErr) {
+                  // JSON 解析失败，当作纯文本处理
+                  console.log('[AI Stream] chunk(文本):', trimmedData)
+                  onChunk(trimmedData)
+                }
+              } else {
+                // 纯文本，直接作为内容推送
+                console.log('[AI Stream] chunk(文本):', trimmedData)
+                onChunk(trimmedData)
+              }
+            } catch (e) {
+              console.warn('[AI Stream] data行解析异常:', e, '原始数据:', trimmed)
+            }
           }
         }
       }
 
-      // 流正常结束
-      if (!buffer) onDone()
+      // 流正常结束（服务器关闭连接但没发 [DONE]）
+      if (!settled) {
+        console.log('[AI Stream] 流自然结束')
+        settle(onDone)
+      }
     })
     .catch((err) => {
       if ((err as Error).name !== 'AbortError') {
-        onError?.(err as Error)
+        console.error('[AI Stream] 请求异常:', err)
+        settle(() => onError?.(err as Error))
+      } else {
+        console.log('[AI Stream] 请求被中断(AbortError)')
       }
     })
 

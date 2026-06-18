@@ -85,7 +85,13 @@ public enum ResultCode {
     DUPLICATE_OPERATION(1015, "请勿重复操作"),
 
     /** 频率限制 */
-    RATE_LIMITED(1016, "操作过于频繁，请稍后再试");
+    RATE_LIMITED(1016, "操作过于频繁，请稍后再试"),
+
+    /** 验证码错误 */
+    SMS_CODE_ERROR(1017, "验证码错误或已过期"),
+
+    /** 验证码发送频繁 */
+    SMS_SEND_FREQUENT(1018, "验证码发送过于频繁，请稍后再试");
 
     /** 状态码 */
     private final Integer code;

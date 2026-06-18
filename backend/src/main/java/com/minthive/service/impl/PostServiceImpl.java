@@ -127,4 +127,65 @@ public class PostServiceImpl implements PostService {
         wrapper.orderByDesc(Post::getCreateTime);
         return postMapper.selectPage(new Page<>(current, size), wrapper);
     }
+
+    /**
+     * 获取首页信息流（推荐/最新/最热）
+     *
+     * @param sortType 排序类型: latest(最新) / hot(最热)
+     * @param current  当前页
+     * @param size     每页大小
+     * @return 分页帖子列表（仅已审核、公开的帖子）
+     */
+    @Override
+    public Page<Post> feed(String sortType, long current, long size) {
+        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+                .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
+                .eq(Post::getVisibility, 0); // 仅公开帖子
+
+        // 根据排序类型排序：hot按点赞数降序，latest按时间降序
+        if ("hot".equals(sortType)) {
+            wrapper.orderByDesc(Post::getLikeCount)
+                  .orderByDesc(Post::getCreateTime);
+        } else {
+            // 默认按时间倒序
+            wrapper.orderByDesc(Post::getCreateTime);
+        }
+        return postMapper.selectPage(new Page<>(current, size), wrapper);
+    }
+
+    /**
+     * 更新帖子点赞数（+1 或 -1）
+     *
+     * @param postId 帖子ID
+     * @param delta  变化量（正数增加，负数减少）
+     */
+    @Override
+    public void updateLikeCount(Long postId, int delta) {
+        Post update = new Post();
+        update.setId(postId);
+        // 防止计数变为负数
+        Post existing = postMapper.selectById(postId);
+        if (existing == null) return;
+        int newVal = Math.max(0, existing.getLikeCount() + delta);
+        update.setLikeCount(newVal);
+        postMapper.updateById(update);
+    }
+
+    /**
+     * 更新帖子收藏数（+1 或 -1）
+     *
+     * @param postId 帖子ID
+     * @param delta  变化量（正数增加，负数减少）
+     */
+    @Override
+    public void updateCollectCount(Long postId, int delta) {
+        Post update = new Post();
+        update.setId(postId);
+        // 防止计数变为负数
+        Post existing = postMapper.selectById(postId);
+        if (existing == null) return;
+        int newVal = Math.max(0, existing.getCollectCount() + delta);
+        update.setCollectCount(newVal);
+        postMapper.updateById(update);
+    }
 }

@@ -10,6 +10,7 @@ import com.minthive.entity.User;
 import com.minthive.mapper.UserMapper;
 import com.minthive.security.JwtUtils;
 import com.minthive.service.UserService;
+import com.minthive.service.SmsService;
 import com.minthive.util.BcryptUtil;
 import com.minthive.util.RedisUtil;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 用户服务实现
@@ -33,6 +35,8 @@ public class UserServiceImpl implements UserService {
     private final JwtUtils jwtUtils;
 
     private final RedisUtil redisUtil;
+
+    private final SmsService smsService;
 
     /**
      * 用户注册
@@ -128,6 +132,24 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
+     * 根据手机号查询用户信息
+     *
+     * @param phone 手机号
+     * @return 用户实体（密码字段已脱敏）
+     * @throws BusinessException 用户不存在时抛出
+     */
+    @Override
+    public User getByPhone(String phone) {
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getPhone, phone));
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_EXISTS);
+        }
+        user.setPassword(null);
+        return user;
+    }
+
+    /**
      * 更新用户信息
      *
      * @param user 用户实体
@@ -200,5 +222,106 @@ public class UserServiceImpl implements UserService {
         // 脱敏：清除密码字段
         page.getRecords().forEach(u -> u.setPassword(null));
         return page;
+    }
+
+    /**
+     * 手机号验证码登录
+     *
+     * <p>流程：校验验证码 → 根据手机号查找用户 → 生成JWT Token</p>
+     *
+     * @param phone 手机号
+     * @param code  短信验证码
+     * @return JWT Token
+     * @throws BusinessException 验证码错误或用户不存在时抛出
+     */
+    @Override
+    public String loginBySms(String phone, String code) {
+        // 校验验证码
+        if (!smsService.verifyCode(phone, code)) {
+            throw new BusinessException(ResultCode.SMS_CODE_ERROR);
+        }
+        // 根据手机号查找用户
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getPhone, phone));
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_EXISTS);
+        }
+        if (Constants.USER_STATUS_BANNED == user.getStatus()) {
+            throw new BusinessException(ResultCode.USER_BANNED);
+        }
+        String token = jwtUtils.generateToken(user.getId(), user.getAccount());
+        redisUtil.cacheLoginToken(user.getId(), token);
+        log.info("用户验证码登录成功: phone={}, id={}", phone, user.getId());
+        return token;
+    }
+
+    /**
+     * 带验证码的用户注册
+     *
+     * <p>流程：校验验证码 → 校验账号唯一性 → 创建用户</p>
+     *
+     * @param account  账号
+     * @param password 明文密码
+     * @param phone    手机号
+     * @param code     短信验证码
+     * @return 注册成功的用户实体
+     * @throws BusinessException 验证码错误或账号已存在时抛出
+     */
+    @Override
+    public User registerWithCode(String account, String password, String phone, String code) {
+        // 校验验证码
+        if (!smsService.verifyCode(phone, code)) {
+            throw new BusinessException(ResultCode.SMS_CODE_ERROR);
+        }
+        return register(account, password, phone);
+    }
+
+    /**
+     * 重置密码（通过验证码校验身份）
+     *
+     * <p>流程：校验验证码 → 根据手机号查找用户 → 更新密码 → 清除登录态</p>
+     *
+     * @param phone       手机号
+     * @param code        短信验证码
+     * @param newPassword 新密码
+     * @throws BusinessException 验证码错误或用户不存在时抛出
+     */
+    @Override
+    public void resetPassword(String phone, String code, String newPassword) {
+        // 校验验证码
+        if (!smsService.verifyCode(phone, code)) {
+            throw new BusinessException(ResultCode.SMS_CODE_ERROR);
+        }
+        // 根据手机号查找用户
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getPhone, phone));
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_EXISTS);
+        }
+        // 更新密码
+        User update = new User();
+        update.setId(user.getId());
+        update.setPassword(BcryptUtil.encode(newPassword));
+        userMapper.updateById(update);
+        // 清除登录态，强制重新登录
+        redisUtil.deleteLoginToken(user.getId());
+        log.info("用户重置密码成功: phone={}, id={}", phone, user.getId());
+    }
+
+    /**
+     * 更新用户兴趣标签
+     *
+     * <p>将兴趣标签列表转为逗号分隔字符串存入数据库</p>
+     *
+     * @param userId    用户ID
+     * @param interests 兴趣标签列表
+     */
+    @Override
+    public void updateInterests(Long userId, List<String> interests) {
+        User update = new User();
+        update.setId(userId);
+        update.setInterestTags(String.join(",", interests));
+        userMapper.updateById(update);
+        log.info("用户兴趣标签更新: userId={}, tags={}", userId, update.getInterestTags());
     }
 }

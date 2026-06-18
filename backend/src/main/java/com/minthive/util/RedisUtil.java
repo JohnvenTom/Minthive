@@ -152,4 +152,51 @@ public class RedisUtil {
     public void deleteLoginToken(Long userId) {
         stringRedisTemplate.delete(RedisConstants.LOGIN_TOKEN_PREFIX + userId);
     }
+
+    /**
+     * 缓存短信验证码（5分钟过期）
+     *
+     * @param phone 手机号
+     * @param code  验证码
+     */
+    public void cacheSmsCode(String phone, String code) {
+        String key = RedisConstants.SMS_CODE_PREFIX + phone;
+        stringRedisTemplate.opsForValue().set(key, code, 5, TimeUnit.MINUTES);
+    }
+
+    /**
+     * 获取并删除短信验证码（一次性使用）
+     *
+     * @param phone 手机号
+     * @return 验证码，不存在返回 null
+     */
+    public String getAndDeleteSmsCode(String phone) {
+        String key = RedisConstants.SMS_CODE_PREFIX + phone;
+        String code = stringRedisTemplate.opsForValue().get(key);
+        if (code != null) {
+            stringRedisTemplate.delete(key);
+        }
+        return code;
+    }
+
+    /**
+     * 检查短信验证码发送频率（60秒内不可重复发送）
+     *
+     * @param phone 手机号
+     * @return true 表示频率受限，不可发送
+     */
+    public boolean isSmsRateLimited(String phone) {
+        String key = RedisConstants.SMS_CODE_PREFIX + phone + ":limit";
+        return Boolean.TRUE.equals(stringRedisTemplate.hasKey(key));
+    }
+
+    /**
+     * 标记短信验证码发送频率（设置60秒过期）
+     *
+     * @param phone 手机号
+     */
+    public void markSmsSent(String phone) {
+        String key = RedisConstants.SMS_CODE_PREFIX + phone + ":limit";
+        stringRedisTemplate.opsForValue().set(key, "1", 60, TimeUnit.SECONDS);
+    }
 }

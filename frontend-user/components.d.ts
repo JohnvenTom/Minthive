@@ -10,6 +10,12 @@ declare module 'vue' {
     AiAssistant: typeof import('./src/components/AiAssistant.vue')['default']
     CircleCard: typeof import('./src/components/CircleCard.vue')['default']
     CommentItem: typeof import('./src/components/CommentItem.vue')['default']
+    ElButton: typeof import('element-plus/es')['ElButton']
+    ElCheckbox: typeof import('element-plus/es')['ElCheckbox']
+    ElForm: typeof import('element-plus/es')['ElForm']
+    ElFormItem: typeof import('element-plus/es')['ElFormItem']
+    ElIcon: typeof import('element-plus/es')['ElIcon']
+    ElInput: typeof import('element-plus/es')['ElInput']
     EmptyState: typeof import('./src/components/EmptyState.vue')['default']
     ImageUploader: typeof import('./src/components/ImageUploader.vue')['default']
     LoadingSpinner: typeof import('./src/components/LoadingSpinner.vue')['default']
@@ -20,5 +26,8 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     TabBar: typeof import('./src/components/TabBar.vue')['default']
     UserCard: typeof import('./src/components/UserCard.vue')['default']
+    VanDialog: typeof import('vant/es')['Dialog']
+    VanIcon: typeof import('vant/es')['Icon']
+    VanPullRefresh: typeof import('vant/es')['PullRefresh']
   }
 }

@@ -8,6 +8,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 用户控制器
  */
@@ -61,6 +63,27 @@ public class UserController {
     public Result<User> update(@RequestBody User user) {
         user.setId(UserContext.getUserId());
         return Result.success(userService.update(user));
+    }
+
+    /**
+     * 更新兴趣标签
+     *
+     * @param dto 兴趣标签请求体
+     * @return 操作结果
+     */
+    @Operation(summary = "更新兴趣标签")
+    @PutMapping("/interests")
+    public Result<Void> updateInterests(@RequestBody InterestsDto dto) {
+        userService.updateInterests(UserContext.getUserId(), dto.getInterests());
+        return Result.success();
+    }
+
+    /**
+     * 兴趣标签请求 DTO
+     */
+    @lombok.Data
+    public static class InterestsDto {
+        private List<String> interests;
     }
 
     /**

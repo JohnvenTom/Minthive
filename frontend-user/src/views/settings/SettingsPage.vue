@@ -308,7 +308,7 @@ function handleDeleteAccount(): void {
   &__logout {
     width: 100%;
     height: 44px;
-    border: 1px solid $coral-300;
+    border: 1px solid $coral-500;
     border-radius: $radius-lg;
     background: #fff;
     color: $coral-500;
@@ -319,7 +319,7 @@ function handleDeleteAccount(): void {
     margin-bottom: $space-3;
 
     &:active {
-      background: $coral-50;
+      background: rgba(255, 107, 107, 0.08);
     }
   }
 

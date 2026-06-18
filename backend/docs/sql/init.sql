@@ -74,6 +74,7 @@ CREATE TABLE `post` (
     `circle_id`      BIGINT       DEFAULT NULL COMMENT '圈子ID(可空)',
     `ai_generated`   TINYINT      NOT NULL DEFAULT 0 COMMENT 'AI文案生成标记:0手动 1AI生成',
     `tags`           VARCHAR(255) DEFAULT NULL COMMENT '话题标签(逗号分隔)',
+    `share_post_id`  BIGINT       DEFAULT NULL COMMENT '转发原帖ID(非空时表示转发帖)',
     `create_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
     `update_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`        TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除',

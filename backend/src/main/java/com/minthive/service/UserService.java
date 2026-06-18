@@ -1,6 +1,7 @@
 package com.minthive.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.minthive.entity.Post;
 import com.minthive.entity.User;
 
 import java.util.List;
@@ -129,4 +130,50 @@ public interface UserService {
      * @param interests 兴趣标签列表
      */
     void updateInterests(Long userId, List<String> interests);
+
+    /**
+     * 更新用户头像
+     *
+     * <p>功能描述：将用户头像URL更新到数据库</p>
+     *
+     * @param userId 用户ID
+     * @param avatar 头像URL地址
+     */
+    void updateAvatar(Long userId, String avatar);
+
+    /**
+     * 查询指定用户的已审核帖子列表（分页）
+     *
+     * <p>功能描述：根据用户ID查询该用户所有审核通过的帖子，按发布时间倒序排列</p>
+     *
+     * @param userId  目标用户ID
+     * @param current 当前页码（从1开始）
+     * @param size    每页条数
+     * @return 分页帖子列表（仅包含 auditStatus=1 的帖子）
+     */
+    Page<Post> getUserPosts(Long userId, long current, long size);
+
+    /**
+     * 查询当前登录用户的收藏帖子列表（分页）
+     *
+     * <p>功能描述：通过 like_collect 表（type=collect_post）关联 post 表，获取用户收藏的帖子</p>
+     *
+     * @param userId  当前登录用户ID
+     * @param current 当前页码（从1开始）
+     * @param size    每页条数
+     * @return 分页收藏帖子列表
+     */
+    Page<Post> getCollects(Long userId, long current, long size);
+
+    /**
+     * 查询当前登录用户的点赞帖子列表（分页）
+     *
+     * <p>功能描述：通过 like_collect 表（type=like_post）关联 post 表，获取用户点赞的帖子</p>
+     *
+     * @param userId  当前登录用户ID
+     * @param current 当前页码（从1开始）
+     * @param size    每页条数
+     * @return 分页点赞帖子列表
+     */
+    Page<Post> getLikes(Long userId, long current, long size);
 }

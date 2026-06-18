@@ -58,6 +58,9 @@ public class Post implements Serializable {
     /** 话题标签 */
     private String tags;
 
+    /** 转发原帖ID(非空时表示转发帖) */
+    private Long sharePostId;
+
     /** 发布时间 */
     private LocalDateTime createTime;
 

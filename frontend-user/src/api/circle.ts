@@ -17,9 +17,9 @@ export function getCircles(params: {
   pageSize?: number
 }) {
   return request<PageResult<Circle>>({
-    url: '/circle/list',
+    url: '/circle/page',
     method: 'get',
-    params
+    params: { current: params.page, size: params.pageSize, category: params.category, keyword: params.keyword }
   })
 }
 
@@ -50,7 +50,7 @@ export function getCirclePosts(id: number, page = 1, pageSize = 10) {
  * @param {string} reason - 私密圈申请理由
  */
 export function joinCircle(id: number, reason?: string) {
-  return request({ url: `/circle/${id}/join`, method: 'post', data: { reason } })
+  return request({ url: `/circle/join/${id}`, method: 'post', data: { reason } })
 }
 
 /**
@@ -58,7 +58,7 @@ export function joinCircle(id: number, reason?: string) {
  * @param {number} id
  */
 export function leaveCircle(id: number) {
-  return request({ url: `/circle/${id}/leave`, method: 'post' })
+  return request({ url: `/circle/leave/${id}`, method: 'post' })
 }
 
 /**

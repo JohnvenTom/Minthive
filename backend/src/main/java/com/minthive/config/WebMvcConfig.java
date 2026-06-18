@@ -36,6 +36,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/reset",
                         // 首页信息流放行（允许未登录浏览）
                         "/api/post/feed",
+                        // AI 助手放行（允许未登录使用）
+                        "/api/ai/**",
                         // 文档放行
                         "/doc.html",
                         "/swagger-ui.html",

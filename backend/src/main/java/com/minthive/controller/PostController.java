@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 帖子控制器
  */
@@ -165,5 +167,50 @@ public class PostController {
         likeCollectService.unlike(userId, id, Constants.LC_TYPE_COLLECT_POST);
         postService.updateCollectCount(id, -1);
         return Result.success();
+    }
+
+    /**
+     * 转发帖子
+     *
+     * <p>功能描述：创建一条新帖，内容引用原帖，sharePostId 指向原帖ID</p>
+     *
+     * @param id   原帖ID
+     * @param post 转发时的附加内容（可为空）
+     * @return 创建的转发帖子
+     */
+    @Operation(summary = "转发帖子")
+    @PostMapping("/{id}/share")
+    public Result<Post> share(@PathVariable Long id, @RequestBody(required = false) Post post) {
+        if (post == null) {
+            post = new Post();
+        }
+        return Result.success(postService.share(post, id, UserContext.getUserId()));
+    }
+
+    /**
+     * 保存草稿
+     *
+     * <p>功能描述：将帖子以草稿形式保存（auditStatus=0），不进行敏感词审核</p>
+     *
+     * @param post 帖子实体（内容、图片等）
+     * @return 保存后的草稿帖子
+     */
+    @Operation(summary = "保存草稿")
+    @PostMapping("/draft")
+    public Result<Post> saveDraft(@RequestBody Post post) {
+        return Result.success(postService.saveDraft(post, UserContext.getUserId()));
+    }
+
+    /**
+     * 查询草稿列表
+     *
+     * <p>功能描述：查询当前登录用户的所有草稿（auditStatus=0）</p>
+     *
+     * @return 草稿帖子列表
+     */
+    @Operation(summary = "草稿列表")
+    @GetMapping("/draft")
+    public Result<List<Post>> draftList() {
+        return Result.success(postService.getDraftList(UserContext.getUserId()));
     }
 }

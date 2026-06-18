@@ -14,7 +14,7 @@ import type { Comment, PageResult } from '@/types'
  */
 export function getComments(postId: number, page = 1, pageSize = 20) {
   return request<PageResult<Comment>>({
-    url: `/comment/list`,
+    url: `/comment/page`,
     method: 'get',
     params: { postId, page, pageSize }
   })

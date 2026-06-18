@@ -165,9 +165,6 @@ const rightPosts = computed(() =>
  * @description 根据当前Tab模式请求信息流，支持首次加载和刷新
  */
 async function fetchFeed(isRefresh = false): Promise<void> {
-  // 防止非首次/刷新场景下的并发重复请求（滚动触发时 loadingMore 已为 true）
-  if (!isRefresh && loadingMore.value) return
-
   if (isRefresh) {
     currentPage.value = 1
     hasMore.value = true

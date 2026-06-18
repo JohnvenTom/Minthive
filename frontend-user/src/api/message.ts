@@ -21,9 +21,9 @@ export function getChatList() {
  */
 export function getMessages(userId: number, page = 1, pageSize = 30) {
   return request<PageResult<Message>>({
-    url: '/message/list',
+    url: '/message/history',
     method: 'get',
-    params: { userId, page, pageSize }
+    params: { peerId: userId, limit: pageSize }
   })
 }
 
@@ -44,7 +44,7 @@ export function sendMessage(data: {
  * @param {number} id
  */
 export function revokeAiMessage(id: number) {
-  return request({ url: `/message/${id}/revoke`, method: 'post' })
+  return request({ url: `/message/revoke/${id}`, method: 'delete' })
 }
 
 /**

@@ -19,7 +19,7 @@ export function getUserProfile(userId: number) {
  * @param {Partial<User>} data
  */
 export function updateProfile(data: Partial<User>) {
-  return request<User>({ url: '/user/profile', method: 'put', data })
+  return request<User>({ url: '/user', method: 'put', data })
 }
 
 /**
@@ -78,5 +78,5 @@ export function getUserLikes(page = 1, pageSize = 10) {
  * 账号注销（7天冷静期）
  */
 export function deactivateAccount() {
-  return request({ url: '/user/deactivate', method: 'post' })
+  return request({ url: '/user/cancel', method: 'delete' })
 }

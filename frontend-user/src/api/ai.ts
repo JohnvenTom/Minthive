@@ -12,24 +12,24 @@ import type { AiPostDraft, AiCommentSuggestion } from '@/types'
  * AI 生成帖子文案（3版风格）
  * @param {string} keyword - 关键词
  * @param {string} circleCategory - 圈子分类
- * @returns {Promise<AiPostDraft[]>} 三版文案
+ * @returns {Promise<string[]>} 三版文案（纯文本数组）
  */
 export function aiGeneratePost(keyword: string, circleCategory?: string) {
-  return request<AiPostDraft[]>({
-    url: '/ai/post/generate',
+  return request<string[]>({
+    url: '/ai/post-content',
     method: 'post',
-    data: { keyword, circleCategory }
+    data: { keywords: keyword, category: circleCategory }
   })
 }
 
 /**
  * AI 文案润色
  * @param {string} content - 原始文案
- * @returns {Promise<{content: string, topics: string[]}>}
+ * @returns {Promise<string>} 润色后文案（纯文本）
  */
 export function aiPolishPost(content: string) {
-  return request<{ content: string; topics: string[] }>({
-    url: '/ai/post/polish',
+  return request<string>({
+    url: '/ai/polish',
     method: 'post',
     data: { content }
   })
@@ -37,51 +37,57 @@ export function aiPolishPost(content: string) {
 
 /**
  * AI 智能评论
- * @param {number} postId
- * @returns {Promise<AiCommentSuggestion[]>} 3 条评论建议
+ * @param {string} postContent - 帖子内容
+ * @param {string} category - 帖子所属圈子分类
+ * @returns {Promise<string[]>} 3 条评论建议
  */
-export function aiGenerateComment(postId: number) {
-  return request<AiCommentSuggestion[]>({
-    url: '/ai/comment/generate',
+export function aiGenerateComment(postContent: string, category?: string) {
+  return request<string[]>({
+    url: '/ai/comment',
     method: 'post',
-    data: { postId }
+    data: { postContent, category }
   })
 }
 
 /**
  * AI 私信代回复
- * @param {number} toUserId
  * @param {string} context - 聊天上下文
+ * @param {string} incomingMessage - 对方最新消息
  */
-export function aiReplyMessage(toUserId: number, context: string) {
-  return request<{ content: string }>({
-    url: '/ai/message/reply',
+export function aiReplyMessage(context: string, incomingMessage: string) {
+  return request<string>({
+    url: '/ai/message-reply',
     method: 'post',
-    data: { toUserId, context }
+    data: { context, incomingMessage }
   })
 }
 
 /**
  * AI 内容检测
- * @param {string} content - 文本内容
+ * @param {string} text - 文本内容
  * @param {string} imageBase64 - 图片 Base64（可选）
- * @returns {Promise<{violated: boolean, type?: string, level?: 'low'|'mid'|'high'}>}
+ * @returns {Promise<AiDetectResult>} 检测结果
  */
-export function aiCheckContent(content?: string, imageBase64?: string) {
-  return request<{ violated: boolean; type?: string; level?: 'low' | 'mid' | 'high' }>({
-    url: '/ai/content/check',
+export function aiCheckContent(text?: string, imageBase64?: string) {
+  return request<{
+    violated: boolean
+    type?: string
+    level?: 'low' | 'mid' | 'high'
+  }>({
+    url: '/ai/detect',
     method: 'post',
-    data: { content, imageBase64 }
+    data: { text, imageBase64 }
   })
 }
 
 /**
  * AI 智能问答（客服）
- * @param {string} question
+ * @param {string} question - 用户提问
+ * @returns {Promise<{answer: string}>} AI 回答
  */
 export function aiChat(question: string) {
   return request<{ answer: string }>({
-    url: '/ai/chat',
+    url: '/ai/qa',
     method: 'post',
     data: { question }
   })

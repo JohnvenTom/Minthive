@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.BusinessException;
 import com.minthive.common.ResultCode;
 import com.minthive.entity.Comment;
+import com.minthive.entity.Post;
 import com.minthive.mapper.CommentMapper;
+import com.minthive.mapper.PostMapper;
 import com.minthive.service.CommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,8 @@ import org.springframework.stereotype.Service;
 public class CommentServiceImpl implements CommentService {
 
     private final CommentMapper commentMapper;
+
+    private final PostMapper postMapper;
 
     /**
      * 发表评论
@@ -32,6 +36,8 @@ public class CommentServiceImpl implements CommentService {
             comment.setParentId(0L);
         }
         commentMapper.insert(comment);
+        // 同步更新帖子的评论计数 +1
+        incrementPostCommentCount(comment.getPostId());
         return comment;
     }
 
@@ -67,5 +73,39 @@ public class CommentServiceImpl implements CommentService {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权删除他人评论");
         }
         commentMapper.deleteById(id);
+        // 同步更新帖子的评论计数 -1
+        decrementPostCommentCount(comment.getPostId());
+    }
+
+    /**
+     * 增加帖子评论计数
+     *
+     * @param postId 帖子ID
+     * @description 将指定帖子的 commentCount 字段 +1，防止负数
+     */
+    private void incrementPostCommentCount(Long postId) {
+        Post post = postMapper.selectById(postId);
+        if (post != null) {
+            Post update = new Post();
+            update.setId(postId);
+            update.setCommentCount(post.getCommentCount() + 1);
+            postMapper.updateById(update);
+        }
+    }
+
+    /**
+     * 减少帖子评论计数
+     *
+     * @param postId 帖子ID
+     * @description 将指定帖子的 commentCount 字段 -1，防止负数
+     */
+    private void decrementPostCommentCount(Long postId) {
+        Post post = postMapper.selectById(postId);
+        if (post != null) {
+            Post update = new Post();
+            update.setId(postId);
+            update.setCommentCount(Math.max(0, post.getCommentCount() - 1));
+            postMapper.updateById(update);
+        }
     }
 }

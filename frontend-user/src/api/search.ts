@@ -25,9 +25,9 @@ export function search(keyword: string, type: 'all' | 'user' | 'post' | 'circle'
  */
 export function searchUsers(keyword: string, page = 1) {
   return request<PageResult<User>>({
-    url: '/search/users',
+    url: '/search/user',
     method: 'get',
-    params: { keyword, page }
+    params: { keyword, current: page }
   })
 }
 
@@ -36,9 +36,9 @@ export function searchUsers(keyword: string, page = 1) {
  */
 export function searchPosts(keyword: string, page = 1) {
   return request<PageResult<Post>>({
-    url: '/search/posts',
+    url: '/search/post',
     method: 'get',
-    params: { keyword, page }
+    params: { keyword, current: page }
   })
 }
 
@@ -47,9 +47,9 @@ export function searchPosts(keyword: string, page = 1) {
  */
 export function searchCircles(keyword: string, page = 1) {
   return request<PageResult<Circle>>({
-    url: '/search/circles',
+    url: '/search/circle',
     method: 'get',
-    params: { keyword, page }
+    params: { keyword, current: page }
   })
 }
 

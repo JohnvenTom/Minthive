@@ -59,4 +59,30 @@ public interface PostService {
      * @return 分页结果
      */
     Page<Post> searchByKeyword(String keyword, long current, long size);
+
+    /**
+     * 获取首页信息流（推荐/最新/最热）
+     *
+     * @param sortType 排序类型: latest(最新) / hot(最热)
+     * @param current  当前页
+     * @param size     每页大小
+     * @return 分页帖子列表
+     */
+    Page<Post> feed(String sortType, long current, long size);
+
+    /**
+     * 更新帖子点赞数（+1 或 -1）
+     *
+     * @param postId 帖子ID
+     * @param delta  变化量（正数增加，负数减少）
+     */
+    void updateLikeCount(Long postId, int delta);
+
+    /**
+     * 更新帖子收藏数（+1 或 -1）
+     *
+     * @param postId 帖子ID
+     * @param delta  变化量（正数增加，负数减少）
+     */
+    void updateCollectCount(Long postId, int delta);
 }

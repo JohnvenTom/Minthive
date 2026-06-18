@@ -505,8 +505,8 @@ async function handleLogin(): Promise<void> {
         res = await loginBySms(loginForm.phone, loginForm.smsCode)
       }
 
-      setToken(res.token)
-      userStore.setUser(res.user)
+      setToken(res.data.token)
+      userStore.setUser(res.data.user)
 
       ElMessage.success('登录成功')
 
@@ -544,8 +544,8 @@ async function handleRegister(): Promise<void> {
         code: registerForm.smsCode
       })
 
-      setToken(res.token)
-      userStore.setUser(res.user)
+      setToken(res.data.token)
+      userStore.setUser(res.data.user)
 
       ElMessage.success('注册成功')
       await router.push('/interest-select')

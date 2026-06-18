@@ -31,6 +31,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         // 登录注册放行（无需 Token）
                         "/api/auth/login",
                         "/api/auth/register",
+                        "/api/auth/sms",
+                        "/api/auth/login/sms",
+                        "/api/auth/reset",
+                        // 首页信息流放行（允许未登录浏览）
+                        "/api/post/feed",
                         // 文档放行
                         "/doc.html",
                         "/swagger-ui.html",

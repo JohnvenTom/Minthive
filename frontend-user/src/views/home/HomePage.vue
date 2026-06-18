@@ -165,6 +165,9 @@ const rightPosts = computed(() =>
  * @description 根据当前Tab模式请求信息流，支持首次加载和刷新
  */
 async function fetchFeed(isRefresh = false): Promise<void> {
+  // 防止非首次/刷新场景下的并发重复请求（滚动触发时 loadingMore 已为 true）
+  if (!isRefresh && loadingMore.value) return
+
   if (isRefresh) {
     currentPage.value = 1
     hasMore.value = true
@@ -172,7 +175,8 @@ async function fetchFeed(isRefresh = false): Promise<void> {
 
   try {
     const res = await getFeed(activeTab.value, currentPage.value, pageSize)
-    const list = res.data?.list || []
+    const pageData = res.data || {}
+    const list = pageData.records || []
 
     if (isRefresh || currentPage.value === 1) {
       posts.value = list
@@ -180,7 +184,9 @@ async function fetchFeed(isRefresh = false): Promise<void> {
       posts.value.push(...list)
     }
 
-    hasMore.value = res.data?.hasMore ?? false
+    // 根据分页元数据判断是否还有更多
+    const total = pageData.total ?? 0
+    hasMore.value = (currentPage.value * pageSize) < total
   } catch (err: any) {
     showToast('加载失败，请重试')
   } finally {
@@ -213,12 +219,12 @@ function onRefresh(): void {
 }
 
 /**
- * 上拉加载更多
+ * 滚动到底部加载下一页
  * @returns {Promise<void>}
- * @description 滚动到底部时加载下一页数据
+ * @description 检测滚动到底部触发加载下一页数据
  */
 async function onLoadMore(): Promise<void> {
-  if (loadingMore.value || !hasMore.value) return
+  if (loading.value || loadingMore.value || !hasMore.value) return
   loadingMore.value = true
   currentPage.value++
   await fetchFeed()
@@ -226,12 +232,14 @@ async function onLoadMore(): Promise<void> {
 
 /**
  * 点赞/取消点赞
- * @param {Post} post - 目标帖子
+ * @param {number} postId - 帖子ID（由PostCard emit传出）
  * @returns {Promise<void>}
  */
-async function onLike(post: Post): Promise<void> {
+async function onLike(postId: number): Promise<void> {
+  const post = posts.value.find(p => p.id === postId)
+  if (!post) return
   try {
-    await toggleLike(post.id, !post.liked)
+    await toggleLike(postId, !post.liked)
     post.liked = !post.liked
     post.likeCount += post.liked ? 1 : -1
   } catch {
@@ -241,12 +249,14 @@ async function onLike(post: Post): Promise<void> {
 
 /**
  * 收藏/取消收藏
- * @param {Post} post - 目标帖子
+ * @param {number} postId - 帖子ID（由PostCard emit传出）
  * @returns {Promise<void>}
  */
-async function onCollect(post: Post): Promise<void> {
+async function onCollect(postId: number): Promise<void> {
+  const post = posts.value.find(p => p.id === postId)
+  if (!post) return
   try {
-    await toggleCollect(post.id, !post.collected)
+    await toggleCollect(postId, !post.collected)
     post.collected = !post.collected
     post.collectCount += post.collected ? 1 : -1
   } catch {

@@ -9,14 +9,14 @@ import type { Post, PageResult } from '@/types'
 /**
  * 获取首页信息流
  * @param {'recommend' | 'latest' | 'hot'} mode - 推荐模式
- * @param {number} page
- * @param {number} pageSize
+ * @param {number} current 当前页码
+ * @param {number} size 每页大小
  */
-export function getFeed(mode: 'recommend' | 'latest' | 'hot' = 'recommend', page = 1, pageSize = 10) {
+export function getFeed(mode: 'recommend' | 'latest' | 'hot' = 'recommend', current = 1, size = 10) {
   return request<PageResult<Post>>({
     url: '/post/feed',
     method: 'get',
-    params: { mode, page, pageSize }
+    params: { sortType: mode, current, size }
   })
 }
 

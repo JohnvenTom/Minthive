@@ -59,7 +59,9 @@
           ]"
           @click="toggleInterest(item.key)"
         >
-          <span class="interest-tag__icon">{{ item.icon }}</span>
+          <el-icon class="interest-tag__icon" :size="28">
+            <component :is="item.icon" />
+          </el-icon>
           <span class="interest-tag__text">{{ item.label }}</span>
           <span v-if="selectedInterests.includes(item.key)" class="interest-tag__check">
             <svg viewBox="0 0 16 16" fill="none">
@@ -109,9 +111,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import {
+  Monitor, VideoCamera, Reading, Camera, Cherry, Headset,
+  Bowl, Promotion, Soccer, Notebook, Microphone, PriceTag,
+  Coin, MagicStick, Brush, Money, FirstAidKit, Sunny,
+  School, EditPen, Edit, Star, Van, Iphone
+} from '@element-plus/icons-vue'
 import { updateInterests } from '@/api/user'
 import { useUserStore } from '@/stores/user'
 
@@ -139,34 +147,34 @@ let animationFrameId: number | null = null
 interface InterestItem {
   key: string
   label: string
-  icon: string
+  icon: Component
 }
 
 const interestList: InterestItem[] = [
-  { key: 'gaming', label: '游戏', icon: '🎮' },
-  { key: 'movie', label: '影视', icon: '🎬' },
-  { key: 'outdoor', label: '户外', icon: '🏕️' },
-  { key: 'reading', label: '读书', icon: '📚' },
-  { key: 'photography', label: '摄影', icon: '📷' },
-  { key: 'anime', label: '二次元', icon: '🌸' },
-  { key: 'music', label: '音乐', icon: '🎵' },
-  { key: 'food', label: '美食', icon: '🍜' },
-  { key: 'travel', label: '旅行', icon: '✈️' },
-  { key: 'craft', label: '手工', icon: '🧶' },
-  { key: 'sports', label: '运动', icon: '⚽' },
-  { key: 'tech', label: '科技', icon: '💻' },
-  { key: 'pet', label: '宠物', icon: '🐾' },
-  { key: 'fashion', label: '时尚', icon: '👗' },
-  { key: 'art', label: '艺术', icon: '🎨' },
-  { key: 'dance', label: '舞蹈', icon: '💃' },
-  { key: 'finance', label: '理财', icon: '💰' },
-  { key: 'health', label: '养生', icon: '🧘' },
-  { key: 'education', label: '教育', icon: '🎓' },
-  { key: 'design', label: '设计', icon: '✏️' },
-  { key: 'writing', label: '写作', icon: '✍️' },
-  { key: 'astrology', label: '星座', icon: '⭐' },
-  { key: 'cars', label: '汽车', icon: '🚗' },
-  { key: 'digital', label: '数码', icon: '📱' }
+  { key: 'gaming', label: '游戏', icon: Monitor },
+  { key: 'movie', label: '影视', icon: VideoCamera },
+  { key: 'outdoor', label: '户外', icon: MagicStick },
+  { key: 'reading', label: '读书', icon: Reading },
+  { key: 'photography', label: '摄影', icon: Camera },
+  { key: 'anime', label: '二次元', icon: Cherry },
+  { key: 'music', label: '音乐', icon: Headset },
+  { key: 'food', label: '美食', icon: Bowl },
+  { key: 'travel', label: '旅行', icon: Promotion },
+  { key: 'craft', label: '手工', icon: Brush },
+  { key: 'sports', label: '运动', icon: Soccer },
+  { key: 'tech', label: '科技', icon: Notebook },
+  { key: 'pet', label: '宠物', icon: FirstAidKit },
+  { key: 'fashion', label: '时尚', icon: PriceTag },
+  { key: 'art', label: '艺术', icon: Coin },
+  { key: 'dance', label: '舞蹈', icon: Microphone },
+  { key: 'finance', label: '理财', icon: Money },
+  { key: 'health', label: '养生', icon: Sunny },
+  { key: 'education', label: '教育', icon: School },
+  { key: 'design', label: '设计', icon: EditPen },
+  { key: 'writing', label: '写作', icon: Edit },
+  { key: 'astrology', label: '星座', icon: Star },
+  { key: 'cars', label: '汽车', icon: Van },
+  { key: 'digital', label: '数码', icon: Iphone }
 ]
 
 /**
@@ -610,13 +618,21 @@ onUnmounted(() => {
   }
 
   &__icon {
-    font-size: 28px;
     position: relative;
     z-index: 1;
     transition: transform $dur-base $ease-spring;
+    color: $ink-300;
+
+    .interest-tag--selected &,
+    .interest-tag:hover:not(.interest-tag--disabled) & {
+      color: $mint-300;
+    }
 
     @include mobile {
-      font-size: 24px;
+      :deep(svg) {
+        width: 24px !important;
+        height: 24px !important;
+      }
     }
   }
 

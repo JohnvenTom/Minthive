@@ -3,6 +3,8 @@ package com.minthive.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.entity.User;
 
+import java.util.List;
+
 /**
  * 用户服务接口
  *
@@ -46,6 +48,15 @@ public interface UserService {
     User getByAccount(String account);
 
     /**
+     * 根据手机号查询用户信息
+     *
+     * @param phone 手机号
+     * @return 用户实体（密码字段为 null）
+     * @throws com.minthive.common.BusinessException 用户不存在时抛出
+     */
+    User getByPhone(String phone);
+
+    /**
      * 更新用户信息
      *
      * @param user 用户实体
@@ -78,4 +89,44 @@ public interface UserService {
      * @return 分页结果
      */
     Page<User> searchByKeyword(String keyword, long current, long size);
+
+    /**
+     * 手机号验证码登录
+     *
+     * @param phone   手机号
+     * @param code    短信验证码
+     * @return JWT Token
+     * @throws com.minthive.common.BusinessException 验证码错误或用户不存在时抛出
+     */
+    String loginBySms(String phone, String code);
+
+    /**
+     * 带验证码的用户注册
+     *
+     * @param account  账号
+     * @param password 明文密码
+     * @param phone    手机号
+     * @param code     短信验证码
+     * @return 注册成功的用户实体
+     * @throws com.minthive.common.BusinessException 验证码错误或账号已存在时抛出
+     */
+    User registerWithCode(String account, String password, String phone, String code);
+
+    /**
+     * 重置密码（通过验证码校验身份）
+     *
+     * @param phone       手机号
+     * @param code        短信验证码
+     * @param newPassword 新密码
+     * @throws com.minthive.common.BusinessException 验证码错误或用户不存在时抛出
+     */
+    void resetPassword(String phone, String code, String newPassword);
+
+    /**
+     * 更新用户兴趣标签
+     *
+     * @param userId    用户ID
+     * @param interests 兴趣标签列表
+     */
+    void updateInterests(Long userId, List<String> interests);
 }

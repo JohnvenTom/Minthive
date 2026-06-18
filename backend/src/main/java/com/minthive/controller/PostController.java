@@ -2,8 +2,10 @@ package com.minthive.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
+import com.minthive.common.Constants;
 import com.minthive.entity.Post;
 import com.minthive.security.UserContext;
+import com.minthive.service.LikeCollectService;
 import com.minthive.service.PostService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,14 +20,17 @@ import org.springframework.web.bind.annotation.*;
 public class PostController {
 
     private final PostService postService;
+    private final LikeCollectService likeCollectService;
 
     /**
-     * 构造器注入 PostService
+     * 构造器注入
      *
-     * @param postService 帖子服务
+     * @param postService        帖子服务
+     * @param likeCollectService 点赞收藏服务
      */
-    public PostController(PostService postService) {
+    public PostController(PostService postService, LikeCollectService likeCollectService) {
         this.postService = postService;
+        this.likeCollectService = likeCollectService;
     }
 
     /**
@@ -70,6 +75,22 @@ public class PostController {
     }
 
     /**
+     * 首页信息流（推荐/最新/最热）
+     *
+     * @param sortType 排序类型: latest(最新) / hot(最热)
+     * @param current  当前页
+     * @param size     每页大小
+     * @return 分页帖子列表
+     */
+    @Operation(summary = "首页信息流")
+    @GetMapping("/feed")
+    public Result<Page<Post>> feed(@RequestParam(defaultValue = "latest") String sortType,
+                                   @RequestParam(defaultValue = "1") long current,
+                                   @RequestParam(defaultValue = "10") long size) {
+        return Result.success(postService.feed(sortType, current, size));
+    }
+
+    /**
      * 删除帖子
      *
      * @param id 帖子ID
@@ -79,6 +100,70 @@ public class PostController {
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         postService.delete(id, UserContext.getUserId());
+        return Result.success();
+    }
+
+    /**
+     * 点赞帖子
+     *
+     * @param id 帖子ID
+     * @return 操作结果
+     */
+    @Operation(summary = "点赞帖子")
+    @PostMapping("/{id}/like")
+    public Result<Void> like(@PathVariable Long id) {
+        Long userId = UserContext.getUserId();
+        boolean isNew = likeCollectService.like(userId, id, Constants.LC_TYPE_LIKE_POST);
+        if (isNew) {
+            postService.updateLikeCount(id, 1);
+        }
+        return Result.success();
+    }
+
+    /**
+     * 取消点赞
+     *
+     * @param id 帖子ID
+     * @return 操作结果
+     */
+    @Operation(summary = "取消点赞")
+    @DeleteMapping("/{id}/like")
+    public Result<Void> unlike(@PathVariable Long id) {
+        Long userId = UserContext.getUserId();
+        likeCollectService.unlike(userId, id, Constants.LC_TYPE_LIKE_POST);
+        postService.updateLikeCount(id, -1);
+        return Result.success();
+    }
+
+    /**
+     * 收藏帖子
+     *
+     * @param id 帖子ID
+     * @return 操作结果
+     */
+    @Operation(summary = "收藏帖子")
+    @PostMapping("/{id}/collect")
+    public Result<Void> collect(@PathVariable Long id) {
+        Long userId = UserContext.getUserId();
+        boolean isNew = likeCollectService.like(userId, id, Constants.LC_TYPE_COLLECT_POST);
+        if (isNew) {
+            postService.updateCollectCount(id, 1);
+        }
+        return Result.success();
+    }
+
+    /**
+     * 取消收藏
+     *
+     * @param id 帖子ID
+     * @return 操作结果
+     */
+    @Operation(summary = "取消收藏")
+    @DeleteMapping("/{id}/collect")
+    public Result<Void> uncollect(@PathVariable Long id) {
+        Long userId = UserContext.getUserId();
+        likeCollectService.unlike(userId, id, Constants.LC_TYPE_COLLECT_POST);
+        postService.updateCollectCount(id, -1);
         return Result.success();
     }
 }

@@ -3,9 +3,11 @@ package com.minthive.ai;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 本地私有化 AI 服务实现
@@ -129,5 +131,32 @@ public class LocalAiServiceImpl implements AiService {
             log.error("[LocalAI] 智能问答异常: ", e);
             return aiFallback.fallbackQa();
         }
+    }
+
+    /**
+     * AI 智能问答(流式输出，本地模式)
+     *
+     * <p>本地模式不支持真正的流式输出，模拟一次性返回</p>
+     *
+     * @param question 用户提问
+     * @return SseEmitter 流式发射器（一次性发送完整回答）
+     */
+    @Override
+    public SseEmitter smartQaStream(String question) {
+        SseEmitter emitter = new SseEmitter(10_000L);
+        CompletableFuture.runAsync(() -> {
+            try {
+                String answer = smartQa(question);
+                emitter.send(SseEmitter.event().name("message").data(answer));
+                emitter.complete();
+            } catch (Exception e) {
+                log.error("[LocalAI] 智能问答流式异常: ", e);
+                try {
+                    emitter.send(SseEmitter.event().name("error").data(aiFallback.fallbackQa()));
+                    emitter.completeWithError(e);
+                } catch (Exception ignored) {}
+            }
+        });
+        return emitter;
     }
 }

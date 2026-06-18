@@ -32,45 +32,86 @@ public class AiRateLimiter {
     /**
      * 校验当前用户是否超出每日 AI 调用上限
      *
+     * <p>当 Redis 不可用或用户未登录时自动放行，避免因基础设施故障导致所有 AI 功能不可用</p>
+     *
      * @throws BusinessException 超出上限时抛出
      */
     public void checkLimit() {
-        Long userId = UserContext.getUserId();
-        String key = buildKey(userId);
-        String countStr = stringRedisTemplate.opsForValue().get(key);
-        int count = countStr == null ? 0 : Integer.parseInt(countStr);
-        int limit = aiConfig.getRateLimit().getDaily();
-        if (count >= limit) {
-            log.warn("用户 {} 当日AI调用次数已达上限 {}", userId, limit);
-            throw new BusinessException(ResultCode.AI_RATE_LIMITED);
+        try {
+            Long userId = getUserIdSafe();
+            if (userId == null) {
+                // 未登录用户跳过限流校验（AI 接口配置为免登录）
+                return;
+            }
+            String key = buildKey(userId);
+            String countStr = stringRedisTemplate.opsForValue().get(key);
+            int count = countStr == null ? 0 : Integer.parseInt(countStr);
+            int limit = aiConfig.getRateLimit().getDaily();
+            if (count >= limit) {
+                log.warn("用户 {} 当日AI调用次数已达上限 {}", userId, limit);
+                throw new BusinessException(ResultCode.AI_RATE_LIMITED);
+            }
+        } catch (BusinessException e) {
+            // 业务异常（超限）继续抛出
+            throw e;
+        } catch (Exception e) {
+            // Redis 不可用时打印警告并放行，不影响 AI 功能使用
+            log.warn("[AiRateLimiter] 限流校验异常，跳过: {}", e.getMessage());
         }
     }
 
     /**
      * 记录一次 AI 调用(计数 +1)
+     *
+     * <p>Redis 不可用或未登录时静默跳过，不影响 AI 功能</p>
      */
     public void increment() {
-        Long userId = UserContext.getUserId();
-        String key = buildKey(userId);
-        Long newCount = stringRedisTemplate.opsForValue().increment(key);
-        // 首次调用设置过期时间(到当日 23:59:59)
-        if (newCount != null && newCount == 1L) {
-            long secondsUntilEndOfDay = computeSecondsUntilEndOfDay();
-            stringRedisTemplate.expire(key, secondsUntilEndOfDay, TimeUnit.SECONDS);
+        try {
+            Long userId = getUserIdSafe();
+            if (userId == null) return; // 未登录不计数
+            String key = buildKey(userId);
+            Long newCount = stringRedisTemplate.opsForValue().increment(key);
+            // 首次调用设置过期时间(到当日 23:59:59)
+            if (newCount != null && newCount == 1L) {
+                long secondsUntilEndOfDay = computeSecondsUntilEndOfDay();
+                stringRedisTemplate.expire(key, secondsUntilEndOfDay, TimeUnit.SECONDS);
+            }
+        } catch (Exception e) {
+            log.warn("[AiRateLimiter] Redis 计数异常，跳过: {}", e.getMessage());
         }
     }
 
     /**
      * 查询当前用户今日剩余 AI 调用次数
      *
+     * <p>Redis 不可用时返回配置的上限值</p>
+     *
      * @return 剩余次数
      */
     public int remaining() {
-        Long userId = UserContext.getUserId();
-        String key = buildKey(userId);
-        String countStr = stringRedisTemplate.opsForValue().get(key);
-        int count = countStr == null ? 0 : Integer.parseInt(countStr);
-        return Math.max(0, aiConfig.getRateLimit().getDaily() - count);
+        try {
+            Long userId = getUserIdSafe();
+            if (userId == null) return aiConfig.getRateLimit().getDaily(); // 未登录返回上限值
+            String key = buildKey(userId);
+            String countStr = stringRedisTemplate.opsForValue().get(key);
+            int count = countStr == null ? 0 : Integer.parseInt(countStr);
+            return Math.max(0, aiConfig.getRateLimit().getDaily() - count);
+        } catch (Exception e) {
+            log.warn("[AiRateLimiter] Redis 查询异常，返回默认值: {}", e.getMessage());
+            return aiConfig.getRateLimit().getDaily();
+        }
+    }
+
+    /**
+     * 安全获取当前用户ID（未登录时返回 null 而非抛异常）
+     *
+     * <p>适用于 AI 接口等免登录场景，避免 IllegalStateException 噪音日志</p>
+     *
+     * @return 用户ID，未登录返回 null
+     */
+    private Long getUserIdSafe() {
+        com.minthive.security.LoginUser user = UserContext.get();
+        return user != null ? user.getUserId() : null;
     }
 
     /**

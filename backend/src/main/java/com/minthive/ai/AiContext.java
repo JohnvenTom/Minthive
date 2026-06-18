@@ -4,6 +4,7 @@ import com.minthive.config.AiConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -100,5 +101,17 @@ public class AiContext {
      */
     public String smartQa(String question) {
         return getAiService().smartQa(question);
+    }
+
+    /**
+     * 代理调用：智能问答（流式输出）
+     *
+     * <p>通过 SSE 逐块推送 AI 回复，前端可实现打字机效果</p>
+     *
+     * @param question 用户提问
+     * @return SseEmitter 流式发射器
+     */
+    public SseEmitter smartQaStream(String question) {
+        return getAiService().smartQaStream(question);
     }
 }

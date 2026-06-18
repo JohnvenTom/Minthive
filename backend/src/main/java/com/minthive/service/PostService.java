@@ -73,22 +73,6 @@ public interface PostService {
     Page<Post> feed(String sortType, long current, long size);
 
     /**
-     * 更新帖子点赞数（+1 或 -1）
-     *
-     * @param postId 帖子ID
-     * @param delta  变化量（正数增加，负数减少）
-     */
-    void updateLikeCount(Long postId, int delta);
-
-    /**
-     * 更新帖子收藏数（+1 或 -1）
-     *
-     * @param postId 帖子ID
-     * @param delta  变化量（正数增加，负数减少）
-     */
-    void updateCollectCount(Long postId, int delta);
-
-    /**
      * 转发帖子
      *
      * <p>功能描述：创建一条新帖，内容引用原帖，sharePostId 指向原帖ID</p>

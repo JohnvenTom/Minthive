@@ -31,5 +31,6 @@ declare module 'vue' {
     VanIcon: typeof import('vant/es')['Icon']
     VanImagePreview: typeof import('vant/es')['ImagePreview']
     VanPullRefresh: typeof import('vant/es')['PullRefresh']
+    VanSwitch: typeof import('vant/es')['Switch']
   }
 }

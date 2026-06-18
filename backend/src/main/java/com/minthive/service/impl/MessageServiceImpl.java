@@ -6,23 +6,33 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.BusinessException;
 import com.minthive.common.Constants;
 import com.minthive.common.ResultCode;
-import com.minthive.entity.Message;
-import com.minthive.mapper.MessageMapper;
+import com.minthive.entity.*;
+import com.minthive.mapper.*;
 import com.minthive.service.MessageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 私信消息服务实现
+ * 私信消息与通知服务实现
+ *
+ * <p>私信功能：发送、聊天记录、已读标记、AI代回复撤回、会话列表</p>
+ * <p>通知功能：聚合点赞/评论/关注/圈子/系统 五类通知，支持类型筛选与分页</p>
  */
 @RequiredArgsConstructor
 @Service
 public class MessageServiceImpl implements MessageService {
 
     private final MessageMapper messageMapper;
+    private final UserMapper userMapper;
+    private final PostMapper postMapper;
+    private final CommentMapper commentMapper;
+    private final LikeCollectMapper likeCollectMapper;
+    private final FollowMapper followMapper;
+    private final SystemMsgMapper systemMsgMapper;
 
     /**
      * 发送私信
@@ -153,40 +163,354 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /**
-     * 获取通知列表（占位实现）
+     * 获取通知列表
      *
-     * <p>简化实现：返回空分页结果占位（通知系统可后续完善）</p>
+     * <p>聚合五类通知数据：点赞(like)、评论(comment)、关注(follow)、圈子(circle)、系统(system)。
+     * 点赞/评论/关注从各自的业务表实时计算，圈子/系统从 system_msg 表读取。
+     * 支持按类型筛选，统一按时间倒序分页返回</p>
      *
      * @param userId   当前用户ID
-     * @param type     通知类型（可选），如 like/comment/circle/system
+     * @param type     通知类型（可选），如 like/comment/follow/circle/system，空字符串表示全部
      * @param current  当前页码，默认1
      * @param size     每页条数，默认10
-     * @return 空的分页通知列表
+     * @return 分页通知列表，每条通知包含 id/type/fromUserId/fromNickname/fromAvatar/targetId/content/read/createTime
      */
     @Override
-    public Page<Map<String, Object>> getNotificationList(Long userId, String type, long current, long size) {
-        Page<Map<String, Object>> page = new Page<>(current, size);
-        page.setRecords(Collections.emptyList());
-        page.setTotal(0);
-        return page;
+    public Page<Map<String, Object>> getNotificationList(Long userId, String type, long page, long size) {
+        List<Map<String, Object>> allNotifications = new ArrayList<>();
+
+        // ---------- 1. 点赞通知：别人点赞了我的帖子 ----------
+        if (type == null || type.isEmpty() || "like".equals(type)) {
+            allNotifications.addAll(buildLikeNotifications(userId));
+        }
+
+        // ---------- 2. 评论通知：别人评论了我的帖子 ----------
+        if (type == null || type.isEmpty() || "comment".equals(type)) {
+            allNotifications.addAll(buildCommentNotifications(userId));
+        }
+
+        // ---------- 3. 关注通知：别人关注了我 ----------
+        if (type == null || type.isEmpty() || "follow".equals(type)) {
+            allNotifications.addAll(buildFollowNotifications(userId));
+        }
+
+        // ---------- 4. 圈子通知：来自 system_msg (msgType=4) ----------
+        if (type == null || type.isEmpty() || "circle".equals(type)) {
+            allNotifications.addAll(buildSystemMsgNotifications(userId, 4, "circle"));
+        }
+
+        // ---------- 5. 系统通知：来自 system_msg (msgType=5) ----------
+        if (type == null || type.isEmpty() || "system".equals(type)) {
+            allNotifications.addAll(buildSystemMsgNotifications(userId, 5, "system"));
+        }
+
+        // ---------- 全局排序（按时间倒序）----------
+        allNotifications.sort((a, b) -> {
+            LocalDateTime ta = (LocalDateTime) a.get("createTime");
+            LocalDateTime tb = (LocalDateTime) b.get("createTime");
+            return tb.compareTo(ta);
+        });
+
+        // ---------- 手动分页 ----------
+        long total = allNotifications.size();
+        int fromIndex = (int) ((page - 1) * size);
+        int toIndex = Math.min((int) (fromIndex + size), allNotifications.size());
+        List<Map<String, Object>> pageRecords = fromIndex < allNotifications.size()
+                ? allNotifications.subList(fromIndex, toIndex)
+                : Collections.emptyList();
+
+        Page<Map<String, Object>> result = new Page<>(page, size);
+        result.setRecords(pageRecords);
+        result.setTotal(total);
+        return result;
     }
 
     /**
-     * 获取各类型未读消息统计（占位实现）
+     * 获取各类型未读消息统计
      *
-     * <p>简化实现：返回全零占位，包含 like/comment/message/circle/system 各类型</p>
+     * <p>实时统计五类通知的未读数量：
+     * like: 别人对我帖子的最新点赞数
+     * comment: 别人对我帖子的最新评论数
+     * follow: 新关注者数量（简化为全部关注记录数）
+     * message: 私信未读数
+     * circle: 圈子公告未读数
+     * system: 系统公告未读数</p>
      *
      * @param userId 当前用户ID
-     * @return 未读统计Map，各类型值均为0
+     * @return 未读统计Map，包含 like/comment/message/circle/system 各类型的未读数
      */
     @Override
     public Map<String, Integer> getUnreadCount(Long userId) {
         Map<String, Integer> unreadMap = new HashMap<>();
-        unreadMap.put("like", 0);
-        unreadMap.put("comment", 0);
-        unreadMap.put("message", 0);
-        unreadMap.put("circle", 0);
-        unreadMap.put("system", 0);
+
+        // 1. 私信未读：查询 message 表中当前用户接收的未读消息
+        long messageUnread = messageMapper.selectCount(
+                new LambdaQueryWrapper<Message>()
+                        .eq(Message::getToUserId, userId)
+                        .eq(Message::getIsRead, Constants.READ_STATUS_UNREAD));
+        unreadMap.put("message", (int) messageUnread);
+
+        // 2. 点赞未读：别人点赞了我帖子的事件数
+        List<Long> myPostIds = getMyPostIds(userId);
+        if (!myPostIds.isEmpty()) {
+            long likeUnread = likeCollectMapper.selectCount(
+                    new LambdaQueryWrapper<LikeCollect>()
+                            .in(LikeCollect::getTargetId, myPostIds)
+                            .eq(LikeCollect::getType, Constants.LC_TYPE_LIKE_POST)
+                            .ne(LikeCollect::getUserId, userId));
+            unreadMap.put("like", (int) likeUnread);
+        } else {
+            unreadMap.put("like", 0);
+        }
+
+        // 3. 评论未读：别人评论了我帖子的事件数
+        if (!myPostIds.isEmpty()) {
+            long commentUnread = commentMapper.selectCount(
+                    new LambdaQueryWrapper<Comment>()
+                            .in(Comment::getPostId, myPostIds)
+                            .ne(Comment::getUserId, userId));
+            unreadMap.put("comment", (int) commentUnread);
+        } else {
+            unreadMap.put("comment", 0);
+        }
+
+        // 4. 关注未读：关注我的人数
+        long followUnread = followMapper.selectCount(
+                new LambdaQueryWrapper<Follow>()
+                        .eq(Follow::getFollowUserId, userId));
+        unreadMap.put("follow", (int) followUnread);
+
+        // 5. 圈子通知未读：system_msg 中 msgType=4 且 isRead=0
+        long circleUnread = systemMsgMapper.selectCount(
+                new LambdaQueryWrapper<SystemMsg>()
+                        .eq(SystemMsg::getUserId, userId)
+                        .eq(SystemMsg::getMsgType, 4)
+                        .eq(SystemMsg::getIsRead, Constants.READ_STATUS_UNREAD));
+        unreadMap.put("circle", (int) circleUnread);
+
+        // 6. 系统通知未读：system_msg 中 msgType=5 且 isRead=0
+        long systemUnread = systemMsgMapper.selectCount(
+                new LambdaQueryWrapper<SystemMsg>()
+                        .eq(SystemMsg::getUserId, userId)
+                        .eq(SystemMsg::getMsgType, 5)
+                        .eq(SystemMsg::getIsRead, Constants.READ_STATUS_UNREAD));
+        unreadMap.put("system", (int) systemUnread);
+
         return unreadMap;
+    }
+
+    // ==================== 通知构建私有方法 ====================
+
+    /**
+     * 构建点赞通知列表
+     *
+     * <p>查询 like_collect 表中别人对当前用户帖子的点赞记录，
+     * 关联获取点赞者昵称/头像和被点赞的帖子ID</p>
+     *
+     * @param userId 当前用户ID
+     * @return 点赞通知Map列表
+     */
+    private List<Map<String, Object>> buildLikeNotifications(Long userId) {
+        List<Long> myPostIds = getMyPostIds(userId);
+        if (myPostIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 查询别人对我帖子的点赞记录
+        LambdaQueryWrapper<LikeCollect> wrapper = new LambdaQueryWrapper<LikeCollect>()
+                .in(LikeCollect::getTargetId, myPostIds)
+                .eq(LikeCollect::getType, Constants.LC_TYPE_LIKE_POST)
+                .ne(LikeCollect::getUserId, userId)  // 排除自己点赞
+                .orderByDesc(LikeCollect::getCreateTime)
+                .last("LIMIT 100");
+        List<LikeCollect> likes = likeCollectMapper.selectList(wrapper);
+
+        if (likes.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 批量获取点赞者信息
+        Set<Long> likerIds = likes.stream().map(LikeCollect::getUserId).collect(Collectors.toSet());
+        Map<Long, User> userMap = batchGetUsers(likerIds);
+
+        List<Map<String, Object>> notifications = new ArrayList<>();
+        for (LikeCollect lc : likes) {
+            User liker = userMap.get(lc.getUserId());
+            Map<String, Object> notice = new HashMap<>();
+            notice.put("id", lc.getId());
+            notice.put("type", "like");
+            notice.put("fromUserId", lc.getUserId());
+            notice.put("fromNickname", liker != null ? liker.getNickname() : "未知用户");
+            notice.put("fromAvatar", liker != null ? liker.getAvatar() : "");
+            notice.put("targetId", lc.getTargetId());
+            notice.put("content", "赞了你的动态");
+            notice.put("read", false);
+            notice.put("createTime", lc.getCreateTime());
+            notifications.add(notice);
+        }
+        return notifications;
+    }
+
+    /**
+     * 构建评论通知列表
+     *
+     * <p>查询 comment 表中别人对当前用户帖子的评论记录，
+     * 关联获取评论者信息和评论内容</p>
+     *
+     * @param userId 当前用户ID
+     * @return 评论通知Map列表
+     */
+    private List<Map<String, Object>> buildCommentNotifications(Long userId) {
+        List<Long> myPostIds = getMyPostIds(userId);
+        if (myPostIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 查询别人对我帖子的评论记录
+        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
+                .in(Comment::getPostId, myPostIds)
+                .ne(Comment::getUserId, userId)  // 排除自己的评论
+                .orderByDesc(Comment::getCreateTime)
+                .last("LIMIT 100");
+        List<Comment> comments = commentMapper.selectList(wrapper);
+
+        if (comments.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 批量获取评论者信息
+        Set<Long> commenterIds = comments.stream().map(Comment::getUserId).collect(Collectors.toSet());
+        Map<Long, User> userMap = batchGetUsers(commenterIds);
+
+        List<Map<String, Object>> notifications = new ArrayList<>();
+        for (Comment c : comments) {
+            User commenter = userMap.get(c.getUserId());
+            Map<String, Object> notice = new HashMap<>();
+            notice.put("id", c.getId());
+            notice.put("type", "comment");
+            notice.put("fromUserId", c.getUserId());
+            notice.put("fromNickname", commenter != null ? commenter.getNickname() : "未知用户");
+            notice.put("fromAvatar", commenter != null ? commenter.getAvatar() : "");
+            notice.put("targetId", c.getPostId());
+            // 截取评论内容作为预览，过长则截断
+            String preview = c.getContent() != null && c.getContent().length() > 50
+                    ? c.getContent().substring(0, 50) + "..." : c.getContent();
+            notice.put("content", preview != null ? preview : "评论了你的动态");
+            notice.put("read", false);
+            notice.put("createTime", c.getCreateTime());
+            notifications.add(notice);
+        }
+        return notifications;
+    }
+
+    /**
+     * 构建关注通知列表
+     *
+     * <p>查询 follow 表中新关注当前用户的记录，关联获取关注者信息</p>
+     *
+     * @param userId 当前用户ID（被关注方）
+     * @return 关注通知Map列表
+     */
+    private List<Map<String, Object>> buildFollowNotifications(Long userId) {
+        LambdaQueryWrapper<Follow> wrapper = new LambdaQueryWrapper<Follow>()
+                .eq(Follow::getFollowUserId, userId)
+                .orderByDesc(Follow::getCreateTime)
+                .last("LIMIT 100");
+        List<Follow> follows = followMapper.selectList(wrapper);
+
+        if (follows.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 批量获取关注者信息
+        Set<Long> followerIds = follows.stream().map(Follow::getUserId).collect(Collectors.toSet());
+        Map<Long, User> userMap = batchGetUsers(followerIds);
+
+        List<Map<String, Object>> notifications = new ArrayList<>();
+        for (Follow f : follows) {
+            User follower = userMap.get(f.getUserId());
+            Map<String, Object> notice = new HashMap<>();
+            notice.put("id", f.getId());
+            notice.put("type", "follow");
+            notice.put("fromUserId", f.getUserId());
+            notice.put("fromNickname", follower != null ? follower.getNickname() : "未知用户");
+            notice.put("fromAvatar", follower != null ? follower.getAvatar() : "");
+            notice.put("targetId", f.getUserId());
+            notice.put("content", "关注了你");
+            notice.put("read", false);
+            notice.put("createTime", f.getCreateTime());
+            notifications.add(notice);
+        }
+        return notifications;
+    }
+
+    /**
+     * 构建 system_msg 类型的通知（圈子公告 / 系统公告）
+     *
+     * <p>从 system_msg 表按 msgType 筛选，直接使用表中的已读状态</p>
+     *
+     * @param userId  接收用户ID
+     * @param msgType 消息类型（4=圈子公告, 5=系统公告）
+     * @param typeStr 前端通知类型标识（"circle" / "system"）
+     * @return 通知Map列表
+     */
+    private List<Map<String, Object>> buildSystemMsgNotifications(Long userId, int msgType, String typeStr) {
+        LambdaQueryWrapper<SystemMsg> wrapper = new LambdaQueryWrapper<SystemMsg>()
+                .eq(SystemMsg::getUserId, userId)
+                .eq(SystemMsg::getMsgType, msgType)
+                .orderByDesc(SystemMsg::getCreateTime)
+                .last("LIMIT 100");
+        List<SystemMsg> msgs = systemMsgMapper.selectList(wrapper);
+
+        if (msgs.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Map<String, Object>> notifications = new ArrayList<>();
+        for (SystemMsg msg : msgs) {
+            Map<String, Object> notice = new HashMap<>();
+            notice.put("id", msg.getId());
+            notice.put("type", typeStr);
+            notice.put("fromUserId", 0);
+            notice.put("fromNickname", "系统");
+            notice.put("fromAvatar", "");
+            notice.put("targetId", 0);
+            notice.put("content", msg.getContent());
+            notice.put("read", Objects.equals(msg.getIsRead(), Constants.READ_STATUS_READ));
+            notice.put("createTime", msg.getCreateTime());
+            notifications.add(notice);
+        }
+        return notifications;
+    }
+
+    /**
+     * 获取当前用户发布的所有帖子ID列表
+     *
+     * @param userId 用户ID
+     * @return 帖子ID列表，无帖子时返回空列表
+     */
+    private List<Long> getMyPostIds(Long userId) {
+        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+                .eq(Post::getUserId, userId)
+                .select(Post::getId);
+        List<Post> posts = postMapper.selectList(wrapper);
+        return posts.stream().map(Post::getId).collect(Collectors.toList());
+    }
+
+    /**
+     * 批量获取用户信息
+     *
+     * @param userIds 用户ID集合
+     * @return 用户ID → 用户实体 的映射，不存在的ID不包含在结果中
+     */
+    private Map<Long, User> batchGetUsers(Set<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<User>()
+                .in(User::getId, userIds)
+                .select(User::getId, User::getNickname, User::getAvatar);
+        List<User> users = userMapper.selectList(wrapper);
+        return users.stream().collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
     }
 }

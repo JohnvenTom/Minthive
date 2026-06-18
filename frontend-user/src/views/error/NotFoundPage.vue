@@ -135,7 +135,7 @@ function goHome(): void {
 
   &__desc {
     font-size: 14px;
-    color: $ink-400;
+    color: $ink-500;
     text-align: center;
     margin-bottom: $space-6;
   }

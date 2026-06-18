@@ -40,13 +40,25 @@ public class Post implements Serializable {
     /** 审核状态:0待审 1通过 2驳回 */
     private Integer auditStatus;
 
-    /** 点赞数 */
+    /**
+     * 点赞数（非持久化字段）
+     * @description 不对应数据库列，由后端从 like_collect 表实时统计后填充返回给前端
+     */
+    @TableField(exist = false)
     private Integer likeCount;
 
-    /** 评论数 */
+    /**
+     * 评论数（非持久化字段）
+     * @description 不对应数据库列，由后端从 comment 表实时统计后填充返回给前端
+     */
+    @TableField(exist = false)
     private Integer commentCount;
 
-    /** 收藏数 */
+    /**
+     * 收藏数（非持久化字段）
+     * @description 不对应数据库列，由后端从 like_collect 表实时统计后填充返回给前端
+     */
+    @TableField(exist = false)
     private Integer collectCount;
 
     /** 圈子ID */

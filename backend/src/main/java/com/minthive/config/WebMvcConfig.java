@@ -34,8 +34,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/sms",
                         "/api/auth/login/sms",
                         "/api/auth/reset",
-                        // 首页信息流放行（允许未登录浏览）
-                        "/api/post/feed",
+                        // 公开浏览接口（允许未登录访问）
+                        "/api/post/feed",           // 首页信息流
+                        "/api/post/search",         // 帖子搜索
+                        "/api/post/page",           // 帖子分页列表
+                        "/api/search/**",           // 搜索接口
+                        "/api/circle/**",           // 圈子浏览（广场、详情、帖子列表）
+                        "/api/user/profile/*",      // 用户主页查看
+                        "/api/comment/list",        // 评论列表查看
                         // AI 助手放行（允许未登录使用）
                         "/api/ai/**",
                         // 文档放行

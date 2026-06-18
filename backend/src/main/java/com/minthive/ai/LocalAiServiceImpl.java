@@ -147,12 +147,12 @@ public class LocalAiServiceImpl implements AiService {
         CompletableFuture.runAsync(() -> {
             try {
                 String answer = smartQa(question);
-                emitter.send(SseEmitter.event().name("message").data(answer));
+                emitter.send(SseEmitter.event().name("message").data(answer, org.springframework.http.MediaType.APPLICATION_JSON));
                 emitter.complete();
             } catch (Exception e) {
                 log.error("[LocalAI] 智能问答流式异常: ", e);
                 try {
-                    emitter.send(SseEmitter.event().name("error").data(aiFallback.fallbackQa()));
+                    emitter.send(SseEmitter.event().name("error").data(aiFallback.fallbackQa(), org.springframework.http.MediaType.APPLICATION_JSON));
                     emitter.completeWithError(e);
                 } catch (Exception ignored) {}
             }

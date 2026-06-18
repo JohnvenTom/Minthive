@@ -190,7 +190,7 @@ public class CloudAiServiceImpl implements AiService {
                     // 发送降级文案后正常完成（不调用 completeWithError，避免异常泄漏到 Servlet 层）
                     emitter.send(SseEmitter.event()
                             .name("error")
-                            .data(aiFallback.fallbackQa()));
+                            .data(aiFallback.fallbackQa(), MediaType.APPLICATION_JSON));
                     emitter.complete();
                 } catch (Exception ignored) {
                     // 发送失败事件异常时忽略
@@ -326,7 +326,7 @@ public class CloudAiServiceImpl implements AiService {
                     if (!delta.isMissingNode() && !delta.asText().isEmpty()) {
                         emitter.send(SseEmitter.event()
                                 .name("message")
-                                .data(delta.asText()));
+                                .data(delta.asText(), MediaType.APPLICATION_JSON));
                     }
                 }
             }

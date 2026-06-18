@@ -170,8 +170,11 @@ public class CloudAiServiceImpl implements AiService {
      */
     @Override
     public SseEmitter smartQaStream(String question) {
-        // SSE 超时时间 60 秒（流式传输需要足够时间）
-        SseEmitter emitter = new SseEmitter(60_000L);
+        // SSE 超时时间 120 秒（流式传输需要足够时间）
+        SseEmitter emitter = new SseEmitter(120_000L);
+
+        // 注册错误回调，防止异常泄漏到 GlobalExceptionHandler 导致 text/event-stream 序列化失败
+        emitter.onError((e) -> log.warn("[CloudAI] SSE 连接异常: {}", e.getMessage()));
 
         // 异步执行，避免阻塞 Tomcat 线程池
         CompletableFuture.runAsync(() -> {
@@ -184,10 +187,11 @@ public class CloudAiServiceImpl implements AiService {
             } catch (Exception e) {
                 log.error("[CloudAI] 智能问答流式异常: ", e);
                 try {
+                    // 发送降级文案后正常完成（不调用 completeWithError，避免异常泄漏到 Servlet 层）
                     emitter.send(SseEmitter.event()
                             .name("error")
                             .data(aiFallback.fallbackQa()));
-                    emitter.completeWithError(e);
+                    emitter.complete();
                 } catch (Exception ignored) {
                     // 发送失败事件异常时忽略
                 }
@@ -287,7 +291,8 @@ public class CloudAiServiceImpl implements AiService {
                 .uri(URI.create(cloud.getBaseUrl() + "/v1/chat/completions"))
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + cloud.getApiKey())
-                .timeout(Duration.ofMillis(cloud.getTimeout()))
+                // 流式请求使用更长超时（120秒），连接需保持到AI回复完毕
+                .timeout(Duration.ofSeconds(120))
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 

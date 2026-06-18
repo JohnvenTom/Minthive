@@ -46,6 +46,9 @@ public class Circle implements Serializable {
     /** 圈子状态:0下架 1正常 */
     private Integer status;
 
+    /** 是否推荐:0否 1是 */
+    private Integer recommend;
+
     /** 圈内公告 */
     private String notice;
 

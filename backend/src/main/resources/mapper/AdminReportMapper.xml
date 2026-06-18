@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.minthive.mapper.AdminReportMapper">
+
+    <!--
+        举报工单分页查询（关联用户 + 内容）
+        字段名对齐前端 ReportWorkOrder 类型:
+        workOrderId, reporterId, reporterName, targetId, targetType,
+        targetContent, accusedId, accusedName, type, reason,
+        status (PENDING/REJECTED/RESOLVED), riskLevel (LOW/MEDIUM/HIGH),
+        createTime, handleTime, aiAnalysis, handleResult
+    -->
+    <select id="selectReportListWithDetails" resultType="java.util.Map">
+        SELECT
+            r.id AS workOrderId,
+            r.reporter_id AS reporterId,
+            ru.nickname AS reporterName,
+            r.target_id AS targetId,
+            CASE r.target_type
+                WHEN 1 THEN 'POST'
+                WHEN 2 THEN 'COMMENT'
+                WHEN 3 THEN 'MESSAGE'
+                WHEN 4 THEN 'USER'
+                ELSE 'UNKNOWN'
+            END AS targetType,
+            COALESCE(p.content, c.content, r.reason) AS targetContent,
+            COALESCE(p.user_id, c.user_id, r.target_id) AS accusedId,
+            COALESCE(pu.nickname, cu.nickname, au.nickname) AS accusedName,
+            r.report_type AS type,
+            r.reason,
+            CASE r.status
+                WHEN 0 THEN 'PENDING'
+                WHEN 1 THEN 'REJECTED'
+                WHEN 2 THEN 'RESOLVED'
+                ELSE 'PENDING'
+            END AS status,
+            CASE r.ai_risk_level
+                WHEN 1 THEN 'LOW'
+                WHEN 2 THEN 'MEDIUM'
+                WHEN 3 THEN 'HIGH'
+                ELSE 'LOW'
+            END AS riskLevel,
+            r.create_time AS createTime,
+            r.handle_time AS handleTime,
+            CONCAT('风险等级: ', CASE r.ai_risk_level WHEN 0 THEN '未评估' WHEN 1 THEN '低' WHEN 2 THEN '中' WHEN 3 THEN '高' END) AS aiAnalysis,
+            r.result AS handleResult
+        FROM report r
+        LEFT JOIN user ru ON r.reporter_id = ru.id AND ru.deleted = 0
+        LEFT JOIN post p ON r.target_id = p.id AND r.target_type = 1 AND p.deleted = 0
+        LEFT JOIN comment c ON r.target_id = c.id AND r.target_type = 2 AND c.deleted = 0
+        LEFT JOIN user pu ON p.user_id = pu.id AND pu.deleted = 0
+        LEFT JOIN user cu ON c.user_id = cu.id AND cu.deleted = 0
+        LEFT JOIN user au ON r.target_id = au.id AND r.target_type = 4 AND au.deleted = 0
+        <where>
+            <if test="status != null">
+                AND r.status = #{status}
+            </if>
+            <if test="type != null and type != ''">
+                AND r.report_type = #{type}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND r.reason LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        ORDER BY r.ai_risk_level DESC, r.create_time DESC
+    </select>
+
+</mapper>

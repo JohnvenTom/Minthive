@@ -52,14 +52,15 @@ export const useStatsStore = defineStore('stats', () => {
         getReportStats(range),
         getAiDailyReport()
       ])
-      coreMetrics.value = core.data
-      registerTrend.value = reg.data
-      activeTrend.value = active.data
-      postTrend.value = post.data
-      interactionTrend.value = inter.data
-      circleRank.value = circle.data
-      reportStats.value = report.data
-      aiReport.value = ai.data
+      // 响应拦截器已将 {code,data,msg} 解包为 data 本身，直接赋值即可
+      coreMetrics.value = core
+      registerTrend.value = reg
+      activeTrend.value = active
+      postTrend.value = post
+      interactionTrend.value = inter
+      circleRank.value = circle
+      reportStats.value = report
+      aiReport.value = ai
     } finally {
       loading.value = false
     }

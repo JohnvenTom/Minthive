@@ -1,9 +1,9 @@
 package com.minthive.controller.admin;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
-import com.minthive.entity.Post;
+import com.minthive.mapper.AdminPostMapper;
 import com.minthive.mapper.PostMapper;
 import com.minthive.service.PostService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,7 +18,6 @@ import java.util.Map;
 /**
  * 管理后台-内容审核控制器
  * <p>功能描述：提供帖子审核（待审/已发布）、通过/驳回/删除、敏感词管理等接口</p>
- * <p>注意事项：前端路径为 /content/*，后端映射到 /api/admin/content</p>
  */
 @Tag(name = "管理后台-内容审核")
 @RestController
@@ -27,15 +26,15 @@ import java.util.Map;
 public class AdminPostController {
 
     private final PostMapper postMapper;
+    private final AdminPostMapper adminPostMapper;
     private final PostService postService;
 
     /**
-     * 待审核帖子列表
+     * 待审核帖子列表（关联用户+圈子，字段对齐前端 PostInfo）
      *
      * @param page     页码
      * @param pageSize 每页大小
      * @param keyword  搜索关键词
-     * @param status   审核状态筛选
      * @return 分页结果 {list, total, page, pageSize}
      */
     @Operation(summary = "待审核帖子列表")
@@ -45,12 +44,8 @@ public class AdminPostController {
             @RequestParam(defaultValue = "10") long pageSize,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer status) {
-        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-                .eq(Post::getAuditStatus, 0)
-                .and(keyword != null && !keyword.isBlank(),
-                        w -> w.like(Post::getContent, keyword).or().like(Post::getTags, keyword))
-                .orderByDesc(Post::getCreateTime);
-        Page<Post> p = postMapper.selectPage(new Page<>(page, pageSize), wrapper);
+        IPage<Map<String, Object>> p = adminPostMapper.selectPendingPostList(
+                new Page<>(page, pageSize), keyword);
         Map<String, Object> data = new HashMap<>(4);
         data.put("list", p.getRecords());
         data.put("total", p.getTotal());
@@ -60,13 +55,11 @@ public class AdminPostController {
     }
 
     /**
-     * 已发布帖子列表
+     * 已发布帖子列表（关联用户+圈子，字段对齐前端 PostInfo）
      *
      * @param page     页码
      * @param pageSize 每页大小
      * @param keyword  搜索关键词
-     * @param status   审核状态筛选
-     * @param category 分类筛选
      * @return 分页结果
      */
     @Operation(summary = "已发布帖子列表")
@@ -77,12 +70,8 @@ public class AdminPostController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String category) {
-        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-                .in(Post::getAuditStatus, List.of(1, 2))
-                .and(keyword != null && !keyword.isBlank(),
-                        w -> w.like(Post::getContent, keyword).or().like(Post::getTags, keyword))
-                .orderByDesc(Post::getCreateTime);
-        Page<Post> p = postMapper.selectPage(new Page<>(page, pageSize), wrapper);
+        IPage<Map<String, Object>> p = adminPostMapper.selectPublishedPostList(
+                new Page<>(page, pageSize), keyword);
         Map<String, Object> data = new HashMap<>(4);
         data.put("list", p.getRecords());
         data.put("total", p.getTotal());

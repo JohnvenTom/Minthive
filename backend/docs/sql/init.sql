@@ -138,6 +138,7 @@ CREATE TABLE `circle` (
     `type`         TINYINT      NOT NULL DEFAULT 0 COMMENT '圈子类型:0公开 1私密',
     `member_count` INT          NOT NULL DEFAULT 0 COMMENT '成员数量',
     `status`       TINYINT      NOT NULL DEFAULT 1 COMMENT '圈子状态:0下架 1正常',
+    `recommend`    TINYINT      NOT NULL DEFAULT 0 COMMENT '是否推荐:0否 1是',
     `notice`       VARCHAR(1000) DEFAULT NULL COMMENT '圈内公告',
     `create_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `deleted`      TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除',

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.minthive.mapper.AdminCircleMapper">
+
+    <!--
+        圈子列表（关联圈主）
+        字段对齐前端 CircleInfo: circleId, ownerId, ownerName, name, category,
+        intro, type(PUBLIC/PRIVATE), memberCount, postCount, status(ACTIVE/OFFLINE),
+        recommended, icon, createTime
+    -->
+    <select id="selectCircleListWithOwner" resultType="java.util.Map">
+        SELECT
+            c.id AS circleId,
+            c.owner_id AS ownerId,
+            o.nickname AS ownerName,
+            c.name,
+            c.category,
+            COALESCE(c.intro, '') AS intro,
+            CASE c.type WHEN 0 THEN 'PUBLIC' ELSE 'PRIVATE' END AS type,
+            c.member_count AS memberCount,
+            (SELECT COUNT(*) FROM post WHERE circle_id = c.id AND deleted = 0) AS postCount,
+            CASE c.status WHEN 1 THEN 'ONLINE' ELSE 'OFFLINE' END AS status,
+            CASE WHEN c.recommend = 1 THEN true ELSE false END AS recommended,
+            COALESCE(c.avatar, '') AS icon,
+            c.create_time AS createTime
+        FROM circle c
+        LEFT JOIN `user` o ON c.owner_id = o.id AND o.deleted = 0
+        <where>
+            c.deleted = 0
+            <if test="status != null">
+                AND c.status = #{status}
+            </if>
+            <if test="category != null and category != ''">
+                AND c.category = #{category}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND c.name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        ORDER BY c.member_count DESC
+    </select>
+
+    <!--
+        圈子加入申请列表（关联用户昵称）
+        字段对齐前端 CircleApply: applyId, userId, nickname, name, category,
+        intro, applyTime, status(PENDING/APPROVED/REJECTED)
+    -->
+    <select id="selectApplyListWithNickname" resultType="java.util.Map">
+        SELECT
+            cu.id AS applyId,
+            cu.user_id AS userId,
+            u.nickname,
+            c.name,
+            c.category,
+            COALESCE(c.intro, '') AS intro,
+            cu.join_time AS applyTime,
+            CASE cu.audit_status
+                WHEN 0 THEN 'PENDING'
+                WHEN 1 THEN 'APPROVED'
+                ELSE 'REJECTED'
+            END AS status
+        FROM circle_user cu
+        INNER JOIN circle c ON cu.circle_id = c.id AND c.deleted = 0
+        LEFT JOIN `user` u ON cu.user_id = u.id AND u.deleted = 0
+        WHERE cu.audit_status = 0
+        ORDER BY cu.create_time DESC
+    </select>
+
+</mapper>

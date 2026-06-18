@@ -161,27 +161,34 @@ const interactionChartOption = computed<echarts.EChartsOption>(() => ({
   }))
 }))
 
-/** 圈子活跃排行饼图 */
+/** 圈子活跃度分布饼图 */
 const circleRankChartOption = computed<echarts.EChartsOption>(() => ({
   tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
   legend: {
     type: 'scroll',
     orient: 'vertical',
-    right: 10,
+    right: 5,
     top: 'center',
-    textStyle: { color: '#B5BDD4' }
+    textStyle: { color: '#B5BDD4', fontSize: 11 }
   },
   series: [
     {
       name: '圈子活跃度',
       type: 'pie',
-      radius: ['40%', '70%'],
-      center: ['40%', '50%'],
+      radius: ['32%', '55%'],
+      center: ['35%', '50%'],
       avoidLabelOverlap: false,
       itemStyle: { borderColor: '#1A1D2E', borderWidth: 2 },
-      label: { show: false },
+      label: {
+        show: true,
+        position: 'outside',
+        fontSize: 10,
+        color: '#B5BDD4',
+        formatter: '{b}\n{d}%'
+      },
+      labelLine: { length: 8, length2: 6, lineStyle: { color: '#3A4270' } },
       emphasis: {
-        label: { show: true, fontSize: 14, color: '#E8ECF5' }
+        label: { show: true, fontSize: 12, fontWeight: 'bold', color: '#E8ECF5' }
       },
       data: statsStore.circleRank.slice(0, 8).map((c) => ({
         name: c.name,
@@ -470,6 +477,7 @@ onMounted(() => {
 }
 .chart-grid-item {
   min-width: 0;
+  overflow: visible;
 }
 
 // AI 日报

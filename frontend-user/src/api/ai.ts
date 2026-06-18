@@ -104,6 +104,17 @@ export function aiChat(question: string) {
  * @param {() => void} onDone - 流结束回调
  * @param {(err: Error) => void} onError - 错误回调
  */
+function tryUnquoteJsonString(raw: string): string {
+  if (raw.startsWith('"') && raw.endsWith('"')) {
+    try {
+      return JSON.parse(raw)
+    } catch {
+      return raw
+    }
+  }
+  return raw
+}
+
 export function aiChatStream(
   question: string,
   onChunk: (text: string) => void,
@@ -180,44 +191,38 @@ export function aiChatStream(
           if (trimmed.startsWith('event:')) continue
 
           // 处理 data 行
-          if (trimmed.startsWith('data: ')) {
-            const data = trimmed.slice(6).trim()
+          if (trimmed.startsWith('data:')) {
+            const data = trimmed.slice(5).trimStart()
 
             // 流结束标记
-            if (data === '[DONE]') {
+            if (data.trim() === '[DONE]') {
               console.log('[AI Stream] 收到 [DONE] 标记')
               settle(onDone)
               return
             }
 
             try {
-              const trimmedData = data.trim()
-              if (!trimmedData) continue
-
               // 已结束的流不再处理新数据
               if (settled) {
-                console.warn('[AI Stream] 收到数据但流已结束, 忽略:', trimmedData)
+                console.warn('[AI Stream] 收到数据但流已结束, 忽略:', data)
                 continue
               }
 
-              // 尝试按 JSON 解析（OpenAI 原始 chunk 格式）
-              if (trimmedData.startsWith('{')) {
+              let content = ''
+              const probe = data.trimStart()
+              if (probe.startsWith('{')) {
                 try {
-                  const json = JSON.parse(trimmedData)
-                  const content = json?.choices?.[0]?.delta?.content ?? ''
-                  if (content) {
-                    console.log('[AI Stream] chunk(JSON):', content)
-                    onChunk(content)
-                  }
-                } catch (parseErr) {
-                  // JSON 解析失败，当作纯文本处理
-                  console.log('[AI Stream] chunk(文本):', trimmedData)
-                  onChunk(trimmedData)
+                  const json = JSON.parse(probe)
+                  content = json?.choices?.[0]?.delta?.content ?? ''
+                } catch {
+                  content = tryUnquoteJsonString(data)
                 }
               } else {
-                // 纯文本，直接作为内容推送
-                console.log('[AI Stream] chunk(文本):', trimmedData)
-                onChunk(trimmedData)
+                content = tryUnquoteJsonString(data)
+              }
+              if (content) {
+                console.log('[AI Stream] chunk:', content)
+                onChunk(content)
               }
             } catch (e) {
               console.warn('[AI Stream] data行解析异常:', e, '原始数据:', trimmed)

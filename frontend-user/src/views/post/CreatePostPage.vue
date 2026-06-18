@@ -1,81 +1,118 @@
 <template>
   <div class="create-post-page">
-    <!-- 蜂巢装饰背景 -->
-    <div class="hex-bg" />
-
     <!-- 顶部导航 -->
     <header class="create-header">
       <button class="back-btn" @click="goBack">
-        <van-icon name="arrow-left" size="20" />
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </button>
       <h2 class="header-title">发布动态</h2>
-      <div class="header-right">
-        <button class="draft-btn" @click="onSaveDraft">
-          <van-icon name="description" size="16" />
-          草稿
-        </button>
-      </div>
+      <button class="draft-btn" @click="onSaveDraft">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M14 2V8H20M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>草稿</span>
+      </button>
     </header>
 
     <!-- 表单主体 -->
     <main class="create-main">
       <!-- 文案输入区 -->
-      <section class="content-section glass-card">
+      <section class="content-section">
         <textarea
           ref="textareaRef"
           v-model="form.content"
           class="content-textarea"
           placeholder="分享你的想法..."
           maxlength="2000"
-          rows="6"
+          rows="8"
           @input="onContentInput"
         />
         <div class="textarea-footer">
+          <div class="ai-toolbar-inline">
+            <button class="ai-chip" @click="onAiGenerate">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L14.5 8.5L21 9.5L16.5 14L17.5 21L12 17.5L6.5 21L7.5 14L3 9.5L9.5 8.5L12 2Z" fill="currentColor"/>
+              </svg>
+              AI 生成
+            </button>
+            <button class="ai-chip" :disabled="!form.content.trim()" @click="onAiPolish">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5V5H4.5A2.5 2.5 0 0 1 7 2.5H9.5ZM12 7H4V20C4 21.1 4.9 22 6 22H14C15.1 22 16 21.1 16 20V7H12ZM14.5 2H12V5H14.5A2.5 2.5 0 0 0 17 2.5V2H14.5Z" fill="currentColor"/>
+              </svg>
+              润色
+            </button>
+            <button class="ai-chip" :disabled="!form.content.trim()" @click="onAiCheck">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2"/>
+                <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              预检
+            </button>
+          </div>
           <span :class="['char-count', { warning: charCount > 1800 }]">
             {{ charCount }}/2000
           </span>
         </div>
       </section>
 
-      <!-- AI 辅助工具栏 -->
-      <section class="ai-toolbar">
-        <button class="ai-tool-btn" @click="onAiGenerate">
-          <van-icon name="magic-o" />
-          <span>AI 生成文案</span>
-        </button>
-        <button class="ai-tool-btn" :disabled="!form.content.trim()" @click="onAiPolish">
-          <van-icon name="brush-o" />
-          <span>AI 润色</span>
-        </button>
-        <button class="ai-tool-btn" :disabled="!form.content.trim()" @click="onAiCheck">
-          <van-icon name="shield-o" />
-          <span>AI 预检</span>
-        </button>
-      </section>
-
-      <!-- 图片上传区 -->
-      <section class="upload-section glass-card">
-        <h3 class="section-label">图片</h3>
-        <ImageUploader
-          v-model="imageList"
-          :max-count="9"
-          @upload="onImageUpload"
-          @delete="onImageDelete"
-        />
-      </section>
-
-      <!-- 视频上传区 -->
-      <section class="upload-section glass-card">
-        <h3 class="section-label">视频 <span class="sub-label">≤60秒</span></h3>
-        <div v-if="!videoUrl" class="video-upload-area" @click="onVideoSelect">
-          <van-icon name="video-o" size="32" class="upload-icon" />
-          <span class="upload-text">点击上传视频</span>
+      <!-- 附件区 -->
+      <section class="section-card">
+        <div class="section-row">
+          <div class="section-icon-wrap --image">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+              <path d="M21 15L16 10L5 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="section-body">
+            <div class="section-label-row">
+              <span class="section-label">图片</span>
+              <span class="section-hint">最多9张</span>
+            </div>
+            <ImageUploader
+              v-model="imageList"
+              :max-count="9"
+              @upload="onImageUpload"
+              @delete="onImageDelete"
+            />
+          </div>
         </div>
-        <div v-else class="video-preview">
-          <video :src="videoUrl" class="preview-video" controls />
-          <button class="remove-video-btn" @click="onRemoveVideo">
-            <van-icon name="cross" />
-          </button>
+      </section>
+
+      <section class="section-card">
+        <div class="section-row">
+          <div class="section-icon-wrap --video">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M15 10L21 6V18L15 14V10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="3" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="section-body">
+            <div class="section-label-row">
+              <span class="section-label">视频</span>
+              <span class="section-hint">≤60秒</span>
+            </div>
+            <div v-if="!videoUrl" class="video-upload-area" @click="onVideoSelect">
+              <div class="upload-dashed">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <span>添加视频</span>
+              </div>
+            </div>
+            <div v-else class="video-preview">
+              <video :src="videoUrl" class="preview-video" controls />
+              <button class="remove-video-btn" @click="onRemoveVideo">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
         <input
           ref="videoInputRef"
@@ -87,80 +124,122 @@
       </section>
 
       <!-- 话题标签 -->
-      <section class="topic-section glass-card">
-        <h3 class="section-label">话题标签</h3>
-        <div class="topic-list">
-          <span v-for="(topic, idx) in form.topics" :key="idx" class="topic-chip">
-            #{{ topic }}
-            <van-icon name="cross" class="chip-remove" @click="removeTopic(idx)" />
-          </span>
-          <div class="topic-input-wrap">
-            <input
-              v-model="topicInput"
-              class="topic-input"
-              placeholder="输入话题，回车添加"
-              @keyup.enter="addTopic"
-            />
+      <section class="section-card">
+        <div class="section-row">
+          <div class="section-icon-wrap --topic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M4 9C4 6.79086 5.79086 5 8 5H16C18.2091 5 20 6.79086 20 9V15C20 17.2091 18.2091 19 16 19H8C5.79086 19 4 17.2091 4 15V9Z" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9 9H15M9 13H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="section-body">
+            <div class="section-label-row">
+              <span class="section-label">话题</span>
+              <span class="section-hint">最多5个</span>
+            </div>
+            <div class="topic-list">
+              <span v-for="(topic, idx) in form.topics" :key="idx" class="topic-chip">
+                #{{ topic }}
+                <button class="chip-remove" @click="removeTopic(idx)">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </span>
+              <input
+                v-model="topicInput"
+                class="topic-input"
+                placeholder="输入话题，回车添加"
+                @keyup.enter="addTopic"
+              />
+            </div>
           </div>
         </div>
       </section>
 
       <!-- 可见范围 -->
-      <section class="option-section glass-card">
-        <h3 class="section-label">可见范围</h3>
-        <div class="visibility-options">
-          <button
-            v-for="opt in visibilityOptions"
-            :key="opt.value"
-            :class="['visibility-btn', { active: form.visibility === opt.value }]"
-            @click="form.visibility = opt.value"
-          >
-            <van-icon :name="opt.icon" />
-            <span>{{ opt.label }}</span>
-          </button>
+      <section class="section-card">
+        <div class="section-row">
+          <div class="section-icon-wrap --visibility">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M1 12S5 4 12 4S23 12 23 12S19 20 12 20S1 12 1 12Z" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="section-body">
+            <span class="section-label">可见范围</span>
+            <div class="visibility-options">
+              <button
+                v-for="opt in visibilityOptions"
+                :key="opt.value"
+                :class="['visibility-btn', { active: form.visibility === opt.value }]"
+                @click="form.visibility = opt.value"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
       <!-- 选择圈子 -->
-      <section class="option-section glass-card">
-        <h3 class="section-label">选择圈子</h3>
-        <div class="circle-select-wrap">
-          <select v-model="form.circleId" class="circle-select">
-            <option :value="undefined">不选择圈子</option>
-            <option v-for="circle in circleList" :key="circle.id" :value="circle.id">
-              {{ circle.name }}
-            </option>
-          </select>
-          <van-icon name="arrow-down" class="select-arrow" />
+      <section class="section-card">
+        <div class="section-row">
+          <div class="section-icon-wrap --circle">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="12" cy="9" r="3" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M6.168 19C6.168 16.5 8.5 15 12 15C15.5 15 17.832 16.5 17.832 19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="section-body">
+            <span class="section-label">选择圈子</span>
+            <div class="circle-select-wrap">
+              <select v-model="form.circleId" class="circle-select">
+                <option :value="undefined">不选择圈子</option>
+                <option v-for="circle in circleList" :key="circle.id" :value="circle.id">
+                  {{ circle.name }}
+                </option>
+              </select>
+              <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
         </div>
       </section>
     </main>
 
     <!-- 底部操作栏 -->
-    <footer class="create-footer glass-card">
+    <footer class="create-footer">
       <button class="cancel-btn" @click="goBack">取消</button>
       <button
         class="publish-btn"
         :disabled="!canPublish || publishing"
         @click="onPublish"
       >
-        <LoadingSpinner v-if="publishing" :size="18" />
-        <span v-else>发布</span>
+        <LoadingSpinner v-if="publishing" :size="16" />
+        <span v-else>发布动态</span>
       </button>
     </footer>
 
     <!-- AI 文案生成面板 -->
     <Transition name="slide-up">
-      <div v-if="showAiPanel" class="ai-generate-panel glass-card">
+      <div v-if="showAiPanel" class="ai-generate-panel">
         <div class="ai-panel-header">
           <span class="ai-panel-title">
-            <van-icon name="magic-o" class="ai-icon" />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L14.5 8.5L21 9.5L16.5 14L17.5 21L12 17.5L6.5 21L7.5 14L3 9.5L9.5 8.5L12 2Z" fill="#FFB627"/>
+            </svg>
             AI 文案生成
           </span>
-          <van-icon name="cross" class="close-icon" @click="showAiPanel = false" />
+          <button class="close-btn" @click="showAiPanel = false">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
         </div>
 
-        <!-- 关键词输入 -->
         <div class="keyword-input-area">
           <input
             v-model="aiKeyword"
@@ -173,12 +252,11 @@
             :disabled="!aiKeyword.trim() || aiGenerating"
             @click="onAiGenerateSubmit"
           >
-            <LoadingSpinner v-if="aiGenerating" :size="16" />
+            <LoadingSpinner v-if="aiGenerating" :size="14" />
             <span v-else>生成</span>
           </button>
         </div>
 
-        <!-- 生成结果 -->
         <div v-if="aiDrafts.length > 0" class="ai-drafts">
           <div
             v-for="(draft, idx) in aiDrafts"
@@ -188,11 +266,11 @@
           >
             <div class="draft-header">
               <span class="draft-style-badge">{{ draft.styleName }}</span>
-              <van-icon
-                v-if="selectedDraftIdx === idx"
-                name="success"
-                class="draft-check"
-              />
+              <div v-if="selectedDraftIdx === idx" class="draft-check">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
             </div>
             <p class="draft-content">{{ draft.content }}</p>
             <div v-if="draft.topics?.length" class="draft-topics">
@@ -201,7 +279,6 @@
           </div>
         </div>
 
-        <!-- 使用选中文案 -->
         <button
           v-if="selectedDraftIdx !== null"
           class="use-draft-btn"
@@ -221,11 +298,19 @@
     >
       <div class="check-result-content">
         <div v-if="!checkResult.violated" class="check-pass">
-          <van-icon name="passed" size="48" class="pass-icon" />
-          <p>内容合规，可以放心发布！</p>
+          <div class="result-icon --pass">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <p>内容合规，可以放心发布</p>
         </div>
         <div v-else class="check-fail">
-          <van-icon name="warning-o" size="48" class="fail-icon" />
+          <div class="result-icon --fail">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <path d="M12 9V13M12 17H12.01M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
           <p>检测到可能违规的内容</p>
           <p class="fail-detail">
             类型：{{ checkResult.type || '未知' }}
@@ -646,13 +731,28 @@ onMounted(() => {
 @use '@/styles/variables.scss' as *;
 @use '@/styles/mixins.scss' as *;
 
+$bg-warm: #FAF9F7;
+$bg-card: #FFFFFF;
+$border-subtle: #E8E5DF;
+$border-hover: #D5D0C8;
+$text-primary: #1A1A1A;
+$text-secondary: #6B6560;
+$text-tertiary: #9B958E;
+$accent-mint: $mint-500;
+$accent-mint-light: rgba(78, 205, 196, 0.1);
+$accent-amber: $amber-500;
+$accent-amber-light: rgba(255, 182, 39, 0.1);
+$radius-card: 16px;
+$radius-btn: 10px;
+
 .create-post-page {
   min-height: 100vh;
-  background: $ink-50;
-  padding-bottom: 90px;
+  background: $bg-warm;
+  padding-bottom: 88px;
+  -webkit-font-smoothing: antialiased;
 }
 
-// ---------- 顶部导航 ----------
+// ---------- Header ----------
 .create-header {
   position: sticky;
   top: 0;
@@ -660,211 +760,266 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $space-3 $space-4;
-  @include glass(20px, rgba(255, 255, 255, 0.85));
+  padding: 14px 20px;
+  background: rgba(250, 249, 247, 0.88);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid $border-subtle;
+}
 
-  .header-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: $ink-900;
-  }
+.header-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: $text-primary;
+  letter-spacing: -0.01em;
 }
 
 .back-btn {
+  @include center;
   width: 36px;
   height: 36px;
-  border-radius: $radius-sm;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: $ink-700;
-  transition: background $dur-fast $ease-out;
+  border-radius: $radius-btn;
+  color: $text-secondary;
+  transition: all 0.2s ease;
 
   &:hover {
-    background: $ink-50;
+    background: rgba(0, 0, 0, 0.04);
+    color: $text-primary;
   }
 }
 
 .draft-btn {
   display: flex;
   align-items: center;
-  gap: $space-1;
+  gap: 6px;
   font-size: 13px;
-  color: $mint-600;
-  padding: $space-1 $space-3;
-  border-radius: $radius-pill;
-  transition: background $dur-fast $ease-out;
+  font-weight: 500;
+  color: $accent-mint;
+  padding: 6px 14px;
+  border-radius: $radius-btn;
+  transition: all 0.2s ease;
 
   &:hover {
-    background: $mint-50;
+    background: $accent-mint-light;
   }
 }
 
-// ---------- 表单主体 ----------
+// ---------- Main ----------
 .create-main {
-  padding: $space-4;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: $space-4;
+  gap: 12px;
 }
 
-// ---------- 文案输入区 ----------
+// ---------- Content Section ----------
 .content-section {
-  padding: $space-4;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
-  animation: fade-up 0.4s $ease-out both;
+  background: $bg-card;
+  border-radius: $radius-card;
+  border: 1px solid $border-subtle;
+  padding: 20px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:focus-within {
+    border-color: $accent-mint;
+    box-shadow: 0 0 0 3px $accent-mint-light;
+  }
 }
 
 .content-textarea {
   width: 100%;
-  min-height: 160px;
+  min-height: 200px;
   font-size: 15px;
-  line-height: 1.75;
-  color: $ink-700;
+  line-height: 1.8;
+  color: $text-primary;
   resize: vertical;
   background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
 
   &::placeholder {
-    color: $ink-300;
+    color: $text-tertiary;
   }
 }
 
 .textarea-footer {
   display: flex;
-  justify-content: flex-end;
-  margin-top: $space-2;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid $border-subtle;
+}
+
+.ai-toolbar-inline {
+  display: flex;
+  gap: 6px;
+}
+
+.ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: $accent-amber;
+  background: $accent-amber-light;
+  border: 1px solid rgba(255, 182, 39, 0.15);
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 182, 39, 0.18);
+    border-color: rgba(255, 182, 39, 0.3);
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
 }
 
 .char-count {
   font-size: 12px;
-  color: $ink-300;
+  font-weight: 500;
+  color: $text-tertiary;
+  font-variant-numeric: tabular-nums;
 
   &.warning {
     color: $coral-500;
-    font-weight: 600;
   }
 }
 
-// ---------- AI 辅助工具栏 ----------
-.ai-toolbar {
-  display: flex;
-  gap: $space-2;
-  animation: fade-up 0.5s $ease-out both;
-  animation-delay: 0.05s;
+// ---------- Section Card ----------
+.section-card {
+  background: $bg-card;
+  border-radius: $radius-card;
+  border: 1px solid $border-subtle;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+
+  &:hover {
+    border-color: $border-hover;
+  }
 }
 
-.ai-tool-btn {
+.section-row {
+  display: flex;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.section-icon-wrap {
+  @include center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  margin-top: 2px;
+
+  &.--image {
+    background: rgba(78, 205, 196, 0.08);
+    color: $mint-600;
+  }
+  &.--video {
+    background: rgba(77, 163, 255, 0.08);
+    color: $sky-500;
+  }
+  &.--topic {
+    background: rgba(107, 203, 119, 0.08);
+    color: $leaf-600;
+  }
+  &.--visibility {
+    background: rgba(255, 182, 39, 0.08);
+    color: $amber-600;
+  }
+  &.--circle {
+    background: rgba(255, 92, 138, 0.08);
+    color: $rose-500;
+  }
+}
+
+.section-body {
   flex: 1;
+  min-width: 0;
+}
+
+.section-label-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: $space-1;
-  padding: $space-2 $space-3;
-  border-radius: $radius-pill;
-  font-size: 12px;
-  font-weight: 500;
-  color: $amber-600;
-  background: rgba(255, 182, 39, 0.08);
-  border: 1px solid rgba(255, 182, 39, 0.2);
-  transition: all $dur-fast $ease-out;
-
-  &:hover:not(:disabled) {
-    background: rgba(255, 182, 39, 0.15);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(255, 182, 39, 0.2);
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.97);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  :deep(.van-icon) {
-    animation: ai-pulse 3s ease-in-out infinite;
-  }
-}
-
-// ---------- 上传区域 ----------
-.upload-section {
-  padding: $space-4;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
-  animation: fade-up 0.5s $ease-out both;
-  animation-delay: 0.1s;
+  justify-content: space-between;
+  margin-bottom: 10px;
 }
 
 .section-label {
   font-size: 14px;
   font-weight: 600;
-  color: $ink-900;
-  margin-bottom: $space-3;
-
-  .sub-label {
-    font-size: 12px;
-    font-weight: 400;
-    color: $ink-300;
-    margin-left: $space-1;
-  }
+  color: $text-primary;
+  letter-spacing: -0.01em;
 }
 
+.section-hint {
+  font-size: 12px;
+  color: $text-tertiary;
+  font-weight: 400;
+}
+
+// ---------- Video Upload ----------
 .video-upload-area {
+  cursor: pointer;
+}
+
+.upload-dashed {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: $space-2;
-  padding: $space-8 $space-4;
-  border: 2px dashed $ink-100;
-  border-radius: $radius-md;
-  cursor: pointer;
-  transition: all $dur-fast $ease-out;
+  gap: 8px;
+  padding: 28px;
+  border: 1.5px dashed $border-hover;
+  border-radius: 12px;
+  color: $text-tertiary;
+  font-size: 13px;
+  transition: all 0.2s ease;
 
   &:hover {
-    border-color: $mint-300;
-    background: $mint-50;
-  }
-
-  .upload-icon {
-    color: $ink-300;
-  }
-
-  .upload-text {
-    font-size: 13px;
-    color: $ink-300;
+    border-color: $accent-mint;
+    color: $accent-mint;
+    background: $accent-mint-light;
   }
 }
 
 .video-preview {
   position: relative;
-  border-radius: $radius-md;
+  border-radius: 12px;
   overflow: hidden;
 }
 
 .preview-video {
   width: 100%;
-  border-radius: $radius-md;
-  background: $ink-900;
+  border-radius: 12px;
+  background: #000;
 }
 
 .remove-video-btn {
   position: absolute;
-  top: $space-2;
-  right: $space-2;
+  top: 8px;
+  right: 8px;
+  @include center;
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  font-size: 14px;
-  transition: background $dur-fast $ease-out;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  transition: background 0.2s ease;
 
   &:hover {
     background: rgba(0, 0, 0, 0.8);
@@ -875,139 +1030,130 @@ onMounted(() => {
   display: none;
 }
 
-// ---------- 话题标签 ----------
-.topic-section {
-  padding: $space-4;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
-  animation: fade-up 0.5s $ease-out both;
-  animation-delay: 0.15s;
-}
-
+// ---------- Topic Tags ----------
 .topic-list {
   display: flex;
   flex-wrap: wrap;
-  gap: $space-2;
+  gap: 8px;
   align-items: center;
 }
 
 .topic-chip {
   display: inline-flex;
   align-items: center;
-  gap: $space-1;
-  padding: $space-1 $space-3;
-  border-radius: $radius-pill;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
   font-size: 13px;
+  font-weight: 500;
   color: $mint-600;
-  background: $mint-50;
-  transition: all $dur-fast $ease-out;
-
-  .chip-remove {
-    font-size: 12px;
-    color: $ink-300;
-    cursor: pointer;
-
-    &:hover {
-      color: $coral-500;
-    }
-  }
+  background: $accent-mint-light;
+  border: 1px solid rgba(78, 205, 196, 0.15);
+  transition: all 0.2s ease;
 }
 
-.topic-input-wrap {
-  flex: 1;
-  min-width: 120px;
+.chip-remove {
+  @include center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: $text-tertiary;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 107, 107, 0.15);
+    color: $coral-500;
+  }
 }
 
 .topic-input {
-  width: 100%;
-  padding: $space-1 $space-2;
+  flex: 1;
+  min-width: 100px;
+  padding: 5px 0;
   font-size: 13px;
-  color: $ink-700;
-  border-bottom: 1px solid $ink-100;
-  transition: border-color $dur-fast $ease-out;
+  color: $text-primary;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid $border-subtle;
+  outline: none;
+  transition: border-color 0.2s ease;
 
   &:focus {
-    border-color: $mint-500;
+    border-color: $accent-mint;
   }
 
   &::placeholder {
-    color: $ink-300;
+    color: $text-tertiary;
   }
 }
 
-// ---------- 选项区域 ----------
-.option-section {
-  padding: $space-4;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
-  animation: fade-up 0.5s $ease-out both;
-  animation-delay: 0.2s;
-}
-
+// ---------- Visibility ----------
 .visibility-options {
   display: flex;
-  gap: $space-2;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .visibility-btn {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: $space-2;
-  padding: $space-3;
-  border-radius: $radius-md;
+  padding: 10px;
+  border-radius: $radius-btn;
   font-size: 13px;
-  color: $ink-500;
-  background: $ink-50;
-  border: 2px solid transparent;
-  transition: all $dur-fast $ease-out;
+  font-weight: 500;
+  color: $text-secondary;
+  background: $bg-warm;
+  border: 1.5px solid transparent;
+  transition: all 0.2s ease;
 
   &:hover {
-    color: $ink-700;
-    background: $ink-100;
+    color: $text-primary;
+    background: darken($bg-warm, 2%);
   }
 
   &.active {
     color: $mint-600;
-    background: $mint-50;
-    border-color: $mint-500;
+    background: $accent-mint-light;
+    border-color: $accent-mint;
     font-weight: 600;
   }
 }
 
-// ---------- 圈子选择 ----------
+// ---------- Circle Select ----------
 .circle-select-wrap {
   position: relative;
+  margin-top: 4px;
 }
 
 .circle-select {
   width: 100%;
-  padding: $space-3 $space-4;
-  padding-right: $space-8;
+  padding: 10px 40px 10px 14px;
   font-size: 14px;
-  color: $ink-700;
-  background: $ink-50;
-  border-radius: $radius-md;
+  color: $text-primary;
+  background: $bg-warm;
+  border-radius: $radius-btn;
+  border: 1px solid $border-subtle;
   appearance: none;
   cursor: pointer;
-  transition: border-color $dur-fast $ease-out;
+  outline: none;
+  transition: all 0.2s ease;
 
   &:focus {
-    outline: 2px solid $mint-500;
+    border-color: $accent-mint;
+    box-shadow: 0 0 0 3px $accent-mint-light;
   }
 }
 
 .select-arrow {
   position: absolute;
-  right: $space-4;
+  right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: $ink-300;
+  color: $text-tertiary;
   pointer-events: none;
 }
 
-// ---------- 底部操作栏 ----------
+// ---------- Footer ----------
 .create-footer {
   position: fixed;
   bottom: 0;
@@ -1017,20 +1163,25 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $space-3 $space-4;
-  box-shadow: 0 -2px 12px rgba(26, 29, 46, 0.06);
+  padding: 12px 20px;
+  background: rgba(250, 249, 247, 0.9);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid $border-subtle;
 }
 
 .cancel-btn {
-  padding: $space-2 $space-6;
-  border-radius: $radius-pill;
+  padding: 10px 24px;
+  border-radius: $radius-btn;
   font-size: 14px;
-  color: $ink-500;
-  background: $ink-50;
-  transition: all $dur-fast $ease-out;
+  font-weight: 500;
+  color: $text-secondary;
+  background: transparent;
+  transition: all 0.2s ease;
 
   &:hover {
-    background: $ink-100;
+    background: rgba(0, 0, 0, 0.04);
+    color: $text-primary;
   }
 }
 
@@ -1038,119 +1189,124 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: $space-2;
-  padding: $space-2 $space-8;
-  border-radius: $radius-pill;
+  gap: 8px;
+  padding: 10px 32px;
+  border-radius: $radius-btn;
   font-size: 14px;
   font-weight: 600;
-  color: white;
+  color: #fff;
   background: $grad-mint;
-  transition: all $dur-fast $ease-out;
+  box-shadow: 0 2px 8px rgba(78, 205, 196, 0.25);
+  transition: all 0.2s ease;
 
   &:hover:not(:disabled) {
-    box-shadow: $shadow-glow-mint;
+    box-shadow: 0 4px 16px rgba(78, 205, 196, 0.35);
     transform: translateY(-1px);
   }
 
   &:active:not(:disabled) {
-    transform: scale(0.96);
+    transform: scale(0.97);
   }
 
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
+    box-shadow: none;
   }
 }
 
-// ---------- AI 生成面板 ----------
+// ---------- AI Generate Panel ----------
 .ai-generate-panel {
   position: fixed;
   bottom: 70px;
-  left: $space-4;
-  right: $space-4;
+  left: 20px;
+  right: 20px;
   z-index: 200;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-lg;
-  padding: $space-4;
-  animation: fade-up 0.4s $ease-spring both;
+  border-radius: $radius-card;
+  border: 1px solid $border-subtle;
+  background: $bg-card;
+  box-shadow: 0 16px 48px rgba(26, 29, 46, 0.12);
+  padding: 20px;
+  animation: fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .ai-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: $space-4;
+  margin-bottom: 16px;
 }
 
 .ai-panel-title {
   display: flex;
   align-items: center;
-  gap: $space-2;
-  font-size: 14px;
+  gap: 8px;
+  font-size: 15px;
   font-weight: 600;
-  color: $ink-900;
+  color: $text-primary;
 }
 
-.ai-icon {
-  color: $amber-500;
-  animation: ai-pulse 2s ease-in-out infinite;
-}
-
-.close-icon {
-  color: $ink-300;
-  cursor: pointer;
-  transition: color $dur-fast $ease-out;
+.close-btn {
+  @include center;
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-btn;
+  color: $text-tertiary;
+  transition: all 0.2s ease;
 
   &:hover {
-    color: $ink-500;
+    background: rgba(0, 0, 0, 0.04);
+    color: $text-primary;
   }
 }
 
 .keyword-input-area {
   display: flex;
-  gap: $space-2;
-  margin-bottom: $space-4;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .keyword-input {
   flex: 1;
-  padding: $space-2 $space-3;
+  padding: 10px 16px;
   font-size: 14px;
-  color: $ink-700;
-  background: $ink-50;
-  border-radius: $radius-pill;
-  transition: all $dur-fast $ease-out;
+  color: $text-primary;
+  background: $bg-warm;
+  border-radius: $radius-btn;
+  border: 1px solid $border-subtle;
+  outline: none;
+  transition: all 0.2s ease;
 
   &:focus {
-    outline: 2px solid $mint-500;
-    background: white;
+    border-color: $accent-mint;
+    box-shadow: 0 0 0 3px $accent-mint-light;
+    background: $bg-card;
   }
 
   &::placeholder {
-    color: $ink-300;
+    color: $text-tertiary;
   }
 }
 
 .generate-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: $space-2 $space-4;
-  border-radius: $radius-pill;
+  @include center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: $radius-btn;
   font-size: 13px;
   font-weight: 600;
-  color: white;
+  color: #fff;
   background: $grad-amber;
-  transition: all $dur-fast $ease-out;
   flex-shrink: 0;
+  transition: all 0.2s ease;
 
   &:hover:not(:disabled) {
-    box-shadow: $shadow-glow-amber;
+    box-shadow: 0 4px 12px rgba(255, 182, 39, 0.3);
     transform: translateY(-1px);
   }
 
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 }
@@ -1158,27 +1314,29 @@ onMounted(() => {
 .ai-drafts {
   display: flex;
   flex-direction: column;
-  gap: $space-3;
-  margin-bottom: $space-3;
+  gap: 10px;
+  margin-bottom: 14px;
+  max-height: 240px;
+  overflow-y: auto;
+  @include custom-scrollbar(4px);
 }
 
 .ai-draft-card {
-  padding: $space-3;
-  border-radius: $radius-md;
-  background: $ink-50;
-  border: 2px solid transparent;
+  padding: 14px;
+  border-radius: 12px;
+  background: $bg-warm;
+  border: 1.5px solid transparent;
   cursor: pointer;
-  transition: all $dur-fast $ease-out;
+  transition: all 0.2s ease;
 
   &:hover {
-    background: $mint-50;
-    transform: translateX(4px);
+    background: darken($bg-warm, 1%);
+    border-color: $border-hover;
   }
 
   &.selected {
-    border-color: $mint-500;
-    background: $mint-50;
-    box-shadow: $shadow-glow-mint;
+    border-color: $accent-mint;
+    background: $accent-mint-light;
   }
 }
 
@@ -1186,36 +1344,40 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: $space-2;
+  margin-bottom: 8px;
 }
 
 .draft-style-badge {
-  display: inline-block;
   font-size: 11px;
   font-weight: 600;
   color: $amber-600;
-  background: rgba(255, 182, 39, 0.12);
-  padding: 1px 8px;
-  border-radius: $radius-pill;
+  background: $accent-amber-light;
+  padding: 2px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
 }
 
 .draft-check {
-  color: $mint-500;
-  font-size: 18px;
+  @include center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: $accent-mint;
+  color: #fff;
 }
 
 .draft-content {
   font-size: 14px;
-  color: $ink-700;
-  line-height: 1.6;
+  color: $text-primary;
+  line-height: 1.65;
   @include ellipsis(3);
 }
 
 .draft-topics {
   display: flex;
   flex-wrap: wrap;
-  gap: $space-1;
-  margin-top: $space-2;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .draft-topic {
@@ -1225,16 +1387,16 @@ onMounted(() => {
 
 .use-draft-btn {
   width: 100%;
-  padding: $space-3;
-  border-radius: $radius-md;
+  padding: 12px;
+  border-radius: $radius-btn;
   font-size: 14px;
   font-weight: 600;
-  color: white;
+  color: #fff;
   background: $grad-mint;
-  transition: all $dur-fast $ease-out;
+  transition: all 0.2s ease;
 
   &:hover {
-    box-shadow: $shadow-glow-mint;
+    box-shadow: 0 4px 16px rgba(78, 205, 196, 0.3);
     transform: translateY(-1px);
   }
 
@@ -1243,49 +1405,91 @@ onMounted(() => {
   }
 }
 
-// ---------- 预检结果弹窗 ----------
+// ---------- Check Result Dialog ----------
 .check-result-content {
-  padding: $space-4 0;
+  padding: 24px 0;
   text-align: center;
 }
 
-.check-pass {
-  .pass-icon {
-    color: $mint-500;
-    margin-bottom: $space-3;
-  }
+.result-icon {
+  @include center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin: 0 auto 14px;
 
-  p {
-    font-size: 15px;
-    color: $ink-700;
+  &.--pass {
+    background: $accent-mint-light;
+    color: $mint-600;
   }
-}
-
-.check-fail {
-  .fail-icon {
+  &.--fail {
+    background: rgba(255, 107, 107, 0.1);
     color: $coral-500;
-    margin-bottom: $space-3;
-  }
-
-  p {
-    font-size: 15px;
-    color: $ink-700;
-  }
-
-  .fail-detail {
-    font-size: 13px;
-    color: $ink-500;
-    margin-top: $space-2;
-    line-height: 1.6;
   }
 }
 
-// ---------- 面板动画 ----------
+.check-pass,
+.check-fail {
+  p {
+    font-size: 15px;
+    color: $text-primary;
+    font-weight: 500;
+  }
+}
+
+.check-fail .fail-detail {
+  font-size: 13px;
+  color: $text-secondary;
+  font-weight: 400;
+  margin-top: 8px;
+  line-height: 1.6;
+}
+
+// ---------- Animations ----------
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .slide-up-enter-active {
-  animation: fade-up 0.4s $ease-spring both;
+  animation: fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .slide-up-leave-active {
-  animation: fade-up 0.25s $ease-out reverse both;
+  animation: fade-up 0.2s ease reverse both;
+}
+
+// ---------- Mobile ----------
+@include mobile {
+  .create-main {
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .content-section {
+    padding: 16px;
+  }
+
+  .section-row {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .section-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .ai-chip {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
 }
 </style>

@@ -104,6 +104,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, transition: 'fade-slide', title: '设置' }
   },
   {
+    path: '/edit-profile',
+    name: 'EditProfile',
+    component: () => import('@/views/profile/EditProfilePage.vue'),
+    meta: { requiresAuth: true, transition: 'fade-slide', title: '编辑资料' }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/error/NotFoundPage.vue'),

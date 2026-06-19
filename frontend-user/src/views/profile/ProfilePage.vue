@@ -647,7 +647,7 @@ function goPostDetail(id: number): void {
  * @returns {void}
  */
 function goEditProfile(): void {
-  router.push('/settings')
+  router.push('/edit-profile')
 }
 
 /**
@@ -1372,6 +1372,8 @@ watch(() => route.params.id, (newId) => {
   position: relative;
   overflow: hidden;
   animation: scale-in 0.35s $ease-spring both;
+  background: linear-gradient(160deg, #2A3D3C 0%, #2D3946 100%);
+  border: 1px solid rgba(78, 205, 196, 0.18);
 }
 
 .modal-deco {
@@ -1417,11 +1419,11 @@ watch(() => route.params.id, (newId) => {
   transition: all $dur-fast $ease-out;
 
   &.cancel {
-    background: $ink-100;
-    color: $ink-500;
+    background: $ink-700;
+    color: $ink-300;
 
     &:hover {
-      background: $ink-50;
+      background: $ink-800;
     }
   }
 

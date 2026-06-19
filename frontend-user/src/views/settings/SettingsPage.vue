@@ -192,7 +192,7 @@ function goChangePassword(): void {
  * 跳转编辑个人资料
  */
 function goProfile(): void {
-  router.push('/profile')
+  router.push('/edit-profile')
 }
 
 /**

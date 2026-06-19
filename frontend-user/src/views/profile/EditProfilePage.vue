@@ -67,22 +67,68 @@
         {{ saving ? '保存中...' : '保存修改' }}
       </button>
     </div>
+
+    <!-- 头像裁剪弹窗 -->
+    <Teleport to="body">
+      <Transition name="crop-fade">
+        <div v-if="cropVisible" class="crop-modal" @click.self="cancelCrop">
+          <div class="crop-dialog">
+            <!-- 标题栏 -->
+            <div class="crop-header">
+              <button class="crop-btn crop-btn-cancel" @click="cancelCrop">取消</button>
+              <span class="crop-title">裁剪头像</span>
+              <button class="crop-btn crop-btn-confirm" :disabled="cropConfirming" @click="confirmCrop">
+                {{ cropConfirming ? '处理中...' : '确定' }}
+              </button>
+            </div>
+            <!-- 裁剪区域 -->
+            <div class="crop-body">
+              <VueCropper
+                ref="cropperRef"
+                :img="cropImageUrl"
+                :output-size="1"
+                :output-type="'png'"
+                :info="true"
+                :full="false"
+                :can-move="true"
+                :can-scale="true"
+                :fixed="true"
+                :fixed-number="[1, 1]"
+                :fixed-box="false"
+                :original="false"
+                :auto-crop="true"
+                :auto-crop-width="200"
+                :auto-crop-height="200"
+                :center-box="true"
+                :high="true"
+                mode="contain"
+              />
+            </div>
+            <!-- 提示文字 -->
+            <p class="crop-hint">拖动或缩放选择头像区域</p>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 /**
  * EditProfilePage 编辑个人资料页面
- * @description 支持更换头像、修改昵称、编辑个人简介、跳转兴趣标签选择，
+ * @description 支持更换头像（含裁剪）、修改昵称、编辑个人简介、跳转兴趣标签选择，
+ *   头像上传流程：选图 → 裁剪(1:1) → 压缩 → 上传MinIO → 预览
  *   保存后同步更新 userStore 和后端数据
  */
 
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+import { VueCropper } from 'vue-cropper'
+import 'vue-cropper/dist/index.css'
 import NavBar from '@/components/NavBar.vue'
 import { useUserStore } from '@/stores/user'
-import { updateProfile, updateAvatar } from '@/api/user'
+import { updateProfile } from '@/api/user'
 import { compressImage } from '@/utils/compress'
 import { uploadImage } from '@/api/file'
 
@@ -106,6 +152,15 @@ const initialValues = ref({ nickname: '', bio: '', avatar: '' })
 const avatarUploading = ref(false)
 const avatarProgress = ref(0)
 const avatarInputRef = ref<HTMLInputElement | null>(null)
+
+/** 裁剪相关状态 */
+const cropVisible = ref(false)
+const cropImageUrl = ref('')
+const cropConfirming = ref(false)
+const cropperRef = ref<InstanceType<typeof VueCropper> | null>(null)
+
+/** 待裁剪的原始 File 对象 */
+const pendingFile = ref<File | null>(null)
 
 /** 保存中状态 */
 const saving = ref(false)
@@ -156,44 +211,110 @@ function triggerAvatarInput(): void {
 }
 
 /**
- * 处理头像文件选择
+ * 处理头像文件选择 — 打开裁剪弹窗
  * @param {Event} event - 文件选择事件
- * @description 压缩图片 → 上传 → 更新表单 avatar 字段
+ * @description 选择图片后不直接上传，而是打开裁剪弹窗让用户框选头像区域
  */
 async function handleAvatarChange(event: Event): Promise<void> {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
 
-  // 本地预览
-  const localUrl = URL.createObjectURL(file)
-  form.value.avatar = localUrl
+  // 校验文件类型
+  if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+    showToast('请选择 JPG / PNG / WebP / GIF 格式的图片')
+    target.value = ''
+    return
+  }
 
+  // 校验文件大小（5MB）
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('图片大小不能超过 5MB')
+    target.value = ''
+    return
+  }
+
+  // 保存原始文件，显示裁剪弹窗
+  pendingFile.value = file
+  cropImageUrl.value = URL.createObjectURL(file)
+  cropVisible.value = true
+
+  // 重置 input，允许重复选同一张图
+  target.value = ''
+}
+
+/**
+ * 确认裁剪 — 获取裁剪结果 → 压缩 → 上传MinIO → 更新表单预览
+ * @description 调用 vue-cropper 的 getCropBlob 获取裁剪后的 Blob，
+ *   然后压缩并上传到 MinIO 对象存储，成功后更新表单中的头像 URL
+ */
+async function confirmCrop(): Promise<void> {
+  if (!cropperRef.value || !pendingFile.value) return
+
+  cropConfirming.value = true
   try {
+    // 1. 获取裁剪后的 Blob（PNG 格式）
+    const cropBlob: Blob = await new Promise((resolve, reject) => {
+      cropperRef.value!.getCropBlob((blob: Blob | null) => {
+        if (blob) resolve(blob)
+        else reject(new Error('裁剪失败'))
+      })
+    })
+
+    // 2. 将 Blob 转为 File 对象
+    const cropFile = new File([cropBlob], `avatar_${Date.now()}.png`, { type: 'image/png' })
+
+    // 3. 本地预览（先用 blob URL 显示）
+    const previewUrl = URL.createObjectURL(cropFile)
+    form.value.avatar = previewUrl
+
+    // 关闭裁剪弹窗
+    closeCropModal()
+
+    // 4. 开始上传流程
     avatarUploading.value = true
     avatarProgress.value = 30
 
-    // 压缩
-    const compressed = await compressImage(file)
+    // 5. 压缩图片
+    const compressed = await compressImage(cropFile)
     avatarProgress.value = 60
 
-    // 上传
+    // 6. 上传到 MinIO
     const res = await uploadImage(compressed)
     avatarProgress.value = 100
 
+    // 7. 用 MinIO URL 替换 blob 预览
     form.value.avatar = res.data.url
-    URL.revokeObjectURL(localUrl)
-
-    showToast('头像已更新')
+    URL.revokeObjectURL(previewUrl)
   } catch {
-    showToast('头像上传失败')
-    // 回退到初始值
+    showToast('头像处理失败')
     form.value.avatar = initialValues.value.avatar
   } finally {
+    cropConfirming.value = false
     avatarUploading.value = false
     setTimeout(() => { avatarProgress.value = 0 }, 300)
-    target.value = '' // 重置 input
   }
+}
+
+/**
+ * 取消裁剪
+ * @description 关闭裁剪弹窗，释放资源，恢复之前的头像状态
+ */
+function cancelCrop(): void {
+  closeCropModal()
+}
+
+/**
+ * 关闭裁剪弹窗并释放资源
+ * @description 释放 createObjectURL 创建的临时 URL，重置裁剪相关状态
+ */
+function closeCropModal(): void {
+  if (cropImageUrl.value) {
+    URL.revokeObjectURL(cropImageUrl.value)
+    cropImageUrl.value = ''
+  }
+  cropVisible.value = false
+  pendingFile.value = null
 }
 
 /**
@@ -220,7 +341,7 @@ function goInterestSelect(): void {
 
 /**
  * 保存个人资料
- * @description 调用后端接口更新昵称和简介，如有新头像则单独调用头像更新接口，
+ * @description 将昵称、简介、头像一次性通过 updateProfile 接口提交到后端，
  *   成功后更新本地 store 并提示用户
  */
 async function onSave(): Promise<void> {
@@ -234,24 +355,23 @@ async function onSave(): Promise<void> {
 
   saving.value = true
   try {
-    // 1. 更新头像（如果有变化）
-    if (form.value.avatar && form.value.avatar !== initialValues.value.avatar) {
-      // 判断是否为已上传的 URL（非 blob URL）
-      if (!form.value.avatar.startsWith('blob:')) {
-        await updateAvatar(form.value.avatar)
-      }
-    }
+    // 判断头像是否为新上传的远程 URL（非 blob URL 且非默认头像）
+    const avatar = form.value.avatar || ''
+    const isNewAvatar = avatar !== initialValues.value.avatar &&
+                        !avatar.startsWith('blob:') &&
+                        !avatar.includes('dicebear.com')
 
-    // 2. 更新昵称和简介
+    // 一次性更新：昵称 + 简介 + 头像（如有变更）
     await updateProfile({
       nickname: form.value.nickname,
-      bio: form.value.bio
+      bio: form.value.bio,
+      ...(isNewAvatar ? { avatar: form.value.avatar } : {})
     })
 
-    // 3. 刷新 store 数据
+    // 刷新 store 数据
     await userStore.fetchUser()
 
-    // 4. 更新初始值
+    // 更新初始值
     initialValues.value = { ...form.value }
 
     showToast('资料已更新')
@@ -535,5 +655,134 @@ onMounted(initForm)
   &.saving {
     opacity: 0.75;
   }
+}
+
+// ========== 头像裁剪弹窗 ==========
+.crop-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-4;
+}
+
+.crop-dialog {
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  background: linear-gradient(160deg, #2A3D3C 0%, #2D3946 100%);
+  border: 1px solid rgba(78, 205, 196, 0.18);
+  border-radius: $radius-xl;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.crop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-3 $space-4;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.crop-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.crop-btn {
+  padding: $space-1 $space-3;
+  border: none;
+  border-radius: $radius-md;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all $dur-fast ease;
+
+  &-cancel {
+    background: transparent;
+    color: $ink-300;
+
+    &:active {
+      color: #fff;
+    }
+  }
+
+  &-confirm {
+    background: $grad-mint;
+    color: #fff;
+    min-width: 56px;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &:active:not(:disabled) {
+      opacity: 0.85;
+    }
+  }
+}
+
+.crop-body {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  background: #000;
+  overflow: hidden;
+
+  /* 覆盖 vue-cropper 默认样式以适配暗色主题 */
+  :deep(.cropper-view-box) {
+    outline: 2px dashed $mint-500;
+    outline-color: rgba(78, 205, 196, 0.6);
+  }
+
+  :deep(.cropper-face) {
+    background: rgba(78, 205, 196, 0.08);
+  }
+
+  :deep(.cropper-line) {
+    background-color: $mint-500;
+  }
+
+  :deep(.cropper-point) {
+    background-color: $mint-500;
+    width: 10px;
+    height: 10px;
+  }
+
+  :deep(.cropper-dash) {
+    border-color: rgba(78, 205, 196, 0.5);
+  }
+
+  :deep(.cropper-modal) {
+    background: rgba(0, 0, 0, 0.55);
+  }
+}
+
+.crop-hint {
+  text-align: center;
+  font-size: 12px;
+  color: $ink-300;
+  padding: $space-2 0 $space-3;
+  flex-shrink: 0;
+}
+
+// ========== 过渡动画 ==========
+.crop-fade-enter-active,
+.crop-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.crop-fade-enter-from,
+.crop-fade-leave-to {
+  opacity: 0;
 }
 </style>

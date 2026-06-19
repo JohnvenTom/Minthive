@@ -21,8 +21,9 @@ spring:
           max-wait: 3000ms
 
 # MinIO 本地对象存储配置
+# 注意：endpoint 必须使用客户端可访问的地址，不能用 localhost
 minio:
-  endpoint: http://127.0.0.1:9000
+  endpoint: http://26.141.51.0:9000
   access-key: ${MINIO_DEV_ACCESS_KEY:minioadmin}
   secret-key: ${MINIO_DEV_SECRET_KEY:minioadmin}
   bucket: minthive

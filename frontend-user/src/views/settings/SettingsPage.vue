@@ -1,6 +1,6 @@
 <template>
   <div class="settings-page">
-    <NavBar title="设置" :show-back="true" />
+    <NavBar title="设置" :show-back="true" @back="router.back()" />
 
     <div class="settings-page__content">
       <!-- 账号与安全 -->

@@ -62,6 +62,13 @@ public class Post implements Serializable {
     private Integer collectCount;
 
     /**
+     * 转发数（非持久化字段）
+     * @description 不对应数据库列，由后端从 post 表实时统计（share_post_id = 当前ID）后填充返回给前端
+     */
+    @TableField(exist = false)
+    private Integer shareCount;
+
+    /**
      * 当前用户是否已点赞（非持久化字段）
      * @description 不对应数据库列，由后端根据当前登录用户查询 like_collect 表后填充
      */
@@ -86,6 +93,14 @@ public class Post implements Serializable {
 
     /** 转发原帖ID(非空时表示转发帖) */
     private Long sharePostId;
+
+    /** 发布者昵称（非持久化字段，查询时从 user 表填充） */
+    @TableField(exist = false)
+    private String nickname;
+
+    /** 发布者头像（非持久化字段，查询时从 user 表填充） */
+    @TableField(exist = false)
+    private String avatar;
 
     /** 发布时间 */
     private LocalDateTime createTime;

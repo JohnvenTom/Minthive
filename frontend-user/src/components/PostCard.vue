@@ -32,6 +32,15 @@
 
     <!-- 内容区 -->
     <div class="post-card__body">
+      <!-- 转发帖标识 -->
+      <div v-if="post.sharePostId" class="post-card__reshare-tag">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>转发自 {{ post.originalPost?.nickname || '原帖' }}</span>
+      </div>
+
       <p class="post-card__content" :class="{ 'is-expanded': expanded }">
         {{ post.content }}
       </p>
@@ -136,6 +145,22 @@
         </span>
         <span class="post-card__action-count">{{ formatNumber(post.shareCount) }}</span>
       </button>
+
+      <!-- 操作按钮：作者显示编辑/删除/隐藏菜单，其他人显示转发列表 -->
+      <button
+        v-if="isOwner"
+        class="post-card__action post-card__action--dot"
+        @click.stop="openOwnerActions"
+      >
+        <van-icon name="ellipsis" size="14" />
+      </button>
+      <button
+        v-else
+        class="post-card__action post-card__action--dot"
+        @click.stop="$emit('viewShares', post.id)"
+      >
+        <van-icon name="ellipsis" size="14" />
+      </button>
     </div>
 
     <!-- 图片预览 -->
@@ -169,6 +194,14 @@
           </button>
         </div>
       </Transition>
+
+      <!-- 作者操作面板（编辑/隐藏/删除） -->
+      <van-action-sheet
+        v-model:show="showOwnerActions"
+        :actions="ownerActions"
+        cancel-text="取消"
+        @select="onOwnerActionSelect"
+      />
     </Teleport>
   </div>
 </template>
@@ -181,13 +214,17 @@
  * @emits like - 点赞事件，参数为帖子ID
  * @emits collect - 收藏事件，参数为帖子ID
  * @emits share - 转发事件，参数为帖子ID
+ * @emits openShare - 打开分享面板事件，参数为帖子ID
+ * @emits viewShares - 查看转发链事件，参数为帖子ID
  * @emits click - 卡片点击事件，参数为帖子ID
  * @emits report - 举报事件，参数为帖子ID
  */
 
 import { ref, computed } from 'vue'
+import { useUserStore } from '@/stores/user'
 import type { Post } from '@/types'
 import { formatRelativeTime, formatNumber } from '@/utils/format'
+import { showToast } from 'vant'
 
 const props = defineProps<{
   /** 帖子数据 */
@@ -199,13 +236,34 @@ const emit = defineEmits<{
   (e: 'like', id: number): void
   /** 收藏事件 */
   (e: 'collect', id: number): void
-  /** 转发事件 */
+  /** 转发事件（兼容旧逻辑） */
   (e: 'share', id: number): void
+  /** 打开分享面板事件 */
+  (e: 'openShare', id: number): void
+  /** 查看转发链事件 */
+  (e: 'viewShares', id: number): void
   /** 卡片点击事件 */
   (e: 'click', id: number): void
   /** 举报事件 */
   (e: 'report', id: number): void
+  /** 编辑帖子事件（仅自己的帖子） */
+  (e: 'editPost', id: number): void
+  /** 删除帖子事件（仅自己的帖子） */
+  (e: 'deletePost', id: number): void
+  /** 隐藏/公开帖子事件（仅自己的帖子） */
+  (e: 'toggleVisibility', id: number, visibility: number): void
 }>()
+
+/** 用户状态（用于判断是否为帖子作者） */
+const userStore = useUserStore()
+
+/**
+ * 判断当前用户是否为帖子作者
+ * @returns {boolean} 是作者返回 true
+ */
+const isOwner = computed(() => {
+  return !!userStore.userInfo && userStore.userInfo.id === props.post.userId
+})
 
 /** 默认头像 */
 const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect fill="#4ECDC4" width="40" height="40"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16">U</text></svg>')
@@ -224,6 +282,21 @@ const contextMenuVisible = ref(false)
 
 /** 右键菜单位置样式 */
 const contextMenuStyle = ref({})
+
+/** 操作面板是否显示（作者操作：编辑/删除/隐藏） */
+const showOwnerActions = ref(false)
+
+/**
+ * 作者操作选项列表（根据当前可见性动态生成）
+ */
+const ownerActions = computed(() => {
+  const isHidden = props.post.visibility === 2
+  return [
+    { name: '编辑帖子', icon: 'edit', color: '#2D3142' },
+    { name: isHidden ? '重新公开' : '隐藏帖子', icon: isHidden ? 'eye-o' : 'closed-eye', color: '#2D3142' },
+    { name: '删除帖子', icon: 'delete-o', color: '#FF6B6B' }
+  ]
+})
 
 /** 点赞 +1 动画是否显示 */
 const showLikeAnim = ref(false)
@@ -287,9 +360,42 @@ function handleCollect(): void {
   emit('collect', props.post.id)
 }
 
-/** 处理转发 */
+/**
+ * 处理转发（打开分享面板）
+ * @description 派发 openShare 事件，由父组件控制 ShareSheet 弹窗的打开
+ */
 function handleShare(): void {
-  emit('share', props.post.id)
+  emit('openShare', props.post.id)
+}
+
+/**
+ * 打开作者操作面板（编辑/删除/隐藏）
+ * @description 仅帖子作者可见，点击 ... 按钮时触发
+ */
+function openOwnerActions(): void {
+  showOwnerActions.value = true
+}
+
+/**
+ * 处理作者操作选择
+ *
+ * @param {any} action - 选中的操作项
+ * @description 根据操作类型派发不同事件：编辑/隐藏或公开/删除
+ */
+function onOwnerActionSelect(action: any): void {
+  const id = props.post.id
+  if (action.name === '编辑帖子') {
+    emit('editPost', id)
+  } else if (action.name === '隐藏帖子') {
+    emit('toggleVisibility', id, 2) // 2 = 仅自己(隐藏)
+    showToast('已隐藏')
+  } else if (action.name === '重新公开') {
+    emit('toggleVisibility', id, 0) // 0 = 公开
+    showToast('已重新公开')
+  } else if (action.name === '删除帖子') {
+    emit('deletePost', id)
+  }
+  showOwnerActions.value = false
 }
 
 /** 处理卡片点击 */
@@ -437,6 +543,23 @@ function handleReport(): void {
     }
   }
 
+  // ---------- 转发帖标识 ----------
+  &__reshare-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: $mint-600;
+    background: rgba(78, 205, 196, 0.08);
+    padding: 2px 10px;
+    border-radius: $radius-pill;
+    margin-bottom: $space-2;
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
   // ---------- 图片网格 ----------
   &__images {
     display: grid;
@@ -550,6 +673,18 @@ function handleReport(): void {
 
     &.is-collected {
       color: $rose-500;
+    }
+
+    /** 更多按钮（...）— 紧凑无文字 */
+    &--dot {
+      flex: none;
+      padding: $space-2;
+      justify-content: center;
+
+      &:hover {
+        color: $mint-500;
+        background: rgba(78, 205, 196, 0.08);
+      }
     }
   }
 

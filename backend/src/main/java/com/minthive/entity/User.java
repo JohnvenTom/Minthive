@@ -65,6 +65,27 @@ public class User implements Serializable {
     /** 角色:0普通 1圈主 2管理员 */
     private Integer role;
 
+    /**
+     * 帖子数（非持久化字段）
+     * @description 不对应数据库列，由后端从 post 表实时统计后填充返回给前端
+     */
+    @TableField(exist = false)
+    private Integer postCount;
+
+    /**
+     * 关注数（非持久化字段）
+     * @description 不对应数据库列，由后端从 follow 表实时统计（follow_user_id=当前用户）后填充
+     */
+    @TableField(exist = false)
+    private Integer followCount;
+
+    /**
+     * 粉丝数（非持久化字段）
+     * @description 不对应数据库列，由后端从 follow 表实时统计（user_id=当前用户）后填充
+     */
+    @TableField(exist = false)
+    private Integer fanCount;
+
     /** 逻辑删除 */
     @TableLogic
     @TableField("deleted")

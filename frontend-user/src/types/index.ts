@@ -55,6 +55,10 @@ export interface Post {
   liked: boolean
   collected: boolean
   aiGenerated: boolean
+  /** 转发原帖ID（非空时表示这是转发帖） */
+  sharePostId: number | null
+  /** 原帖完整信息（仅转发帖时有值，由后端填充） */
+  originalPost?: Post
   createTime: string
 }
 

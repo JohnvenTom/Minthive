@@ -90,29 +90,163 @@
       </div>
     </section>
 
-    <!-- Tab 切换 -->
+    <!-- 功能区（仅自己的主页） -->
+    <section v-if="isSelf" class="menu-section">
+      <div class="menu-inner">
+        <!-- 内容切换（横向3个，始终可见） -->
+        <div class="tab-switch glass-card">
+          <button
+            v-for="tab in contentTabs"
+            :key="tab.value"
+            :class="['tab-chip', { active: showContent && activeTab === tab.value }]"
+            @click="toggleContent(tab.value)"
+          >
+            <svg v-if="tab.value === 'posts'" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM16 11H8M16 15H8M10 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg v-else-if="tab.value === 'collects'" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <!-- 菜单列表（未展开内容时显示） -->
+        <template v-if="!showContent">
+          <div class="menu-group glass-card">
+          <button class="menu-item" @click="goMyCircles">
+            <div class="menu-icon circle-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L22 8.5V15.5L12 22L2 15.5V8.5L12 2Z" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </div>
+            <span class="menu-label">我的圈子</span>
+            <svg class="menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+
+          <div class="menu-divider" />
+
+          <button class="menu-item" @click="goDrafts">
+            <div class="menu-icon draft-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="menu-label">草稿箱</span>
+            <svg class="menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 设置组 -->
+        <div class="menu-group glass-card">
+          <button class="menu-item" @click="goSettings">
+            <div class="menu-icon settings-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </div>
+            <span class="menu-label">账号设置</span>
+            <svg class="menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+
+          <div class="menu-divider" />
+
+          <button class="menu-item" @click="goAbout">
+            <div class="menu-icon about-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L14.5 8.5L21 9.5L16.5 14L17.5 21L12 17.5L6.5 21L7.5 14L3 9.5L9.5 8.5L12 2Z" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </div>
+            <span class="menu-label">关于MintHive</span>
+            <svg class="menu-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 退出登录 -->
+        <button class="logout-btn glass-card" @click="showLogoutConfirm = true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          退出登录
+        </button>
+          </template>
+
+          <!-- 内容列表（展开时显示，替换菜单位置） -->
+          <div v-else class="content-panel glass-card">
+            <div class="panel-header">
+              <button class="back-btn" @click="collapseContent">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <span class="panel-title">{{ currentTabLabel }}</span>
+              <div class="panel-placeholder" />
+            </div>
+
+            <div v-if="contentLoading && posts.length === 0" class="loading-wrap">
+              <LoadingSpinner />
+            </div>
+
+            <div v-else-if="posts.length > 0" class="posts-grid">
+              <TransitionGroup name="card-anim">
+                <PostCard
+                  v-for="post in posts"
+                  :key="post.id"
+                  :post="post"
+                  class="stagger-item"
+                  @click="goPostDetail(post.id)"
+                  @like="onLike"
+                  @collect="onCollect"
+                  @openShare="onOpenShare"
+                  @viewShares="onViewShares"
+                  @editPost="goPostDetail"
+                  @deletePost="onDeletePost"
+                  @toggleVisibility="onToggleVisibility"
+                />
+              </TransitionGroup>
+            </div>
+
+            <EmptyState
+              v-else-if="!contentLoading"
+              :title="emptyTitle"
+              :description="emptyDesc"
+              :icon="emptyIcon"
+            />
+
+            <div v-if="posts.length > 0" class="load-more-area">
+              <LoadingSpinner v-if="loadingMore" />
+              <p v-else-if="!hasMore" class="no-more-text">已经到底啦 ~</p>
+            </div>
+          </div>
+      </div>
+    </section>
+
+    <!-- 内容区域（非自己的主页，始终显示） -->
+    <template v-if="!isSelf">
     <nav class="content-tabs">
       <div class="tabs-inner">
-        <button
-          v-for="tab in contentTabs"
-          :key="tab.value"
-          :class="['tab-btn', { active: activeTab === tab.value }]"
-          @click="switchTab(tab.value)"
-        >
-          <span class="tab-label">{{ tab.label }}</span>
-          <span v-if="activeTab === tab.value" class="tab-indicator" />
-        </button>
+        <span class="current-tab-label">{{ currentTabLabel }}</span>
       </div>
     </nav>
 
-    <!-- 内容区域 -->
     <div class="content-area">
-      <!-- 加载中 -->
       <div v-if="contentLoading && posts.length === 0" class="loading-wrap">
         <LoadingSpinner />
       </div>
 
-      <!-- 动态列表 -->
       <div v-else-if="posts.length > 0" class="posts-grid">
         <TransitionGroup name="card-anim">
           <PostCard
@@ -123,11 +257,12 @@
             @click="goPostDetail(post.id)"
             @like="onLike"
             @collect="onCollect"
+            @openShare="onOpenShare"
+            @viewShares="onViewShares"
           />
         </TransitionGroup>
       </div>
 
-      <!-- 空状态 -->
       <EmptyState
         v-else-if="!contentLoading"
         :title="emptyTitle"
@@ -135,12 +270,47 @@
         :icon="emptyIcon"
       />
 
-      <!-- 加载更多 -->
       <div v-if="posts.length > 0" class="load-more-area">
         <LoadingSpinner v-if="loadingMore" />
         <p v-else-if="!hasMore" class="no-more-text">已经到底啦 ~</p>
       </div>
     </div>
+    </template>
+
+    <!-- 分享面板 -->
+    <ShareSheet
+      v-model:show="showShareSheet"
+      :post-id="shareTargetPostId"
+      :post-content="shareTargetContent"
+      @shared="onShared"
+    />
+
+    <!-- 转发链弹窗 -->
+    <ShareChainDialog
+      v-model:show="showShareChain"
+      :post-id="shareChainPostId"
+      @click-share="router.push(`/post/${$event}`)"
+      @click-user="router.push(`/profile/${$event}`)"
+    />
+
+    <!-- 退出登录确认弹窗 -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div v-if="showLogoutConfirm" class="modal-overlay" @click="showLogoutConfirm = false">
+          <div class="modal-card glass-card" @click.stop>
+            <div class="modal-deco">
+              <div class="modal-hex anim-breathe" />
+            </div>
+            <h3 class="modal-title font-heading">确认退出</h3>
+            <p class="modal-desc">退出后需要重新登录才能使用MintHive</p>
+            <div class="modal-actions">
+              <button class="modal-btn cancel" @click="showLogoutConfirm = false">取消</button>
+              <button class="modal-btn confirm" @click="onLogout">确认退出</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -151,15 +321,18 @@
  *   支持关注/取消关注、编辑资料、私信跳转
  */
 
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { showToast } from 'vant'
+import { showToast, showConfirmDialog } from 'vant'
 import PostCard from '@/components/PostCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import ShareSheet from '@/components/ShareSheet.vue'
+import ShareChainDialog from '@/components/ShareChainDialog.vue'
 import { useUserStore } from '@/stores/user'
 import { getUserProfile, getUserPosts, getUserCollects, getUserLikes } from '@/api/user'
 import { toggleFollow } from '@/api/follow'
+import { deletePost, togglePostVisibility } from '@/api/post'
 import { formatNumber } from '@/utils/format'
 import type { User, Post } from '@/types'
 
@@ -200,6 +373,24 @@ const loadingMore = ref(false)
 const hasMore = ref(true)
 const currentPage = ref(1)
 const isFollowing = ref(false)
+/** 退出登录确认弹窗是否显示 */
+const showLogoutConfirm = ref(false)
+/** 是否展开内容面板（true=显示内容列表，false=显示功能菜单） */
+const showContent = ref(false)
+
+// ---------- 分享面板 ----------
+/** 分享面板是否显示 */
+const showShareSheet = ref(false)
+/** 分享目标帖子ID */
+const shareTargetPostId = ref(0)
+/** 分享目标帖子内容（用于生成默认转发文案） */
+const shareTargetContent = ref('')
+
+// ---------- 转发链弹窗 ----------
+/** 转发链弹窗是否显示 */
+const showShareChain = ref(false)
+/** 转发链目标帖子ID */
+const shareChainPostId = ref(0)
 
 /** 页面用户ID */
 const profileUserId = computed(() => Number(route.params.id) || userStore.userInfo?.id || 0)
@@ -207,6 +398,12 @@ const profileUserId = computed(() => Number(route.params.id) || userStore.userIn
 /** 是否是自己的主页 */
 const isSelf = computed(() => {
   return profileUserId.value === (userStore.userInfo?.id || 0)
+})
+
+/** 当前选中 Tab 的显示名称 */
+const currentTabLabel = computed(() => {
+  const tab = contentTabs.find(t => t.value === activeTab.value)
+  return tab?.label || '动态'
 })
 
 /** 空状态文案 */
@@ -297,15 +494,30 @@ async function fetchContent(isRefresh = false): Promise<void> {
 // ---------- 交互操作 ----------
 
 /**
- * 切换内容Tab
+ * 切换内容面板展开/收起
  * @param {'posts' | 'collects' | 'likes'} tab - 目标Tab
  * @returns {void}
+ * @description 点击tab按钮：如果已展开且是同一个tab则收起，否则展开并加载数据
  */
-function switchTab(tab: 'posts' | 'collects' | 'likes'): void {
-  if (activeTab.value === tab) return
+function toggleContent(tab: 'posts' | 'collects' | 'likes'): void {
+  // 已展开且点击同一个 → 收起，回到菜单
+  if (showContent.value && activeTab.value === tab) {
+    showContent.value = false
+    return
+  }
+  // 切换到新tab并展开
   activeTab.value = tab
   posts.value = []
+  showContent.value = true
   fetchContent(true)
+}
+
+/**
+ * 收起内容面板，回到功能菜单
+ * @returns {void}
+ */
+function collapseContent(): void {
+  showContent.value = false
 }
 
 /**
@@ -353,6 +565,72 @@ function onCollect(postId: number): void {
   }
 }
 
+/**
+ * 打开分享面板
+ * @param {number} postId - 目标帖子ID
+ * @description 根据帖子ID查找对应帖子内容，设置目标后打开 ShareSheet
+ */
+function onOpenShare(postId: number): void {
+  const target = posts.value.find(p => p.id === postId)
+  shareTargetPostId.value = postId
+  shareTargetContent.value = target?.content || ''
+  showShareSheet.value = true
+}
+
+/**
+ * 分享成功回调
+ * @description 接收 ShareSheet 的 shared 事件，更新本地转发计数
+ */
+function onShared(): void {
+  const post = posts.value.find(p => p.id === shareTargetPostId.value)
+  if (post) post.shareCount++
+}
+
+/**
+ * 打开转发链弹窗
+ * @param {number} postId - 目标帖子ID
+ */
+function onViewShares(postId: number): void {
+  shareChainPostId.value = postId
+  showShareChain.value = true
+}
+
+/**
+ * 删除帖子（从 PostCard emit）
+ *
+ * @param {number} postId - 帖子ID
+ * @description 弹出确认框后调用删除接口，成功后从本地列表移除
+ */
+async function onDeletePost(postId: number): Promise<void> {
+  try {
+    await showConfirmDialog({
+      title: '确认删除',
+      message: '删除后不可恢复，确认删除该帖子吗？'
+    })
+    await deletePost(postId)
+    posts.value = posts.value.filter(p => p.id !== postId)
+    showToast('已删除')
+  } catch (e: any) {
+    if (e !== 'cancel') showToast('删除失败')
+  }
+}
+
+/**
+ * 切换帖子可见性（从 PostCard emit）
+ *
+ * @param {number} postId - 帖子ID
+ * @param {number} visibility - 目标可见性(0=公开 2=隐藏)
+ */
+async function onToggleVisibility(postId: number, visibility: number): Promise<void> {
+  try {
+    await togglePostVisibility(postId, visibility)
+    const post = posts.value.find(p => p.id === postId)
+    if (post) post.visibility = visibility
+  } catch {
+    showToast('操作失败')
+  }
+}
+
 // ---------- 导航 ----------
 
 /**
@@ -387,6 +665,57 @@ function goChat(): void {
  */
 function goStat(type: string): void {
   // 可扩展为跳转关注列表等
+}
+
+/**
+ * 跳转我的圈子
+ * @returns {void}
+ * @description 导航到圈子广场页面
+ */
+function goMyCircles(): void {
+  router.push('/circle')
+}
+
+/**
+ * 跳转草稿箱
+ * @returns {void}
+ * @description 当前版本展示开发中提示
+ */
+function goDrafts(): void {
+  showToast('草稿箱功能开发中')
+}
+
+/**
+ * 跳转账号设置
+ * @returns {void}
+ * @description 导航到设置页面
+ */
+function goSettings(): void {
+  router.push('/settings')
+}
+
+/**
+ * 显示关于信息
+ * @returns {void}
+ * @description 展示当前应用版本号
+ */
+function goAbout(): void {
+  showToast('MintHive v1.0.0')
+}
+
+/**
+ * 退出登录
+ * @returns {Promise<void>}
+ * @description 关闭确认弹窗，调用 userStore.logout 清除登录态
+ */
+async function onLogout(): Promise<void> {
+  showLogoutConfirm.value = false
+  try {
+    await userStore.logout()
+    showToast('已退出登录')
+  } catch {
+    showToast('退出失败')
+  }
 }
 
 // ---------- 生命周期 ----------
@@ -668,7 +997,7 @@ watch(() => route.params.id, (newId) => {
   }
 }
 
-// ---------- Tab 切换 ----------
+// ---------- 内容区域标题栏 ----------
 .content-tabs {
   position: sticky;
   top: 0;
@@ -680,45 +1009,14 @@ watch(() => route.params.id, (newId) => {
     display: flex;
     max-width: 800px;
     margin: 0 auto;
-    padding: 0 $space-4;
-    gap: $space-8;
+    padding: $space-3 $space-4;
   }
 }
 
-.tab-btn {
-  position: relative;
-  padding: $space-3 0;
-  font-size: 15px;
-  font-weight: 500;
-  color: $ink-500;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: color $dur-fast $ease-out;
-
-  &.active {
-    color: $ink-900;
-
-    .tab-label {
-      font-weight: 600;
-    }
-  }
-
-  &:hover {
-    color: $mint-600;
-  }
-}
-
-.tab-indicator {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 24px;
-  height: 3px;
-  border-radius: 2px;
-  background: $grad-mint;
-  animation: scale-in 0.3s $ease-spring both;
+.current-tab-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: $ink-900;
 }
 
 // ---------- 内容区域 ----------
@@ -803,5 +1101,346 @@ watch(() => route.params.id, (newId) => {
   .content-area {
     padding: $space-2 $space-3;
   }
+}
+
+// ========== 横向内容切换按钮 ==========
+.tab-switch {
+  display: flex;
+  border-radius: $radius-md;
+  padding: 4px;
+  gap: 0;
+}
+
+.tab-chip {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: $space-2 $space-3;
+  border-radius: $radius-sm;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: $ink-500;
+  cursor: pointer;
+  transition: all $dur-fast $ease-out;
+
+  svg {
+    color: inherit;
+    opacity: 0.7;
+  }
+
+  &:hover {
+    background: rgba(78, 205, 196, 0.06);
+    color: $ink-700;
+  }
+
+  &.active {
+    background: $mint-50;
+    color: $mint-700;
+    font-weight: 600;
+
+    svg {
+      opacity: 1;
+      color: $mint-600;
+    }
+  }
+}
+
+// ========== 内容面板（展开时替换菜单） ==========
+.content-panel {
+  border-radius: $radius-md;
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  border-bottom: 1px solid $ink-100;
+  position: sticky;
+  top: 0;
+  background: inherit;
+  z-index: 1;
+}
+
+.back-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-sm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: $ink-500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all $dur-fast $ease-out;
+
+  &:hover {
+    background: rgba(78, 205, 196, 0.08);
+    color: $mint-600;
+  }
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: $ink-900;
+}
+
+.panel-placeholder {
+  width: 32px;
+  flex-shrink: 0;
+}
+
+// ========== 功能菜单（仅自己的主页） ==========
+.menu-section {
+  position: relative;
+  z-index: 1;
+  padding: $space-3 $space-4;
+}
+
+.menu-inner {
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.menu-group {
+  border-radius: $radius-md;
+  overflow: hidden;
+  animation: fade-up 0.5s $ease-out both;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  width: 100%;
+  padding: $space-4;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background $dur-fast ease;
+  text-align: left;
+
+  &:hover {
+    background: rgba(78, 205, 196, 0.04);
+  }
+
+  &:active {
+    background: rgba(78, 205, 196, 0.08);
+  }
+}
+
+.menu-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: $radius-sm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &.posts-icon {
+    background: rgba(78, 205, 196, 0.12);
+    color: $mint-500;
+  }
+
+  &.collects-icon {
+    background: rgba(255, 92, 138, 0.12);
+    color: $rose-500;
+  }
+
+  &.likes-icon {
+    background: rgba(255, 107, 107, 0.12);
+    color: $coral-500;
+  }
+
+  &.circle-icon {
+    background: rgba(107, 203, 119, 0.12);
+    color: $leaf-500;
+  }
+
+  &.draft-icon {
+    background: rgba(78, 205, 196, 0.12);
+    color: $mint-500;
+  }
+
+  &.settings-icon {
+    background: rgba(154, 160, 188, 0.12);
+    color: $ink-500;
+  }
+
+  &.about-icon {
+    background: rgba(255, 182, 39, 0.12);
+    color: $amber-500;
+  }
+}
+
+.menu-label {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 500;
+  color: $ink-700;
+}
+
+/** 当前选中的内容菜单项 */
+.menu-item.is-active {
+  .menu-label {
+    font-weight: 600;
+    color: $mint-600;
+  }
+}
+
+.menu-active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: $mint-500;
+  flex-shrink: 0;
+}
+
+.menu-arrow {
+  color: $ink-300;
+  flex-shrink: 0;
+  transition: transform $dur-fast $ease-out;
+}
+
+.menu-item:hover .menu-arrow {
+  transform: translateX(3px);
+  color: $mint-500;
+}
+
+.menu-divider {
+  height: 1px;
+  background: $ink-50;
+  margin: 0 $space-4;
+}
+
+// ---------- 退出登录按钮 ----------
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  width: 100%;
+  padding: $space-4;
+  border-radius: $radius-md;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: $coral-500;
+  cursor: pointer;
+  transition: all $dur-fast $ease-out;
+  animation: fade-up 0.5s $ease-out both;
+  animation-delay: 0.2s;
+
+  &:hover {
+    background: rgba(255, 107, 107, 0.06);
+    color: #e55a5a;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+// ---------- 退出确认弹窗 ----------
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(26, 29, 46, 0.5);
+  @include center;
+  padding: $space-4;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 340px;
+  border-radius: $radius-lg;
+  padding: $space-8 $space-6 $space-6;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  animation: scale-in 0.35s $ease-spring both;
+}
+
+.modal-deco {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  pointer-events: none;
+}
+
+.modal-hex {
+  @include hexagon(60px);
+  background: $grad-mint;
+  opacity: 0.08;
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: $ink-900;
+  margin-bottom: $space-2;
+}
+
+.modal-desc {
+  font-size: 14px;
+  color: $ink-500;
+  line-height: 1.6;
+  margin-bottom: $space-6;
+}
+
+.modal-actions {
+  display: flex;
+  gap: $space-3;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: $space-3 0;
+  border-radius: $radius-pill;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all $dur-fast $ease-out;
+
+  &.cancel {
+    background: $ink-100;
+    color: $ink-500;
+
+    &:hover {
+      background: $ink-50;
+    }
+  }
+
+  &.confirm {
+    background: $coral-500;
+    color: #fff;
+
+    &:hover {
+      background: #e55a5a;
+      transform: translateY(-1px);
+    }
+  }
+}
+
+// ---------- 弹窗动画 ----------
+.modal-fade-enter-active {
+  animation: fade-in 0.25s ease both;
+}
+.modal-fade-leave-active {
+  animation: fade-in 0.2s ease reverse both;
 }
 </style>

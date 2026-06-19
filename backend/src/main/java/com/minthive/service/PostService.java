@@ -45,6 +45,33 @@ public interface PostService {
     void delete(Long id, Long userId);
 
     /**
+     * 编辑帖子（修改内容、图片、可见性）
+     *
+     * <p>功能描述：更新帖子的文案内容、图片地址或可见范围，
+     * 仅允许帖子作者本人操作</p>
+     *
+     * @param id     帖子ID
+     * @param post   包含更新字段的帖子实体（content/images/visibility）
+     * @param userId 操作用户ID（用于权限校验）
+     * @return 更新后的帖子
+     * @throws BusinessException 无权操作或帖子不存在时抛出
+     */
+    Post update(Long id, Post post, Long userId);
+
+    /**
+     * 切换帖子可见性（隐藏/公开）
+     *
+     * <p>功能描述：在"仅自己可见"(2)和原可见性之间切换。
+     * 隐藏时设为 visibility=2，公开时恢复为 visibility=0(公开)</p>
+     *
+     * @param id        帖子ID
+     * @param visibility 目标可见性: 0=公开, 1=仅粉丝, 2=仅自己(隐藏)
+     * @param userId    操作用户ID
+     * @return 更新后的帖子
+     */
+    Post toggleVisibility(Long id, Integer visibility, Long userId);
+
+    /**
      * 审核帖子
      *
      * @param id     帖子ID
@@ -98,10 +125,23 @@ public interface PostService {
     /**
      * 查询当前用户的草稿列表
      *
-     * <p>功能描述：查询指定用户所有 auditStatus=0 的草稿帖子</p>
+     * <p>功能描述：查询指定用户所有 auditStatus=0 的草稿帖子，按更新时间倒序排列</p>
      *
      * @param userId 用户ID
      * @return 草稿帖子列表（按更新时间倒序）
      */
     List<Post> getDraftList(Long userId);
+
+    /**
+     * 获取帖子转发链（被转发列表）
+     *
+     * <p>功能描述：查询所有 sharePostId 指向指定帖子的转发帖，
+     * 返回完整的转发者信息（昵称、头像）和转发内容，支持分页</p>
+     *
+     * @param postId  原帖ID
+     * @param current 当前页码
+     * @param size    每页大小
+     * @return 分页的转发帖子列表（已填充用户昵称、头像等关联数据）
+     */
+    Page<Post> getShareChain(Long postId, long current, long size);
 }

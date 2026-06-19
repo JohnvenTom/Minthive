@@ -27,6 +27,7 @@ dist/
 # IDE - IntelliJ IDEA
 # ========================
 .idea/
+.trae/
 *.iml
 *.iws
 *.ipr
@@ -81,3 +82,5 @@ logs/
 *.swp
 *.swo
 *~
+
+.deveco

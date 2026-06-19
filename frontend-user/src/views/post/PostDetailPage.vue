@@ -83,6 +83,10 @@
           <button :class="['action-btn', { liked: post.liked }]" @click="onToggleLike">
             <van-icon :name="post.liked ? 'like' : 'like-o'" />
             <span>{{ post.likeCount || '' }}</span>
+            <!-- 点赞 +1 浮动动画 -->
+            <Transition name="float-up">
+              <span v-if="showLikeAnim" class="action-float">+1</span>
+            </Transition>
           </button>
           <button class="action-btn" @click="scrollToComment">
             <van-icon name="chat-o" />
@@ -91,6 +95,10 @@
           <button :class="['action-btn', { collected: post.collected }]" @click="onToggleCollect">
             <van-icon :name="post.collected ? 'star' : 'star-o'" />
             <span>{{ post.collectCount || '' }}</span>
+            <!-- 收藏 +1 浮动动画 -->
+            <Transition name="float-up">
+              <span v-if="showCollectAnim" class="action-float">+1</span>
+            </Transition>
           </button>
           <button class="action-btn" @click="onShare">
             <van-icon name="share-o" />
@@ -275,6 +283,12 @@ const postActions = [
   { name: '复制链接' }
 ]
 
+// ---------- +1 浮动动画状态 ----------
+/** 点赞 +1 动画是否显示 */
+const showLikeAnim = ref(false)
+/** 收藏 +1 动画是否显示 */
+const showCollectAnim = ref(false)
+
 // ---------- DOM引用 ----------
 const commentSectionRef = ref<HTMLElement | null>(null)
 
@@ -289,7 +303,13 @@ async function fetchPostDetail(): Promise<void> {
   loading.value = true
   try {
     const res = await getPostDetail(postId.value)
-    post.value = res.data
+    const p = res.data
+    // 对 liked/collected 做布尔值兜底，确保 null/undefined → false
+    if (p) {
+      p.liked = !!p.liked
+      p.collected = !!p.collected
+    }
+    post.value = p
   } catch {
     showToast('帖子加载失败')
   } finally {
@@ -344,6 +364,7 @@ async function loadMoreComments(): Promise<void> {
 /**
  * 帖子点赞/取消点赞
  * @returns {Promise<void>}
+ * @description 调用接口后立即更新本地状态，并在点赞时触发 +1 浮动动画
  */
 async function onToggleLike(): Promise<void> {
   if (!post.value) return
@@ -351,6 +372,11 @@ async function onToggleLike(): Promise<void> {
     await toggleLike(post.value.id, !post.value.liked)
     post.value.liked = !post.value.liked
     post.value.likeCount += post.value.liked ? 1 : -1
+    // 点赞时触发 +1 动画（500ms 后自动消失）
+    if (post.value.liked) {
+      showLikeAnim.value = true
+      setTimeout(() => { showLikeAnim.value = false }, 600)
+    }
   } catch {
     showToast('操作失败')
   }
@@ -359,6 +385,7 @@ async function onToggleLike(): Promise<void> {
 /**
  * 帖子收藏/取消收藏
  * @returns {Promise<void>}
+ * @description 调用接口后立即更新本地状态，并在收藏时触发 +1 浮动动画
  */
 async function onToggleCollect(): Promise<void> {
   if (!post.value) return
@@ -366,6 +393,11 @@ async function onToggleCollect(): Promise<void> {
     await toggleCollect(post.value.id, !post.value.collected)
     post.value.collected = !post.value.collected
     post.value.collectCount += post.value.collected ? 1 : -1
+    // 收藏时触发 +1 动画（600ms 后自动消失）
+    if (post.value.collected) {
+      showCollectAnim.value = true
+      setTimeout(() => { showCollectAnim.value = false }, 600)
+    }
   } catch {
     showToast('操作失败')
   }
@@ -827,6 +859,7 @@ onUnmounted(() => {
   padding: $space-2 $space-3;
   border-radius: $radius-sm;
   transition: all $dur-fast $ease-out;
+  position: relative; /* 为 +1 浮动动画提供定位基准 */
 
   &:hover {
     background: $ink-50;
@@ -842,6 +875,41 @@ onUnmounted(() => {
 
   &.collected {
     color: $amber-500;
+  }
+}
+
+// ---------- +1 浮动动画 ----------
+.action-float {
+  position: absolute;
+  top: -8px;
+  right: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: $coral-500;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.float-up-enter-active {
+  animation: float-up 0.6s ease-out forwards;
+}
+
+.float-up-leave-active {
+  animation: float-up 0.6s ease-out reverse;
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-16px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-28px) scale(1);
   }
 }
 

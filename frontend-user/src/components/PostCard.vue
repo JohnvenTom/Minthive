@@ -89,6 +89,10 @@
           </svg>
         </span>
         <span class="post-card__action-count">{{ formatNumber(post.likeCount) }}</span>
+        <!-- 点赞 +1 浮动动画 -->
+        <Transition name="float-up">
+          <span v-if="showLikeAnim" class="post-card__float">+1</span>
+        </Transition>
       </button>
 
       <button class="post-card__action" @click.stop>
@@ -118,6 +122,10 @@
           </svg>
         </span>
         <span class="post-card__action-count">{{ formatNumber(post.collectCount) }}</span>
+        <!-- 收藏 +1 浮动动画 -->
+        <Transition name="float-up">
+          <span v-if="showCollectAnim" class="post-card__float">+1</span>
+        </Transition>
       </button>
 
       <button class="post-card__action" @click.stop="handleShare">
@@ -217,6 +225,11 @@ const contextMenuVisible = ref(false)
 /** 右键菜单位置样式 */
 const contextMenuStyle = ref({})
 
+/** 点赞 +1 动画是否显示 */
+const showLikeAnim = ref(false)
+/** 收藏 +1 动画是否显示 */
+const showCollectAnim = ref(false)
+
 /** 格式化发布时间 */
 const formattedTime = computed(() => formatRelativeTime(props.post.createTime))
 
@@ -248,13 +261,29 @@ function closePreview(): void {
   previewVisible.value = false
 }
 
-/** 处理点赞 */
+/**
+ * 处理点赞（触发 +1 浮动动画后向父组件派发事件）
+ * @description 点击时立即触发 +1 动画效果，同时 emit like 事件由父组件处理接口调用
+ */
 function handleLike(): void {
+  // 未点赞状态下点击时才显示 +1 动画
+  if (!props.post.liked) {
+    showLikeAnim.value = true
+    setTimeout(() => { showLikeAnim.value = false }, 600)
+  }
   emit('like', props.post.id)
 }
 
-/** 处理收藏 */
+/**
+ * 处理收藏（触发 +1 浮动动画后向父组件派发事件）
+ * @description 点击时立即触发 +1 动画效果，同时 emit collect 事件由父组件处理接口调用
+ */
 function handleCollect(): void {
+  // 未收藏状态下点击时才显示 +1 动画
+  if (!props.post.collected) {
+    showCollectAnim.value = true
+    setTimeout(() => { showCollectAnim.value = false }, 600)
+  }
   emit('collect', props.post.id)
 }
 
@@ -505,6 +534,7 @@ function handleReport(): void {
     color: $ink-300;
     font-size: 13px;
     transition: color $dur-fast ease;
+    position: relative; /* 为 +1 浮动动画提供定位基准 */
 
     &:hover {
       color: $ink-500;
@@ -521,6 +551,18 @@ function handleReport(): void {
     &.is-collected {
       color: $rose-500;
     }
+  }
+
+  // ---------- +1 浮动动画 ----------
+  &__float {
+    position: absolute;
+    top: -8px;
+    right: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: $coral-500;
+    pointer-events: none;
+    z-index: 10;
   }
 
   &__action-icon {
@@ -627,5 +669,29 @@ function handleReport(): void {
 }
 .menu-fade-leave-active {
   animation: fade-in 0.15s ease reverse;
+}
+
+// ---------- +1 浮动动画 ----------
+.float-up-enter-active {
+  animation: float-up 0.6s ease-out forwards;
+}
+
+.float-up-leave-active {
+  animation: float-up 0.6s ease-out reverse;
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-14px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px) scale(1);
+  }
 }
 </style>

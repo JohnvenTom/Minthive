@@ -70,6 +70,15 @@ service.interceptors.response.use(
     return Promise.reject(new Error(res.msg || '请求失败'))
   },
   (error) => {
+    // HTTP 层面 401：Token 过期或无效，清除并跳转登录页
+    if (error.response?.status === 401) {
+      clearToken()
+      ElMessage.error('登录已过期，请重新登录')
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 1000)
+      return Promise.reject(error)
+    }
     const message = error.response?.data?.msg || error.message || '网络异常'
     ElMessage.error(message)
     return Promise.reject(error)

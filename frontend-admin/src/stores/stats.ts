@@ -34,23 +34,26 @@ export const useStatsStore = defineStore('stats', () => {
   const reportStats = ref<MultiTrend | null>(null)
   const aiReport = ref<AiDailyReport | null>(null)
   const loading = ref(false)
+  /** AI 日报独立加载状态，避免阻塞其他数据渲染 */
+  const aiLoading = ref(false)
 
   /**
-   * 加载全部大屏数据
+   * 加载全部大屏数据（分两批：核心数据+图表先返回，AI 日报异步加载）
    * @param range 时间维度
    */
   async function loadAll(range: TimeRange = 'DAY') {
     loading.value = true
+    aiLoading.value = true
     try {
-      const [core, reg, active, post, inter, circle, report, ai] = await Promise.all([
+      // 第一批：核心指标 + 图表数据（快，通常 <500ms）
+      const [core, reg, active, post, inter, circle, report] = await Promise.all([
         getCoreMetrics(),
         getRegisterTrend(range),
         getActiveTrend(range),
         getPostTrend(range),
         getInteractionTrend(range),
         getCircleActiveRank(),
-        getReportStats(range),
-        getAiDailyReport()
+        getReportStats(range)
       ])
       // 响应拦截器已将 {code,data,msg} 解包为 data 本身，直接赋值即可
       coreMetrics.value = core
@@ -60,9 +63,17 @@ export const useStatsStore = defineStore('stats', () => {
       interactionTrend.value = inter
       circleRank.value = circle
       reportStats.value = report
-      aiReport.value = ai
     } finally {
       loading.value = false
+    }
+
+    // 第二批：AI 日报（慢，调用大模型，独立加载不阻塞页面）
+    try {
+      aiReport.value = await getAiDailyReport()
+    } catch (e) {
+      // AI 接口失败不影响主界面，静默处理（错误已由拦截器弹窗提示）
+    } finally {
+      aiLoading.value = false
     }
   }
 
@@ -76,6 +87,7 @@ export const useStatsStore = defineStore('stats', () => {
     reportStats,
     aiReport,
     loading,
+    aiLoading,
     loadAll
   }
 })

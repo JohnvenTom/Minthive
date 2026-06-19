@@ -78,4 +78,25 @@ public interface AdminStatsMapper {
      */
     List<Map<String, Object>> selectReportTrend(@Param("startDate") String startDate,
                                                 @Param("endDate") String endDate);
+
+    /**
+     * 违规类型分布统计
+     * 功能：从举报工单表按 report_type 分组统计各类型违规数量
+     * @return [{type: '广告引流', count: 5}, ...]
+     */
+    List<Map<String, Object>> selectViolationTypeDist();
+
+    /**
+     * 用户活跃高峰时段统计
+     * 功能：按小时聚合今日发帖+评论+点赞行为，找出活跃高峰时段
+     * @return [{hour: '08:00-09:00', postCount: 10, commentCount: 5, likeCount: 20, total: 35}, ...]
+     */
+    List<Map<String, Object>> selectPeakHours();
+
+    /**
+     * 举报风险等级分布统计
+     * 功能：按 ai_risk_level 分组统计待处理工单的风险等级分布
+     * @return [{level: 'HIGH', count: 3}, ...]
+     */
+    List<Map<String, Object>> selectRiskLevelDist();
 }

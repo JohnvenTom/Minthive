@@ -146,6 +146,7 @@
             :post="post"
             class="result-item"
             @click="goPostDetail(post.id)"
+            @click-user="router.push(`/profile/${$event}`)"
           />
           <button
             v-if="postResults.length > 3"
@@ -197,6 +198,7 @@
             :post="post"
             class="result-item"
             @click="goPostDetail(post.id)"
+            @click-user="router.push(`/profile/${$event}`)"
           />
         </template>
         <template v-else-if="activeResultTab === 'circle'">

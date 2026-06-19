@@ -25,9 +25,14 @@
       <article class="post-content-card glass-card">
         <!-- 作者信息 -->
         <div class="author-row">
-          <img :src="post.avatar || '/default-avatar.png'" class="author-avatar" alt="头像" />
+          <img
+            :src="post.avatar || '/default-avatar.png'"
+            class="author-avatar"
+            alt="头像"
+            @click="goProfile(post.userId)"
+          />
           <div class="author-info">
-            <span class="author-name">{{ post.nickname }}</span>
+            <span class="author-name" @click="goProfile(post.userId)">{{ post.nickname }}</span>
             <span class="post-time">{{ formatRelativeTime(post.createTime) }}</span>
           </div>
           <span v-if="post.aiGenerated" class="ai-badge">
@@ -157,6 +162,7 @@
             @reply="onReply"
             @delete="onCommentDelete"
             @report="onCommentReport"
+            @click-user="goProfile"
           />
         </div>
 
@@ -732,6 +738,14 @@ function onPostSaved(updatedPost: any): void {
  */
 function goBack(): void {
   router.back()
+}
+
+/**
+ * 跳转用户主页
+ * @param {number} userId - 用户ID
+ */
+function goProfile(userId: number): void {
+  router.push(`/profile/${userId}`)
 }
 
 /**

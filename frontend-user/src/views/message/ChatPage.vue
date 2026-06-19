@@ -236,6 +236,28 @@ const targetUser = ref<{ nickname: string; avatar: string }>({
 // ---------- 数据加载 ----------
 
 /**
+ * 消息字段映射
+ * @param {any} raw - 后端原始消息（msgType: 0/1/2, isRead: 0/1）
+ * @returns {Message} 前端统一格式（type: text/image/emoji, read: boolean）
+ * @description 兼容后端 Integer 字段与前端枚举/布尔字段
+ */
+function normalizeMessage(raw: any): Message {
+  const typeMap = ['text', 'image', 'emoji'] // 后端 0文字 1图片 2表情
+  return {
+    id: raw.id,
+    fromUserId: raw.fromUserId,
+    fromNickname: raw.fromNickname || '',
+    fromAvatar: raw.fromAvatar || '',
+    toUserId: raw.toUserId,
+    content: raw.content,
+    type: typeof raw.type === 'string' ? raw.type : (typeMap[raw.msgType] || 'text'),
+    read: raw.read ?? (raw.isRead === 1),
+    aiReply: raw.aiReply === true || raw.aiReply === 1,
+    createTime: raw.createTime
+  }
+}
+
+/**
  * 加载聊天消息列表
  * @param {boolean} isRefresh - 是否为刷新操作
  * @returns {Promise<void>}
@@ -249,13 +271,15 @@ async function fetchMessages(isRefresh = false): Promise<void> {
   loading.value = true
   try {
     const res = await getMessages(targetUserId.value, currentPage.value, 30)
-    const list = res.data?.list || []
+    // 兼容后端返回：可能是数组（List<Message>），也可能是分页对象（含 list 字段）
+    const data = res.data
+    const list: Message[] = (Array.isArray(data) ? data : (data?.list || [])).map(normalizeMessage)
     if (isRefresh || currentPage.value === 1) {
       messages.value = list
     } else {
       messages.value = [...list, ...messages.value]
     }
-    hasMore.value = res.data?.hasMore ?? false
+    hasMore.value = Array.isArray(data) ? list.length >= 30 : (data?.hasMore ?? false)
     await nextTick()
     scrollToBottom()
   } catch {
@@ -277,9 +301,11 @@ async function loadMore(): Promise<void> {
   const prevHeight = messageListRef.value?.scrollHeight || 0
   try {
     const res = await getMessages(targetUserId.value, currentPage.value, 30)
-    const list = res.data?.list || []
+    // 兼容后端返回：可能是数组（List<Message>），也可能是分页对象（含 list 字段）
+    const data = res.data
+    const list: Message[] = (Array.isArray(data) ? data : (data?.list || [])).map(normalizeMessage)
     messages.value = [...list, ...messages.value]
-    hasMore.value = res.data?.hasMore ?? false
+    hasMore.value = Array.isArray(data) ? list.length >= 30 : (data?.hasMore ?? false)
     await nextTick()
     // 保持滚动位置
     if (messageListRef.value) {
@@ -307,7 +333,7 @@ async function onSend(event?: Event): Promise<void> {
   sending.value = true
   try {
     const msg = await chatStore.sendMessage(targetUserId.value, content, 'text')
-    messages.value.push(msg)
+    messages.value.push(normalizeMessage(msg))
     inputText.value = ''
     await nextTick()
     scrollToBottom()
@@ -335,7 +361,7 @@ async function onImageSelected(event: Event): Promise<void> {
     const url = res.data?.url
     if (url) {
       const msg = await chatStore.sendMessage(targetUserId.value, url, 'image')
-      messages.value.push(msg)
+      messages.value.push(normalizeMessage(msg))
       await nextTick()
       scrollToBottom()
     }
@@ -374,7 +400,7 @@ async function onAiReply(): Promise<void> {
     if (content) {
       const msg = await chatStore.sendMessage(targetUserId.value, content, 'text')
       // 标记为AI代回复
-      messages.value.push({ ...msg, aiReply: true })
+      messages.value.push({ ...normalizeMessage(msg), aiReply: true })
       await nextTick()
       scrollToBottom()
     }
@@ -463,7 +489,7 @@ function goBack(): void {
  */
 function onWsMessage(data: any): void {
   if (data?.fromUserId === targetUserId.value) {
-    messages.value.push(data as Message)
+    messages.value.push(normalizeMessage(data))
     nextTick(() => scrollToBottom())
     // 标记已读
     markRead(targetUserId.value)
@@ -472,6 +498,15 @@ function onWsMessage(data: any): void {
 
 // ---------- 生命周期 ----------
 onMounted(async () => {
+  // 确保当前用户信息已加载（currentUserId 依赖它判断"自己的消息"）
+  if (!userStore.userInfo) {
+    try {
+      await userStore.fetchUser()
+    } catch {
+      // 静默处理，拦截器会跳转登录
+    }
+  }
+
   // 从chatStore获取聊天对象信息
   if (chatStore.currentChat) {
     targetUser.value = {
@@ -500,6 +535,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
+
+  // 桌面端（>768px）：减去 App.vue 顶部导航栏 64px
+  @media (min-width: 769px) {
+    height: calc(100vh - 64px);
+  }
+
   background: $ink-50;
   position: relative;
   overflow: hidden;
@@ -588,6 +629,7 @@ onUnmounted(() => {
 // ---------- 消息列表 ----------
 .message-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: $space-3 $space-4;
   position: relative;
@@ -764,6 +806,7 @@ onUnmounted(() => {
 .chat-footer {
   position: relative;
   z-index: 100;
+  flex-shrink: 0;
   border-top: 1px solid $ink-100;
   padding: $space-2 $space-3;
   border-radius: 0;

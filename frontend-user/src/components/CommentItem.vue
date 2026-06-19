@@ -2,14 +2,14 @@
   <div class="comment-item" :class="{ 'is-ai': comment.aiGenerated }">
     <div class="comment-item__main">
       <!-- 头像 -->
-      <div class="comment-item__avatar">
+      <div class="comment-item__avatar" @click="handleClickUser">
         <img :src="comment.avatar || defaultAvatar" :alt="comment.nickname" />
       </div>
 
       <div class="comment-item__body">
         <!-- 昵称 + AI标记 -->
         <div class="comment-item__header">
-          <span class="comment-item__nickname">{{ comment.nickname }}</span>
+          <span class="comment-item__nickname" @click="handleClickUser">{{ comment.nickname }}</span>
           <span v-if="comment.aiGenerated" class="comment-item__ai-tag">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
               <path d="M12 2L14.5 8.5L21 9.5L16.5 14L17.5 21L12 17.5L6.5 21L7.5 14L3 9.5L9.5 8.5L12 2Z" fill="currentColor"/>
@@ -105,6 +105,8 @@ const emit = defineEmits<{
   (e: 'like', id: number): void
   /** 删除事件 */
   (e: 'delete', id: number): void
+  /** 点击用户（头像/昵称），参数为用户ID */
+  (e: 'click-user', userId: number): void
 }>()
 
 /** 默认头像 */
@@ -121,6 +123,11 @@ function handleLike(): void {
 /** 处理回复 */
 function handleReply(): void {
   emit('reply', props.comment.id)
+}
+
+/** 处理头像/昵称点击，跳转用户主页 */
+function handleClickUser(): void {
+  emit('click-user', props.comment.userId)
 }
 </script>
 
@@ -149,6 +156,7 @@ function handleReply(): void {
     @include hexagon(36px);
     flex-shrink: 0;
     overflow: hidden;
+    cursor: pointer;
 
     img {
       width: 100%;
@@ -173,6 +181,12 @@ function handleReply(): void {
     font-size: 13px;
     font-weight: 600;
     color: $ink-700;
+    cursor: pointer;
+    transition: color $dur-fast ease;
+
+    &:hover {
+      color: $mint-600;
+    }
   }
 
   &__ai-tag {

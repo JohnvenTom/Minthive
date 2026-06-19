@@ -55,6 +55,7 @@
               :post="post"
               class="stagger-item"
               @click="goDetail(post.id)"
+              @click-user="goProfile"
               @like="onLike"
               @collect="onCollect"
               @openShare="onOpenShare"
@@ -73,6 +74,7 @@
               :post="post"
               class="stagger-item"
               @click="goDetail(post.id)"
+              @click-user="goProfile"
               @like="onLike"
               @collect="onCollect"
               @openShare="onOpenShare"
@@ -390,6 +392,14 @@ async function onToggleVisibility(postId: number, visibility: number): Promise<v
  */
 function goDetail(id: number): void {
   router.push(`/post/${id}`)
+}
+
+/**
+ * 跳转用户主页
+ * @param {number} userId - 用户ID（由PostCard emit传出）
+ */
+function goProfile(userId: number): void {
+  router.push(`/profile/${userId}`)
 }
 
 /**

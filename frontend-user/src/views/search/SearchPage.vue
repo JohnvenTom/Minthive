@@ -182,25 +182,31 @@
 
       <!-- 分类结果 -->
       <div v-else-if="activeResultTab !== 'all' && results.length > 0" class="result-list">
-        <UserCard
-          v-for="user in userResults"
-          :key="user.id"
-          :user="user"
-          class="result-item"
-        />
-        <PostCard
-          v-for="post in postResults"
-          :key="post.id"
-          :post="post"
-          class="result-item"
-          @click="goPostDetail(post.id)"
-        />
-        <CircleCard
-          v-for="circle in circleResults"
-          :key="circle.id"
-          :circle="circle"
-          class="result-item"
-        />
+        <template v-if="activeResultTab === 'user'">
+          <UserCard
+            v-for="user in userResults"
+            :key="user.id"
+            :user="user"
+            class="result-item"
+          />
+        </template>
+        <template v-else-if="activeResultTab === 'post'">
+          <PostCard
+            v-for="post in postResults"
+            :key="post.id"
+            :post="post"
+            class="result-item"
+            @click="goPostDetail(post.id)"
+          />
+        </template>
+        <template v-else-if="activeResultTab === 'circle'">
+          <CircleCard
+            v-for="circle in circleResults"
+            :key="circle.id"
+            :circle="circle"
+            class="result-item"
+          />
+        </template>
       </div>
 
       <!-- 空结果 -->

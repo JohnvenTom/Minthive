@@ -21,6 +21,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
 /**
  * 公有云 AI 服务实现
  *
@@ -327,11 +331,36 @@ public class CloudAiServiceImpl implements AiService {
                         emitter.send(SseEmitter.event()
                                 .name("message")
                                 .data(delta.asText(), MediaType.APPLICATION_JSON));
+                        // 手动刷新输出缓冲区，确保每个 chunk 立即推送到浏览器
+                        // 否则 Tomcat 会缓冲数据直到连接关闭才一次性发出
+                        flushSseEmitter();
                     }
                 }
             }
         }
         log.info("[CloudAI] 流式API调用完成");
+    }
+
+    /**
+     * 手动刷新 SseEmitter 输出缓冲区
+     *
+     * <p>功能描述：通过获取底层 HttpServletResponse 的 OutputStream 并 flush，
+     * 强制将 SSE 数据立即推送到浏览器，避免 Tomcat 缓冲导致流式输出变成一次性输出</p>
+     * <p>注意事项：仅适用于 Servlet 容器环境；非 Servlet 环境下静默跳过</p>
+     */
+    private void flushSseEmitter() {
+        try {
+            var requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (requestAttributes != null) {
+                HttpServletResponse response = requestAttributes.getResponse();
+                if (response != null) {
+                    response.flushBuffer();
+                }
+            }
+        } catch (Exception e) {
+            // flush 失败不影响主流程（连接可能已关闭）
+            log.debug("[CloudAI] SSE flush 缓冲区时异常（可忽略）: {}", e.getMessage());
+        }
     }
 
     /**

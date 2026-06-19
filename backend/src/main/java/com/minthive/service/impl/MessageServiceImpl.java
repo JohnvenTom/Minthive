@@ -112,10 +112,11 @@ public class MessageServiceImpl implements MessageService {
      * 获取当前用户的私信会话列表
      *
      * <p>查询当前用户作为发送方或接收方的所有私信记录，按对方用户ID分组，
-     * 取每组最新的一条消息作为会话代表，并统计未读数</p>
+     * 取每组最新的一条消息作为会话代表，并统计未读数。
+     * 返回字段与前端 ChatItem 接口对齐：userId/nickname/avatar/lastMessage/lastTime/unread</p>
      *
      * @param userId 当前登录用户ID
-     * @return 会话列表，每个Map包含：peerUser(对方用户对象)、latestMessage(最新消息内容)、unreadCount(未读数)
+     * @return 会话列表，每个Map包含前端所需的字段
      */
     @Override
     public List<Map<String, Object>> getChatList(Long userId) {
@@ -129,7 +130,7 @@ public class MessageServiceImpl implements MessageService {
             return Collections.emptyList();
         }
 
-        // 2. 按对方用户ID分组，取每组最新的消息
+        // 2. 按对方用户ID分组，取每组最新的消息，统计未读数
         Map<Long, Message> latestByPeer = new LinkedHashMap<>();
         Map<Long, Integer> unreadCountByPeer = new HashMap<>();
 
@@ -137,25 +138,32 @@ public class MessageServiceImpl implements MessageService {
             Long peerId = msg.getFromUserId().equals(userId) ? msg.getToUserId() : msg.getFromUserId();
             if (!latestByPeer.containsKey(peerId)) {
                 latestByPeer.put(peerId, msg);
-                // 统计未读：当前用户是接收方且消息未读
                 unreadCountByPeer.put(peerId, 0);
             }
-            // 更新未读计数
+            // 统计未读：当前用户是接收方且消息未读
             if (msg.getToUserId().equals(userId) && msg.getIsRead().equals(Constants.READ_STATUS_UNREAD)) {
                 unreadCountByPeer.merge(peerId, 1, Integer::sum);
             }
         }
 
-        // 3. 组装会话列表
+        // 3. 批量查询对方用户信息（昵称、头像）
+        Set<Long> peerIds = latestByPeer.keySet();
+        Map<Long, User> userMap = batchGetUsers(peerIds);
+
+        // 4. 组装会话列表（字段名与前端 ChatItem 接口对齐）
         List<Map<String, Object>> chatList = new ArrayList<>();
         for (Map.Entry<Long, Message> entry : latestByPeer.entrySet()) {
             Long peerId = entry.getKey();
             Message latestMsg = entry.getValue();
+            User peerUser = userMap.get(peerId);
+
             Map<String, Object> chat = new HashMap<>();
-            chat.put("peerUserId", peerId);
-            chat.put("latestMessage", latestMsg.getContent());
-            chat.put("latestTime", latestMsg.getCreateTime());
-            chat.put("unreadCount", unreadCountByPeer.getOrDefault(peerId, 0));
+            chat.put("userId", peerId);
+            chat.put("nickname", peerUser != null ? peerUser.getNickname() : "未知用户");
+            chat.put("avatar", peerUser != null ? peerUser.getAvatar() : "");
+            chat.put("lastMessage", latestMsg.getContent());
+            chat.put("lastTime", latestMsg.getCreateTime());
+            chat.put("unread", unreadCountByPeer.getOrDefault(peerId, 0));
             chatList.add(chat);
         }
 

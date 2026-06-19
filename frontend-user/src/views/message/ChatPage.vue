@@ -186,6 +186,7 @@ import { useChatStore } from '@/stores/chat'
 import { getMessages, sendMessage as sendMessageApi, revokeAiMessage, markRead } from '@/api/message'
 import { aiReplyMessage } from '@/api/ai'
 import { uploadImage } from '@/api/file'
+import { getUserProfile } from '@/api/user'
 import { wsClient } from '@/utils/websocket'
 import { formatRelativeTime } from '@/utils/format'
 import type { Message } from '@/types'
@@ -261,7 +262,8 @@ function normalizeMessage(raw: any): Message {
  * 加载聊天消息列表
  * @param {boolean} isRefresh - 是否为刷新操作
  * @returns {Promise<void>}
- * @description 从服务端获取与当前聊天对象的历史消息
+ * @description 从服务端获取与当前聊天对象的历史消息；
+ *   后端按时间降序返回（方便分页），前端反转后按时间正序渲染（旧→新）
  */
 async function fetchMessages(isRefresh = false): Promise<void> {
   if (isRefresh) {
@@ -273,7 +275,9 @@ async function fetchMessages(isRefresh = false): Promise<void> {
     const res = await getMessages(targetUserId.value, currentPage.value, 30)
     // 兼容后端返回：可能是数组（List<Message>），也可能是分页对象（含 list 字段）
     const data = res.data
-    const list: Message[] = (Array.isArray(data) ? data : (data?.list || [])).map(normalizeMessage)
+    let list: Message[] = (Array.isArray(data) ? data : (data?.list || [])).map(normalizeMessage)
+    // 后端降序返回（最新在前），反转后变为正序（旧消息在前，新消息在后）
+    list = list.reverse()
     if (isRefresh || currentPage.value === 1) {
       messages.value = list
     } else {
@@ -292,7 +296,7 @@ async function fetchMessages(isRefresh = false): Promise<void> {
 /**
  * 加载更多历史消息
  * @returns {Promise<void>}
- * @description 向上翻页加载更早的消息
+ * @description 向上翻页加载更早的消息，反转后插入列表顶部
  */
 async function loadMore(): Promise<void> {
   if (loadingMore.value || !hasMore.value) return
@@ -303,7 +307,9 @@ async function loadMore(): Promise<void> {
     const res = await getMessages(targetUserId.value, currentPage.value, 30)
     // 兼容后端返回：可能是数组（List<Message>），也可能是分页对象（含 list 字段）
     const data = res.data
-    const list: Message[] = (Array.isArray(data) ? data : (data?.list || [])).map(normalizeMessage)
+    let list: Message[] = (Array.isArray(data) ? data : (data?.list || [])).map(normalizeMessage)
+    // 反转：后端降序返回，前端需要正序（旧→新）插入顶部
+    list = list.reverse()
     messages.value = [...list, ...messages.value]
     hasMore.value = Array.isArray(data) ? list.length >= 30 : (data?.hasMore ?? false)
     await nextTick()
@@ -383,24 +389,59 @@ function triggerImageUpload(): void {
 /**
  * AI智能回复
  * @returns {Promise<void>}
- * @description 调用AI接口生成代回复消息并发送，带琥珀色标识
+ * @description 基于当前聊天上下文（含输入框待发送内容）调用AI生成代回复，
+ *   使用真实昵称做角色分离，确保AI清楚区分发送方与接收方
  */
 async function onAiReply(): Promise<void> {
   if (aiReplying.value) return
+
+  // 如果输入框为空，提示用户先输入内容
+  const pendingContent = inputText.value.trim()
+  if (!pendingContent) {
+    showToast('请先在输入框输入要发送的内容')
+    return
+  }
+
   aiReplying.value = true
   try {
-    // 构造聊天上下文
-    const context = messages.value
+    /**
+     * 构建带角色分离的聊天上下文
+     *
+     * 系统提示词：明确告知AI当前用户的身份、对方身份和行为约束，
+     * 避免AI混淆发送方与接收方
+     */
+    const myNickname = userStore.userInfo?.nickname || '我'
+    const peerNickname = targetUser.value.nickname || '对方'
+
+    const systemPrompt = `你是${myNickname}的聊天助手。请根据以下聊天记录，以${myNickname}的口吻生成一条回复给${peerNickname}。
+要求：
+- 保持自然、友好的语气，符合社交聊天的风格
+- 回复内容应与上下文相关联，不要重复说过的话
+- 只输出回复正文，不要加任何前缀或说明文字`
+
+    // 取最近10条历史消息，用真实昵称标注角色
+    const historyContext = messages.value
       .slice(-10)
-      .map(m => `${m.fromUserId === currentUserId.value ? '我' : '对方'}: ${m.content}`)
+      .map(m => {
+        const role = m.fromUserId === currentUserId.value ? myNickname : peerNickname
+        return `${role}: ${m.content}`
+      })
       .join('\n')
 
-    const res = await aiReplyMessage(targetUserId.value, context)
+    // 将输入框中的待发送内容作为"我"的最新一条消息加入上下文
+    const fullContext = `${systemPrompt}\n\n【聊天记录】\n${historyContext}\n${myNickname}: ${pendingContent}`
+
+    const res = await aiReplyMessage(targetUserId.value, fullContext)
     const content = res.data?.content
     if (content) {
-      const msg = await chatStore.sendMessage(targetUserId.value, content, 'text')
-      // 标记为AI代回复
-      messages.value.push({ ...normalizeMessage(msg), aiReply: true })
+      // 先发送用户输入框中的原始消息
+      const userMsg = await chatStore.sendMessage(targetUserId.value, pendingContent, 'text')
+      messages.value.push(normalizeMessage(userMsg))
+      inputText.value = ''
+
+      // 再发送AI生成的回复（标记为aiReply）
+      const aiMsg = await chatStore.sendMessage(targetUserId.value, content, 'text')
+      messages.value.push({ ...normalizeMessage(aiMsg), aiReply: true })
       await nextTick()
       scrollToBottom()
     }
@@ -507,11 +548,37 @@ onMounted(async () => {
     }
   }
 
-  // 从chatStore获取聊天对象信息
+  // 从chatStore获取聊天对象信息；若为空（如从个人主页直接进入），则通过API获取
   if (chatStore.currentChat) {
     targetUser.value = {
       nickname: chatStore.currentChat.nickname,
       avatar: chatStore.currentChat.avatar
+    }
+  } else {
+    /**
+     * 获取聊天对象用户信息
+     * @description 当 chatStore 中无当前聊天对象时（例如从个人主页点击"私信"进入），
+     *   通过 getUserProfile 接口获取目标用户的头像和昵称，并同步设置到 chatStore
+     */
+    try {
+      const res = await getUserProfile(targetUserId.value)
+      if (res.data) {
+        targetUser.value = {
+          nickname: res.data.nickname || '用户',
+          avatar: res.data.avatar || defaultAvatar
+        }
+        // 同步到 chatStore，确保后续 WebSocket 消息等场景能正确引用
+        chatStore.setCurrentChat({
+          userId: targetUserId.value,
+          nickname: targetUser.value.nickname,
+          avatar: targetUser.value.avatar,
+          lastMessage: '',
+          lastTime: '',
+          unread: 0
+        })
+      }
+    } catch {
+      // 获取失败时保持默认值，静默处理
     }
   }
 

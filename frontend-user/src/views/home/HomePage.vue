@@ -30,7 +30,12 @@
     </nav>
 
     <!-- 下拉刷新 -->
-    <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
+    <van-pull-refresh
+      v-model="refreshing"
+      @refresh="onRefresh"
+      :success-text="'刷新成功'"
+      :pull-distance="60"
+    >
       <!-- 骨架屏 -->
       <div v-if="loading && posts.length === 0" class="skeleton-grid">
         <div v-for="i in 6" :key="i" class="skeleton-card shimmer">
@@ -470,6 +475,7 @@ onUnmounted(() => {
   background: $ink-50;
   position: relative;
   padding-bottom: 80px;
+  overscroll-behavior: contain;
 }
 
 // ---------- 顶部导航 ----------

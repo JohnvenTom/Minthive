@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 搜索控制器
@@ -105,8 +107,12 @@ public class SearchController {
                 return Result.success(new Page<>(current, size));
             case "all":
             default:
-                // all 类型：并行搜索多种资源并合并结果（简化为仅搜索用户）
-                return Result.success(userService.searchByKeyword(keyword, current, size));
+                // 全局搜索：并行查询用户、帖子、圈子，合并返回
+                Map<String, Object> allResult = new HashMap<>();
+                allResult.put("users", userService.searchByKeyword(keyword, current, size).getRecords());
+                allResult.put("posts", postService.searchByKeyword(keyword, current, size).getRecords());
+                allResult.put("circles", circleService.page(current, size, null, keyword).getRecords());
+                return Result.success(allResult);
         }
     }
 

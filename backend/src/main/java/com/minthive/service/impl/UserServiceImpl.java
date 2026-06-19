@@ -9,9 +9,11 @@ import com.minthive.common.RedisConstants;
 import com.minthive.entity.LikeCollect;
 import com.minthive.entity.Post;
 import com.minthive.entity.User;
+import com.minthive.entity.Follow;
 import com.minthive.mapper.LikeCollectMapper;
 import com.minthive.mapper.PostMapper;
 import com.minthive.mapper.UserMapper;
+import com.minthive.mapper.FollowMapper;
 import com.minthive.security.JwtUtils;
 import com.minthive.service.UserService;
 import com.minthive.service.SmsService;
@@ -45,6 +47,10 @@ public class UserServiceImpl implements UserService {
     private final RedisUtil redisUtil;
 
     private final SmsService smsService;
+
+    private final com.minthive.service.PostService postService;
+
+    private final FollowMapper followMapper;
 
     /**
      * 用户注册
@@ -227,9 +233,39 @@ public class UserServiceImpl implements UserService {
         }
         wrapper.orderByDesc(User::getRegisterTime);
         Page<User> page = userMapper.selectPage(new Page<>(current, size), wrapper);
-        // 脱敏：清除密码字段
-        page.getRecords().forEach(u -> u.setPassword(null));
+        // 脱敏：清除密码字段 + 填充统计数据
+        page.getRecords().forEach(u -> {
+            u.setPassword(null);
+            enrichUserStats(u);
+        });
         return page;
+    }
+
+    /**
+     * 填充用户统计数据（帖子数/关注数/粉丝数）
+     *
+     * @param user 用户实体
+     * @description 实时查询 post/follow 表，将统计值写入非持久化字段
+     */
+    @Override
+    public void enrichUserStats(User user) {
+        if (user == null || user.getId() == null) {
+            return;
+        }
+        Long userId = user.getId();
+        // 帖子数
+        long postCount = postMapper.selectCount(
+                new LambdaQueryWrapper<Post>().eq(Post::getUserId, userId));
+        // 关注数（我关注了谁）
+        long followCount = followMapper.selectCount(
+                new LambdaQueryWrapper<Follow>().eq(Follow::getFollowUserId, userId));
+        // 粉丝数（谁关注了我）
+        long fanCount = followMapper.selectCount(
+                new LambdaQueryWrapper<Follow>().eq(Follow::getUserId, userId));
+
+        user.setPostCount((int) postCount);
+        user.setFollowCount((int) followCount);
+        user.setFanCount((int) fanCount);
     }
 
     /**
@@ -366,7 +402,9 @@ public class UserServiceImpl implements UserService {
                 .eq(Post::getUserId, userId)
                 .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
                 .orderByDesc(Post::getCreateTime);
-        return postMapper.selectPage(new Page<>(current, size), wrapper);
+        Page<Post> result = postMapper.selectPage(new Page<>(current, size), wrapper);
+        postService.enrichPageCounts(result);
+        return result;
     }
 
     /**
@@ -402,6 +440,7 @@ public class UserServiceImpl implements UserService {
         // 4. 组装分页结果
         Page<Post> result = new Page<>(current, size, lcPage.getTotal());
         result.setRecords(posts);
+        postService.enrichPageCounts(result);
         return result;
     }
 
@@ -438,6 +477,7 @@ public class UserServiceImpl implements UserService {
         // 4. 组装分页结果
         Page<Post> result = new Page<>(current, size, lcPage.getTotal());
         result.setRecords(posts);
+        postService.enrichPageCounts(result);
         return result;
     }
 }

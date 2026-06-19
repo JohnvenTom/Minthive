@@ -1,13 +1,9 @@
 package com.minthive.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
-import com.minthive.entity.Follow;
 import com.minthive.entity.Post;
 import com.minthive.entity.User;
-import com.minthive.mapper.FollowMapper;
-import com.minthive.mapper.PostMapper;
 import com.minthive.security.UserContext;
 import com.minthive.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,20 +21,14 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
-    private final PostMapper postMapper;
-    private final FollowMapper followMapper;
 
     /**
      * 构造器注入
      *
      * @param userService 用户服务
-     * @param postMapper  帖子 Mapper（用于统计帖子数）
-     * @param followMapper 关注 Mapper（用于统计关注/粉丝数）
      */
-    public UserController(UserService userService, PostMapper postMapper, FollowMapper followMapper) {
+    public UserController(UserService userService) {
         this.userService = userService;
-        this.postMapper = postMapper;
-        this.followMapper = followMapper;
     }
 
     /**
@@ -69,32 +59,12 @@ public class UserController {
     }
 
     /**
-     * 填充用户的统计数（帖子数、关注数、粉丝数）
+     * 填充用户统计数据（委托给 UserService）
      *
      * @param user 用户实体
-     * @description 从 post 表和 follow 表实时查询统计数据，填充到 User 的非持久化字段中。
-     *              postCount: 用户发布的帖子总数
-     *              followCount: 用户关注的人数（follow.follow_user_id = userId）
-     *              fanCount: 用户的粉丝数（follow.user_id = userId）
      */
     private void enrichUserStats(User user) {
-        if (user == null || user.getId() == null) {
-            return;
-        }
-        Long userId = user.getId();
-        // 帖子数：post 表中 user_id = 当前用户且未逻辑删除的记录数
-        long postCount = postMapper.selectCount(
-                new LambdaQueryWrapper<Post>().eq(Post::getUserId, userId));
-        // 关注数：follow 表中 follow_user_id = 当前用户（我关注了谁）
-        long followCount = followMapper.selectCount(
-                new LambdaQueryWrapper<Follow>().eq(Follow::getFollowUserId, userId));
-        // 粉丝数：follow 表中 user_id = 当前用户（谁关注了我）
-        long fanCount = followMapper.selectCount(
-                new LambdaQueryWrapper<Follow>().eq(Follow::getUserId, userId));
-
-        user.setPostCount((int) postCount);
-        user.setFollowCount((int) followCount);
-        user.setFanCount((int) fanCount);
+        userService.enrichUserStats(user);
     }
 
     /**

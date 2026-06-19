@@ -518,7 +518,8 @@ public class PostServiceImpl implements PostService {
      * @param page 分页结果
      * @description 遍历分页结果中的每条帖子，调用 enrichPostCounts 实时统计
      */
-    private void enrichPageCounts(Page<Post> page) {
+    @Override
+    public void enrichPageCounts(Page<Post> page) {
         if (page.getRecords() != null) {
             for (Post post : page.getRecords()) {
                 enrichPostCounts(post);

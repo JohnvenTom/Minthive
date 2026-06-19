@@ -143,7 +143,10 @@
             置顶
           </h3>
         </div>
-        <PostCard :post="pinnedPost" />
+        <PostCard
+          :post="pinnedPost"
+          @click-user="router.push(`/profile/${$event}`)"
+        />
       </section>
 
       <!-- 圈内信息流 -->
@@ -168,6 +171,7 @@
             v-for="post in postList"
             :key="post.id"
             :post="post"
+            @click-user="router.push(`/profile/${$event}`)"
           />
         </div>
 

@@ -6,12 +6,12 @@
   >
     <!-- 头部：用户信息 -->
     <div class="post-card__header">
-      <div class="post-card__avatar" @click.stop>
+      <div class="post-card__avatar" @click.stop="handleClickUser">
         <img :src="post.avatar || defaultAvatar" :alt="post.nickname" />
       </div>
       <div class="post-card__user-info">
         <div class="post-card__nickname">
-          {{ post.nickname }}
+          <span class="post-card__nickname-text" @click.stop="handleClickUser">{{ post.nickname }}</span>
           <span v-if="post.aiGenerated" class="post-card__ai-badge" title="AI生成内容">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path d="M12 2L14.5 8.5L21 9.5L16.5 14L17.5 21L12 17.5L6.5 21L7.5 14L3 9.5L9.5 8.5L12 2Z" fill="currentColor"/>
@@ -244,6 +244,8 @@ const emit = defineEmits<{
   (e: 'viewShares', id: number): void
   /** 卡片点击事件 */
   (e: 'click', id: number): void
+  /** 点击用户（头像/昵称），参数为用户ID */
+  (e: 'click-user', userId: number): void
   /** 举报事件 */
   (e: 'report', id: number): void
   /** 编辑帖子事件（仅自己的帖子） */
@@ -403,6 +405,11 @@ function handleClick(): void {
   emit('click', props.post.id)
 }
 
+/** 处理头像/昵称点击，跳转用户主页 */
+function handleClickUser(): void {
+  emit('click-user', props.post.userId)
+}
+
 /**
  * 处理右键菜单
  * @param {MouseEvent} event - 鼠标事件
@@ -479,6 +486,15 @@ function handleReport(): void {
     display: flex;
     align-items: center;
     gap: $space-1;
+
+    &-text {
+      cursor: pointer;
+      transition: color $dur-fast ease;
+
+      &:hover {
+        color: $mint-600;
+      }
+    }
   }
 
   &__ai-badge {

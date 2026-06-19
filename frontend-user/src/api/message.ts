@@ -36,7 +36,17 @@ export function sendMessage(data: {
   content: string
   type?: 'text' | 'image' | 'emoji'
 }) {
-  return request<Message>({ url: '/message', method: 'post', data })
+  // 后端字段: toUserId, content, msgType(0文字/1图片/2表情)
+  const typeMap: Record<string, number> = { text: 0, image: 1, emoji: 2 }
+  return request<Message>({
+    url: '/message',
+    method: 'post',
+    data: {
+      toUserId: data.toUserId,
+      content: data.content,
+      msgType: typeMap[data.type || 'text']
+    }
+  })
 }
 
 /**
@@ -52,7 +62,7 @@ export function revokeAiMessage(id: number) {
  * @param {number} fromUserId
  */
 export function markRead(fromUserId: number) {
-  return request({ url: '/message/read', method: 'post', data: { fromUserId } })
+  return request({ url: '/message/read', method: 'post', params: { fromUserId } })
 }
 
 /**

@@ -173,7 +173,14 @@ async function fetchFeed(isRefresh = false): Promise<void> {
   try {
     const res = await getFeed(activeTab.value, currentPage.value, pageSize)
     const pageData = res.data || {}
-    const list = pageData.records || []
+    const list: Post[] = pageData.records || []
+
+    // 对 liked/collected 做布尔值兜底，确保 null/undefined → false
+    // 避免后续 !post.liked 切换时出现 !!undefined = true 的异常行为
+    list.forEach(p => {
+      p.liked = !!p.liked
+      p.collected = !!p.collected
+    })
 
     if (isRefresh || currentPage.value === 1) {
       posts.value = list

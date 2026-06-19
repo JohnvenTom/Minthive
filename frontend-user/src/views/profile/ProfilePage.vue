@@ -273,6 +273,13 @@ async function fetchContent(isRefresh = false): Promise<void> {
     }
 
     const list = res.data?.list || []
+
+    // 对 liked/collected 做布尔值兜底，确保 null/undefined → false
+    list.forEach((p: any) => {
+      p.liked = !!p.liked
+      p.collected = !!p.collected
+    })
+
     if (isRefresh || currentPage.value === 1) {
       posts.value = list
     } else {

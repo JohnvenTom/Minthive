@@ -61,6 +61,20 @@ public class Post implements Serializable {
     @TableField(exist = false)
     private Integer collectCount;
 
+    /**
+     * 当前用户是否已点赞（非持久化字段）
+     * @description 不对应数据库列，由后端根据当前登录用户查询 like_collect 表后填充
+     */
+    @TableField(exist = false)
+    private Boolean liked;
+
+    /**
+     * 当前用户是否已收藏（非持久化字段）
+     * @description 不对应数据库列，由后端根据当前登录用户查询 like_collect 表后填充
+     */
+    @TableField(exist = false)
+    private Boolean collected;
+
     /** 圈子ID */
     private Long circleId;
 

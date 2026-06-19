@@ -49,6 +49,8 @@ export interface AiDailyReport {
   peakHours: { hour: string; count: number }[]
   suggestions: string[]
   riskDistribution: { level: string; count: number }[]
+  /** AI 模式: cloud=云端大模型, local=本地私有化模型 */
+  aiMode?: 'cloud' | 'local'
 }
 
 /**
@@ -101,10 +103,11 @@ export function getReportStats(range: TimeRange) {
 }
 
 /**
- * AI 日报
+ * 获取 AI 运营日报
+ * 注意：此接口调用大模型生成建议，响应较慢，单独设置 60 秒超时
  */
 export function getAiDailyReport() {
-  return get<AiDailyReport>('/stats/ai-report')
+  return get<AiDailyReport>('/stats/ai-report', undefined, { timeout: 60_000 })
 }
 
 /**

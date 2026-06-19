@@ -7,9 +7,11 @@ import type { AiDailyReport } from '@/api/stats'
  * 功能：展示 AI 生成的社区健康度日报，含健康度评分、违规类型、建议
  * Props:
  *   - report: AI 日报数据
+ *   - loading: AI 数据加载中（独立于主页面 loading，AI 调用较慢时显示加载态）
  */
 const props = defineProps<{
   report: AiDailyReport | null
+  loading?: boolean
 }>()
 
 /** 健康度评分颜色 */
@@ -27,10 +29,19 @@ const scoreLabel = computed(() => {
   if (score >= 60) return '关注'
   return '预警'
 })
+
+/** 根据 AI 模式返回不同的底部提示文案 */
+const aiSourceText = computed(() => {
+  const mode = props.report?.aiMode
+  if (mode === 'cloud') {
+    return '由云端 AI 大模型自动生成，仅供运营参考'
+  }
+  return '由本地私有化 AI 大模型自动生成，仅供运营参考'
+})
 </script>
 
 <template>
-  <div class="ai-report-card">
+  <div class="ai-report-card" v-loading="loading">
     <div class="ai-header">
       <div class="ai-badge">
         <el-icon><MagicStick /></el-icon>
@@ -80,7 +91,7 @@ const scoreLabel = computed(() => {
 
     <div class="ai-footer">
       <el-icon><InfoFilled /></el-icon>
-      <span>由本地私有化 AI 大模型自动生成，仅供运营参考</span>
+      <span>{{ aiSourceText }}</span>
     </div>
   </div>
 </template>

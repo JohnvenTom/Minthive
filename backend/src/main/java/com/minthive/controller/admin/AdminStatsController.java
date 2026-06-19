@@ -1,10 +1,13 @@
 package com.minthive.controller.admin;
 
+import com.minthive.ai.AiContext;
 import com.minthive.common.Result;
+import com.minthive.config.AiConfig;
 import com.minthive.mapper.AdminStatsMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -23,10 +26,13 @@ import java.util.*;
 @Tag(name = "管理后台-数据统计")
 @RestController
 @RequestMapping("/api/admin/stats")
+@Slf4j
 @RequiredArgsConstructor
 public class AdminStatsController {
 
     private final AdminStatsMapper adminStatsMapper;
+    private final AiContext aiContext;
+    private final AiConfig aiConfig;
 
     /** 日期格式化器 */
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -214,48 +220,153 @@ public class AdminStatsController {
 
     /**
      * AI 运营日报
-     * <p>功能：基于平台数据生成 AI 辅助运营分析报告，包括健康评分、违规分布、高峰时段、建议等</p>
+     * <p>功能：基于平台真实运营数据生成 AI 辅助运营分析报告，包括健康评分、违规分布、高峰时段、AI 建议、风险等级</p>
+     * <p>注意事项：违规类型/高峰时段/风险等级均从数据库实时统计；运营建议由本地私有化 AI 大模型生成；AI 调用失败时降级为规则建议</p>
      *
      * @return AI 日报结构体
      */
     @Operation(summary = "AI 运营日报")
     @GetMapping("/ai-report")
     public Result<Map<String, Object>> aiReport() {
+        // 1. 从数据库获取真实核心指标
         Map<String, Object> core = adminStatsMapper.selectCoreMetrics();
         long totalUsers = toNumber(core.get("totalUsers")).longValue();
         long todayPosts = toNumber(core.get("todayPosts")).longValue();
         long pendingReports = toNumber(core.get("pendingReports")).longValue();
         long dau = toNumber(core.get("dau")).longValue();
+        long totalPosts = toNumber(core.get("totalPosts")).longValue();
+        long totalInteractions = toNumber(core.get("totalInteractions")).longValue();
 
-        // 健康评分算法：(DAU/总用户*40 + 今日发帖基数分*30 + 工单压力*30)，满分100
+        // 2. 健康评分算法（基于真实数据）
         double userRatio = totalUsers > 0 ? (double) dau / Math.min(totalUsers, 10000) : 0;
         double postScore = Math.min(todayPosts / 10.0, 1.0) * 100;
         double reportScore = Math.max(0, 100 - pendingReports * 5);
         int healthScore = (int) Math.round(Math.min(userRatio * 40 + postScore * 0.3 + reportScore * 0.3, 100));
 
-        Map<String, Object> data = new HashMap<>(8);
+        // 3. 违规类型分布（从 report 表真实统计）
+        List<Map<String, Object>> violationRows = adminStatsMapper.selectViolationTypeDist();
+        List<Map<String, Object>> violationTypes = new ArrayList<>();
+        for (Map<String, Object> row : violationRows) {
+            violationTypes.add(mapOf("type", row.get("type"), "count", toNumber(row.get("count"))));
+        }
+        if (violationTypes.isEmpty()) {
+            violationTypes.add(mapOf("type", "暂无违规", "count", 0));
+        }
+
+        // 4. 活跃高峰时段（从 post/comment/like_collect 表按小时聚合）
+        List<Map<String, Object>> peakHourRows = adminStatsMapper.selectPeakHours();
+        // 取 total 前 5 的时段作为高峰时段
+        peakHourRows.sort((a, b) -> Long.compare(toNumber(b.get("total")).longValue(), toNumber(a.get("total")).longValue()));
+        List<Map<String, Object>> peakHours = new ArrayList<>();
+        int limit = Math.min(5, peakHourRows.size());
+        for (int i = 0; i < limit; i++) {
+            Map<String, Object> row = peakHourRows.get(i);
+            peakHours.add(mapOf("hour", row.get("hour"), "count", toNumber(row.get("total"))));
+        }
+        if (peakHours.isEmpty()) {
+            peakHours.add(mapOf("hour", "暂无数据", "count", 0));
+        }
+
+        // 5. 风险等级分布（从 report 表 ai_risk_level 真实统计）
+        List<Map<String, Object>> riskRows = adminStatsMapper.selectRiskLevelDist();
+        Map<String, Long> riskMap = new LinkedHashMap<>();
+        for (Map<String, Object> row : riskRows) {
+            riskMap.put((String) row.get("level"), toNumber(row.get("count")).longValue());
+        }
+        // 确保 HIGH / MEDIUM / LOW 三个等级都有值（没有的补 0）
+        List<Map<String, Object>> riskDistribution = Arrays.asList(
+                mapOf("level", "HIGH", "count", riskMap.getOrDefault("HIGH", 0L)),
+                mapOf("level", "MEDIUM", "count", riskMap.getOrDefault("MEDIUM", 0L)),
+                mapOf("level", "LOW", "count", riskMap.getOrDefault("LOW", 0L))
+        );
+
+        // 6. AI 运营建议（调用真实 AI 大模型生成，失败时降级为规则建议）
+        List<String> suggestions = generateAiSuggestions(
+                healthScore, totalUsers, dau, todayPosts, pendingReports, totalPosts, totalInteractions);
+
+        // 7. 组装返回结果
+        Map<String, Object> data = new HashMap<>(10);
         data.put("reportDate", LocalDate.now().toString());
         data.put("healthScore", healthScore);
+        data.put("violationTypes", violationTypes);
+        data.put("peakHours", peakHours);
+        data.put("suggestions", suggestions);
+        data.put("riskDistribution", riskDistribution);
+        // 标识当前使用的 AI 模式，前端据此展示不同的提示文案
+        data.put("aiMode", aiConfig.getMode());
 
-        // 违规类型分布（模拟数据，后续对接 AI 审核服务真实统计）
-        data.put("violationTypes", Arrays.asList(
-                mapOf("type", "低俗色情", "count", 2),
-                mapOf("type", "广告引流", "count", 5),
-                mapOf("type", "人身攻击", "count", 3),
-                mapOf("type", "违法内容", "count", 0),
-                mapOf("type", "抄袭搬运", "count", 1)
-        ));
+        return Result.success(data);
+    }
 
-        // 活跃高峰时段（模拟）
-        data.put("peakHours", Arrays.asList(
-                mapOf("hour", "08:00-10:00", "count", 120),
-                mapOf("hour", "12:00-14:00", "count", 256),
-                mapOf("hour", "18:00-20:00", "count", 389),
-                mapOf("hour", "20:00-22:00", "count", 445),
-                mapOf("hour", "22:00-24:00", "count", 210)
-        ));
+    /**
+     * 调用 AI 大模型生成运营优化建议
+     * <p>功能：将平台核心指标数据组装为提示词，调用 AiContext.smartQa() 由本地私有化 AI 模型生成个性化运营建议</p>
+     * <p>异常处理：AI 调用失败时降级为基于规则的通用建议，确保接口不因 AI 异常而报错</p>
+     *
+     * @param healthScore      社区健康评分（0-100）
+     * @param totalUsers       总用户数
+     * @param dau              日活跃用户数
+     * @param todayPosts       今日发帖数
+     * @param pendingReports   待处理工单数
+     * @param totalPosts       总帖子数
+     * @param totalInteractions 总互动量
+     * @return 运营建议列表（通常 2-4 条）
+     */
+    private List<String> generateAiSuggestions(int healthScore, long totalUsers, long dau,
+                                               long todayPosts, long pendingReports,
+                                               long totalPosts, long totalInteractions) {
+        try {
+            // 构建包含真实运营数据的提示词
+            String prompt = String.format(
+                    "你是 MintHive 兴趣社交平台的运营数据分析专家。根据以下今日真实运营数据，给出 3-4 条简洁具体的运营优化建议（每条不超过30字），直接列出建议内容，不要解释：\n" +
+                    "- 社区健康评分: %d/100\n" +
+                    "- 总用户数: %d\n" +
+                    "- 日活(DAU): %d\n" +
+                    "- 今日发帖: %d\n" +
+                    "- 待处理工单: %d\n" +
+                    "- 总帖子数: %d\n" +
+                    "- 总互动量: %d\n" +
+                    "\n请用中文回答，每条建议单独一行，以数字序号开头。",
+                    healthScore, totalUsers, dau, todayPosts, pendingReports, totalPosts, totalInteractions
+            );
 
-        // AI 建议
+            String aiResponse = aiContext.smartQa(prompt);
+
+            // 解析 AI 回复为建议列表（按换行或序号分割）
+            List<String> result = new ArrayList<>();
+            String[] lines = aiResponse.split("\n");
+            for (String line : lines) {
+                String trimmed = line.trim()
+                        .replaceAll("^[\\d\\.、\\s]+", "")  // 去掉开头的序号
+                        .trim();
+                if (!trimmed.isEmpty() && trimmed.length() > 2) {
+                    result.add(trimmed);
+                }
+            }
+
+            if (!result.isEmpty()) {
+                return result;
+            }
+        } catch (Exception e) {
+            log.warn("[AI日报] AI 生成建议失败，降级为规则建议: {}", e.getMessage());
+        }
+
+        // AI 调用失败的降级方案：基于规则的通用建议
+        return fallbackSuggestions(healthScore, todayPosts, pendingReports, totalUsers);
+    }
+
+    /**
+     * 规则降级运营建议（AI 不可用时使用）
+     * <p>功能：基于健康评分和关键指标的简单规则生成兜底建议</p>
+     *
+     * @param healthScore    健康评分
+     * @param todayPosts     今日发帖数
+     * @param pendingReports 待处理工单数
+     * @param totalUsers     总用户数
+     * @return 降级建议列表
+     */
+    private List<String> fallbackSuggestions(int healthScore, long todayPosts,
+                                             long pendingReports, long totalUsers) {
         List<String> suggestions = new ArrayList<>();
         if (healthScore >= 80) {
             suggestions.add("社区整体运行健康，用户活跃度高");
@@ -273,16 +384,10 @@ public class AdminStatsController {
         if (todayPosts < 5 && totalUsers > 50) {
             suggestions.add("今日发帖量偏低，可考虑推送话题活动激励用户");
         }
-        data.put("suggestions", suggestions);
-
-        // 风险等级分布
-        data.put("riskDistribution", Arrays.asList(
-                mapOf("level", "HIGH", "count", pendingReports > 5 ? 3 : 0),
-                mapOf("level", "MEDIUM", "count", pendingReports > 2 ? 5 : 2),
-                mapOf("level", "LOW", "count", Math.max(pendingReports - 8, 8))
-        ));
-
-        return Result.success(data);
+        if (suggestions.isEmpty()) {
+            suggestions.add("各项指标运行正常，继续保持监控");
+        }
+        return suggestions;
     }
 
     /**

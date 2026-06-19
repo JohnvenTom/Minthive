@@ -359,7 +359,7 @@ onMounted(() => {
 
       <!-- 底部 AI 日报 -->
       <section class="ai-section fade-in-up" style="animation-delay: 0.9s">
-        <AiReportCard :report="statsStore.aiReport" />
+        <AiReportCard :report="statsStore.aiReport" :loading="statsStore.aiLoading" />
       </section>
     </div>
   </div>

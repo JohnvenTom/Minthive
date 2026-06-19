@@ -100,6 +100,16 @@ public interface PostService {
     Page<Post> feed(String sortType, long current, long size);
 
     /**
+     * 填充分页结果中每条帖子的统计数据
+     *
+     * <p>功能描述：遍历分页中的帖子，实时查询并填充 commentCount/likeCount/collectCount/shareCount，
+     * 以及发布者昵称、头像和当前用户的交互状态</p>
+     *
+     * @param page 分页帖子列表
+     */
+    void enrichPageCounts(Page<Post> page);
+
+    /**
      * 转发帖子
      *
      * <p>功能描述：创建一条新帖，内容引用原帖，sharePostId 指向原帖ID</p>

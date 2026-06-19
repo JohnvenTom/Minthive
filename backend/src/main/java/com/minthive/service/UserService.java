@@ -92,6 +92,15 @@ public interface UserService {
     Page<User> searchByKeyword(String keyword, long current, long size);
 
     /**
+     * 填充用户统计数据
+     *
+     * <p>功能描述：实时查询并填充用户的帖子数、关注数、粉丝数</p>
+     *
+     * @param user 用户实体（填充后直接修改该对象）
+     */
+    void enrichUserStats(User user);
+
+    /**
      * 手机号验证码登录
      *
      * @param phone   手机号

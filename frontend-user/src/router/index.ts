@@ -82,8 +82,14 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/profile',
     name: 'MyProfile',
-    component: () => import('@/views/profile/MyPage.vue'),
-    meta: { requiresAuth: true, transition: 'fade-slide', title: '我的' }
+    component: () => import('@/views/profile/ProfilePage.vue'),
+    meta: { requiresAuth: true, transition: 'fade-slide', title: '我的' },
+    beforeEnter: (to) => {
+      // 从 store 获取当前用户ID，跳转到带 ID 的个人主页
+      const userId = JSON.parse(localStorage.getItem('user') || '{}').id
+      if (userId) return `/profile/${userId}`
+      // 未登录则放行，由 requiresAuth 守卫处理
+    }
   },
   {
     path: '/search',

@@ -146,3 +146,13 @@ ul, ol { list-style: none; }
   --van-warning-color: #{$amber-500};
   --van-danger-color: #{$coral-500};
 }
+
+// ---------- Vant Toast 样式修复 ----------
+.van-toast {
+  background-color: rgba(42, 142, 135, 0.9) !important;
+  color: #fff !important;
+
+  .van-toast__text {
+    color: #fff !important;
+  }
+}

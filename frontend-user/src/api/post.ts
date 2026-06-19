@@ -53,6 +53,31 @@ export function deletePost(id: number) {
 }
 
 /**
+ * 编辑帖子（修改内容、图片、可见性）
+ *
+ * @param {number} id - 帖子ID
+ * @param {object} data - 更新字段
+ * @param {string} [data.content] - 新的文案内容
+ * @param {string} [data.images] - 新的图片地址(JSON数组字符串)
+ * @param {number} [data.visibility] - 可见性(0=公开 1=仅粉丝 2=仅自己)
+ * @returns {Promise<Post>} 更新后的帖子
+ */
+export function updatePost(id: number, data: { content?: string; images?: string; visibility?: number }) {
+  return request<Post>({ url: `/post/${id}`, method: 'put', data })
+}
+
+/**
+ * 切换帖子可见性
+ *
+ * @param {number} id - 帖子ID
+ * @param {number} visibility - 目标可见性(0=公开 1=仅粉丝 2=隐藏)
+ * @returns {Promise<Post>} 更新后的帖子
+ */
+export function togglePostVisibility(id: number, visibility: number) {
+  return request<Post>({ url: `/post/${id}/visibility`, method: 'patch', params: { visibility } })
+}
+
+/**
  * 点赞/取消点赞
  * @param {number} id
  * @param {boolean} liked
@@ -78,10 +103,33 @@ export function toggleCollect(id: number, collected: boolean) {
 
 /**
  * 转发帖子
- * @param {number} id
+ *
+ * @param {number} id - 原帖ID
+ * @param {string} [content] - 用户填写的转发文案（可选，不传则由后端生成默认文案）
+ * @returns {Promise<Post>} 创建的转发帖子
  */
-export function sharePost(id: number) {
-  return request({ url: `/post/${id}/share`, method: 'post' })
+export function sharePost(id: number, content?: string) {
+  return request<Post>({
+    url: `/post/${id}/share`,
+    method: 'post',
+    data: content ? { content } : undefined
+  })
+}
+
+/**
+ * 获取帖子转发列表（转发链）
+ *
+ * @param {number} id - 原帖ID
+ * @param {number} current - 页码（默认1）
+ * @param {number} size - 每页大小（默认20）
+ * @returns {Promise<PageResult<Post>>} 分页的转发帖子列表（含转发者昵称、头像）
+ */
+export function getShareChain(id: number, current = 1, size = 20) {
+  return request<PageResult<Post>>({
+    url: `/post/${id}/shares`,
+    method: 'get',
+    params: { current, size }
+  })
 }
 
 /**

@@ -36,6 +36,25 @@
           </span>
         </div>
 
+        <!-- 原帖引用卡片（转发帖时显示） -->
+        <div
+          v-if="post.sharePostId"
+          class="original-post-card"
+          @click="router.push(`/post/${post.sharePostId}`)"
+        >
+          <div class="original-post-header">
+            <van-icon name="replay" color="#4ECDC4" />
+            <span class="original-post-label">原文</span>
+          </div>
+          <div class="original-post-body">
+            <!-- 如果后端返回了 originalPost 对象则直接渲染 -->
+            <p v-if="post.originalPost" class="original-post-text">
+              {{ post.originalPost.content?.slice(0, 100) }}{{ post.originalPost.content?.length > 100 ? '...' : '' }}
+            </p>
+            <span v-else class="original-post-placeholder">点击查看原帖内容</span>
+          </div>
+        </div>
+
         <!-- 帖子正文 -->
         <div class="post-body">
           <p class="post-text">{{ post.content }}</p>
@@ -103,6 +122,10 @@
           <button class="action-btn" @click="onShare">
             <van-icon name="share-o" />
             <span>{{ post.shareCount || '' }}</span>
+          </button>
+          <!-- 查看转发列表（更多按钮） -->
+          <button class="action-btn action-btn--dot" @click="showShareChain = true">
+            <van-icon name="ellipsis" />
           </button>
         </div>
       </article>
@@ -214,6 +237,30 @@
       @select="onPostActionSelect"
     />
 
+    <!-- 分享面板 -->
+    <ShareSheet
+      v-model:show="showShareSheet"
+      :post-id="post?.id"
+      :post-content="post?.content"
+      @shared="onShared"
+    />
+
+    <!-- 转发链弹窗 -->
+    <ShareChainDialog
+      v-model:show="showShareChain"
+      :post-id="post?.id"
+      @click-share="router.push(`/post/${$event}`)"
+      @click-user="router.push(`/profile/${$event}`)"
+    />
+
+    <!-- 编辑帖子弹窗 -->
+    <EditPostDialog
+      v-model:show="showEditDialog"
+      :post-id="post?.id"
+      :content="post?.content || ''"
+      @saved="onPostSaved"
+    />
+
     <!-- 图片预览 -->
     <van-image-preview v-model:show="showPreview" :images="previewImages" :start-position="previewIndex" />
   </div>
@@ -227,8 +274,11 @@ import CommentItem from '@/components/CommentItem.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ReportDialog from '@/components/ReportDialog.vue'
+import ShareSheet from '@/components/ShareSheet.vue'
+import ShareChainDialog from '@/components/ShareChainDialog.vue'
+import EditPostDialog from '@/components/EditPostDialog.vue'
 import { useUserStore } from '@/stores/user'
-import { getPostDetail, toggleLike, toggleCollect, sharePost } from '@/api/post'
+import { getPostDetail, toggleLike, toggleCollect, sharePost, deletePost, updatePost, togglePostVisibility } from '@/api/post'
 import { getComments, createComment, toggleCommentLike, deleteComment } from '@/api/comment'
 import { aiGenerateComment } from '@/api/ai'
 import { report } from '@/api/report'
@@ -278,10 +328,39 @@ const previewIndex = ref(0)
 
 // ---------- 帖子操作 ----------
 const showPostActions = ref(false)
-const postActions = [
-  { name: '举报帖子', color: '#FF6B6B' },
-  { name: '复制链接' }
-]
+/** 分享面板是否显示 */
+const showShareSheet = ref(false)
+/** 转发链弹窗是否显示 */
+const showShareChain = ref(false)
+/** 编辑帖子弹窗是否显示 */
+const showEditDialog = ref(false)
+
+/**
+ * 判断当前用户是否为帖子作者
+ * @returns {boolean} 是作者返回 true
+ */
+const isOwner = computed(() => {
+  return !!userStore.userInfo && post.value && userStore.userInfo.id === post.value.userId
+})
+
+/**
+ * 帖子操作选项（根据身份动态生成）
+ * @description 作者：编辑/隐藏或公开/删除；其他人：举报/复制链接
+ */
+const postActions = computed(() => {
+  if (isOwner.value) {
+    const hidden = post.value?.visibility === 2
+    return [
+      { name: '编辑帖子', color: '#2D3142' },
+      { name: hidden ? '重新公开' : '隐藏帖子', color: '#2D3142' },
+      { name: '删除帖子', color: '#FF6B6B' }
+    ]
+  }
+  return [
+    { name: '举报帖子', color: '#FF6B6B' },
+    { name: '复制链接' }
+  ]
+})
 
 // ---------- +1 浮动动画状态 ----------
 /** 点赞 +1 动画是否显示 */
@@ -404,18 +483,20 @@ async function onToggleCollect(): Promise<void> {
 }
 
 /**
- * 分享帖子
- * @returns {Promise<void>}
+ * 打开分享面板
+ * @description 设置目标帖子并打开 ShareSheet 分享面板
  */
-async function onShare(): Promise<void> {
+function onShare(): void {
   if (!post.value) return
-  try {
-    await sharePost(post.value.id)
-    post.value.shareCount++
-    showToast('分享成功')
-  } catch {
-    showToast('分享失败')
-  }
+  showShareSheet.value = true
+}
+
+/**
+ * 分享成功回调
+ * @description 接收 ShareSheet 的 shared 事件，更新本地转发计数并提示用户
+ */
+function onShared(): void {
+  if (post.value) post.value.shareCount++
 }
 
 // ---------- 评论操作 ----------
@@ -569,18 +650,79 @@ function previewImage(index: number): void {
 // ---------- 帖子操作 ----------
 
 /**
- * 帖子操作选择
+ * 处理帖子操作选择
+ *
  * @param {any} action - 选中的操作项
+ * @description 作者可编辑/隐藏/公开/删除，其他人可举报/复制链接
  */
-function onPostActionSelect(action: any): void {
-  if (action.name === '举报帖子') {
-    reportTargetId.value = postId.value
+async function onPostActionSelect(action: any): Promise<void> {
+  const id = postId.value
+
+  if (action.name === '编辑帖子') {
+    showEditDialog.value = true
+  } else if (action.name === '隐藏帖子') {
+    try {
+      await togglePostVisibility(id, 2)
+      if (post.value) post.value.visibility = 2
+      showToast('已隐藏')
+    } catch {
+      showToast('操作失败')
+    }
+  } else if (action.name === '重新公开') {
+    try {
+      await togglePostVisibility(id, 0)
+      if (post.value) post.value.visibility = 0
+      showToast('已重新公开')
+    } catch {
+      showToast('操作失败')
+    }
+  } else if (action.name === '删除帖子') {
+    try {
+      await showConfirmDialog({
+        title: '确认删除',
+        message: '删除后不可恢复，确认删除该帖子吗？'
+      })
+      await deletePost(id)
+      showToast('已删除')
+      router.back()
+    } catch (e: any) {
+      if (e !== 'cancel') showToast('删除失败')
+    }
+  } else if (action.name === '举报帖子') {
+    reportTargetId.value = id
     showReportDialog.value = true
   } else if (action.name === '复制链接') {
-    navigator.clipboard?.writeText(window.location.href)
-    showToast('链接已复制')
+    const url = window.location.href
+    try {
+      await navigator.clipboard?.writeText(url)
+      showToast('链接已复制')
+    } catch {
+      // 降级方案：execCommand
+      const textarea = document.createElement('textarea')
+      textarea.value = url
+      textarea.style.position = 'fixed'
+      textarea.style.left = '-9999px'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      showToast('链接已复制')
+    }
   }
   showPostActions.value = false
+}
+
+/**
+ * 编辑保存成功回调
+ *
+ * @param {any} updatedPost - 更新后的帖子数据
+ * @description 更新本地 post 数据，保持界面同步
+ */
+function onPostSaved(updatedPost: any): void {
+  if (post.value && updatedPost) {
+    post.value.content = updatedPost.content
+  }
 }
 
 // ---------- 导航 ----------
@@ -842,6 +984,55 @@ onUnmounted(() => {
   margin-bottom: $space-4;
 }
 
+// ---------- 原帖引用卡片（转发帖）----------
+.original-post-card {
+  margin-bottom: $space-4;
+  padding: $space-3 $space-4;
+  border-left: 3px solid $mint-500;
+  background: rgba(78, 205, 196, 0.05);
+  border-radius: 0 $radius-sm $radius-sm 0;
+  cursor: pointer;
+  transition: all $dur-fast ease;
+
+  &:hover {
+    background: rgba(78, 205, 196, 0.1);
+    transform: translateX(2px);
+  }
+
+  &:active {
+    transform: scale(0.99);
+  }
+}
+
+.original-post-header {
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+  margin-bottom: $space-2;
+}
+
+.original-post-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: $mint-600;
+}
+
+.original-post-body {
+  padding-left: $space-5;
+}
+
+.original-post-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: $ink-500;
+  margin: 0;
+}
+
+.original-post-placeholder {
+  font-size: 13px;
+  color: $ink-300;
+}
+
 // ---------- 互动栏 ----------
 .interaction-bar {
   display: flex;
@@ -875,6 +1066,16 @@ onUnmounted(() => {
 
   &.collected {
     color: $amber-500;
+  }
+
+  /** 更多按钮（...）样式 — 紧凑无文字 */
+  &--dot {
+    padding: $space-2;
+    font-size: 16px;
+
+    :deep(.van-icon) {
+      font-size: 16px;
+    }
   }
 }
 

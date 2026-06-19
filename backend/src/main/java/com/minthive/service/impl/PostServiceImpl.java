@@ -8,9 +8,11 @@ import com.minthive.common.ResultCode;
 import com.minthive.entity.Comment;
 import com.minthive.entity.LikeCollect;
 import com.minthive.entity.Post;
+import com.minthive.entity.User;
 import com.minthive.mapper.CommentMapper;
 import com.minthive.mapper.LikeCollectMapper;
 import com.minthive.mapper.PostMapper;
+import com.minthive.mapper.UserMapper;
 import com.minthive.config.JwtConfig;
 import com.minthive.security.JwtUtils;
 import com.minthive.security.UserContext;
@@ -32,6 +34,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class PostServiceImpl implements PostService {
 
     private final PostMapper postMapper;
+
+    private final UserMapper userMapper;
 
     private final SensitiveWordService sensitiveWordService;
 
@@ -111,6 +115,61 @@ public class PostServiceImpl implements PostService {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权删除他人帖子");
         }
         postMapper.deleteById(id);
+    }
+
+    /**
+     * 编辑帖子（修改内容、图片、可见性）
+     *
+     * <p>功能描述：校验操作权限后，更新帖子的 content/images/visibility 字段，
+     * 不允许修改 userId/sharePostId/createTime 等核心字段</p>
+     *
+     * @param id     帖子ID
+     * @param post   包含更新字段的帖子实体
+     * @param userId 操作用户ID
+     * @return 更新后的完整帖子
+     */
+    @Override
+    public Post update(Long id, Post post, Long userId) {
+        // 1. 校验帖子存在性和所有权
+        Post existing = getById(id);
+        if (!existing.getUserId().equals(userId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权编辑他人帖子");
+        }
+        // 2. 仅允许更新的字段：content, images, visibility
+        if (post.getContent() != null) {
+            existing.setContent(post.getContent());
+        }
+        if (post.getImages() != null) {
+            existing.setImages(post.getImages());
+        }
+        if (post.getVisibility() != null) {
+            existing.setVisibility(post.getVisibility());
+        }
+        // 3. 执行更新
+        postMapper.updateById(existing);
+        return existing;
+    }
+
+    /**
+     * 切换帖子可见性
+     *
+     * <p>功能描述：校验权限后直接修改 visibility 字段，
+     * 支持公开(0)/仅粉丝(1)/仅自己(隐藏)(2)三种状态切换</p>
+     *
+     * @param id         帖子ID
+     * @param visibility 目标可见性值
+     * @param userId     操作用户ID
+     * @return 更新后的帖子
+     */
+    @Override
+    public Post toggleVisibility(Long id, Integer visibility, Long userId) {
+        Post post = getById(id);
+        if (!post.getUserId().equals(userId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人帖子");
+        }
+        post.setVisibility(visibility);
+        postMapper.updateById(post);
+        return post;
     }
 
     /**
@@ -209,9 +268,16 @@ public class PostServiceImpl implements PostService {
         post.setUserId(userId);
         post.setSharePostId(sharePostId);
         post.setAuditStatus(Constants.AUDIT_PASS);
+
+        // DEBUG: 打印接收到的转发文案，便于排查前端传参问题
+        log.debug("[Share] 接收到的content={}, 是否为null={}", post.getContent(), post.getContent() == null);
+
         // 如果没有附加内容，使用原帖内容作为引用
         if (post.getContent() == null || post.getContent().trim().isEmpty()) {
             post.setContent("转发: " + original.getContent());
+            log.debug("[Share] 使用默认转发文案: {}", post.getContent());
+        } else {
+            log.debug("[Share] 使用用户自定义转发文案: {}", post.getContent());
         }
         postMapper.insert(post);
         log.info("帖子转发成功: postId={}, originalPostId={}, userId={}", post.getId(), sharePostId, userId);
@@ -253,6 +319,58 @@ public class PostServiceImpl implements PostService {
         return postMapper.selectList(wrapper);
     }
 
+    /**
+     * 获取帖子转发链（被转发列表）
+     *
+     * <p>功能描述：查询所有 sharePostId 指向当前帖子的转发帖，
+     * 批量查询 user 表填充转发者的昵称和头像，支持分页</p>
+     *
+     * @param postId  原帖ID
+     * @param current 当前页码
+     * @param size    每页大小
+     * @return 分页的转发帖子列表（已填充用户昵称、头像等关联数据）
+     */
+    @Override
+    public Page<Post> getShareChain(Long postId, long current, long size) {
+        // 1. 查询所有 sharePostId = postId 的转发帖，按时间倒序
+        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+                .eq(Post::getSharePostId, postId)
+                .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
+                .orderByDesc(Post::getCreateTime);
+        Page<Post> result = postMapper.selectPage(new Page<>(current, size), wrapper);
+
+        // 2. 填充实时统计数据
+        enrichPageCounts(result);
+
+        // 3. 批量查询用户信息并填充昵称、头像
+        if (result.getRecords() != null && !result.getRecords().isEmpty()) {
+            java.util.Set<Long> userIds = result.getRecords().stream()
+                    .map(Post::getUserId)
+                    .collect(java.util.stream.Collectors.toSet());
+            log.debug("[ShareChain] 查询用户ID集合: {}", userIds);
+            if (!userIds.isEmpty()) {
+                java.util.List<User> users = userMapper.selectBatchIds(userIds);
+                log.debug("[ShareChain] 查询到用户数: {}", users.size());
+                java.util.Map<Long, User> userMap = users.stream()
+                        .collect(java.util.stream.Collectors.toMap(User::getId, u -> u));
+                for (Post post : result.getRecords()) {
+                    User user = userMap.get(post.getUserId());
+                    if (user != null) {
+                        post.setNickname(user.getNickname());
+                        post.setAvatar(user.getAvatar());
+                        log.debug("[ShareChain] 填充 postId={} userId={} nickname={} avatar={}",
+                                post.getId(), post.getUserId(), user.getNickname(),
+                                user.getAvatar() != null ? "(有值)" : "(空)");
+                    } else {
+                        log.warn("[ShareChain] 未找到用户! postId={} userId={}", post.getId(), post.getUserId());
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
     // ========== 实时统计计数（从关联表动态计算）==========
 
     /**
@@ -273,13 +391,42 @@ public class PostServiceImpl implements PostService {
         // 收藏数：like_collect 表中 type=3(收藏帖子) 的记录数
         long collectCount = likeCollectMapper.selectCount(
                 new LambdaQueryWrapper<LikeCollect>().eq(LikeCollect::getTargetId, postId).eq(LikeCollect::getType, 3));
+        // 转发数：post 表中 share_post_id = 当前帖子ID 且已审核通过的记录数
+        long shareCount = postMapper.selectCount(
+                new LambdaQueryWrapper<Post>().eq(Post::getSharePostId, postId).eq(Post::getAuditStatus, Constants.AUDIT_PASS));
 
         post.setCommentCount((int) commentCount);
         post.setLikeCount((int) likeCount);
         post.setCollectCount((int) collectCount);
+        post.setShareCount((int) shareCount);
+
+        // 填充发布者昵称和头像
+        enrichUserInfo(post);
 
         // 填充当前用户的点赞/收藏状态（已登录时才查询）
         enrichUserInteractionStatus(post);
+    }
+
+    /**
+     * 填充帖子的发布者信息（昵称、头像）
+     *
+     * @param post 帖子实体
+     * @description 根据 post.userId 查询 user 表，将 nickname 和 avatar 填充到 Post 的非持久化字段中。
+     *              如果 userId 为空或查询不到用户，则跳过
+     */
+    private void enrichUserInfo(Post post) {
+        if (post.getUserId() == null) {
+            return;
+        }
+        try {
+            User user = userMapper.selectById(post.getUserId());
+            if (user != null) {
+                post.setNickname(user.getNickname());
+                post.setAvatar(user.getAvatar());
+            }
+        } catch (Exception e) {
+            log.warn("[Enrich] 填充用户信息失败 postId={} userId={}: {}", post.getId(), post.getUserId(), e.getMessage());
+        }
     }
 
     /**

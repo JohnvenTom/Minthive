@@ -106,6 +106,37 @@ public class PostController {
     }
 
     /**
+     * 编辑帖子
+     *
+     * <p>功能描述：修改帖子的文案内容、图片或可见范围，仅作者本人可操作</p>
+     *
+     * @param id   帖子ID
+     * @param post 包含更新字段的实体（content/images/visibility）
+     * @return 更新后的帖子
+     */
+    @Operation(summary = "编辑帖子")
+    @PutMapping("/{id}")
+    public Result<Post> update(@PathVariable Long id, @RequestBody Post post) {
+        return Result.success(postService.update(id, post, UserContext.getUserId()));
+    }
+
+    /**
+     * 切换帖子可见性（隐藏/公开）
+     *
+     * <p>功能描述：快速切换帖子的可见范围，
+     * 0=公开, 1=仅粉丝, 2=仅自己(隐藏)</p>
+     *
+     * @param id         帖子ID
+     * @param visibility 目标可见性值
+     * @return 更新后的帖子
+     */
+    @Operation(summary = "切换帖子可见性")
+    @PatchMapping("/{id}/visibility")
+    public Result<Post> toggleVisibility(@PathVariable Long id, @RequestParam Integer visibility) {
+        return Result.success(postService.toggleVisibility(id, visibility, UserContext.getUserId()));
+    }
+
+    /**
      * 点赞帖子
      *
      * @param id 帖子ID
@@ -204,5 +235,26 @@ public class PostController {
     @GetMapping("/draft")
     public Result<List<Post>> draftList() {
         return Result.success(postService.getDraftList(UserContext.getUserId()));
+    }
+
+    /**
+     * 获取帖子转发列表
+     *
+     * <p>功能描述：查询所有 sharePostId = 当前 postId 的帖子，
+     * 即所有转发了该帖子的转发帖列表，按时间倒序分页返回，
+     * 包含转发者的昵称和头像信息</p>
+     *
+     * @param id      原帖ID
+     * @param current 当前页码（默认1）
+     * @param size    每页大小（默认20）
+     * @return 分页的转发帖子列表（包含转发者信息）
+     */
+    @Operation(summary = "获取帖子转发列表")
+    @GetMapping("/{id}/shares")
+    public Result<Page<Post>> getShares(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "20") long size) {
+        return Result.success(postService.getShareChain(id, current, size));
     }
 }

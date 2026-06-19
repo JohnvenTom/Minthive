@@ -52,6 +52,11 @@
               @click="goDetail(post.id)"
               @like="onLike"
               @collect="onCollect"
+              @openShare="onOpenShare"
+              @viewShares="onViewShares"
+              @editPost="goDetail"
+              @deletePost="onDeletePost"
+              @toggleVisibility="onToggleVisibility"
             />
           </TransitionGroup>
         </div>
@@ -65,6 +70,11 @@
               @click="goDetail(post.id)"
               @like="onLike"
               @collect="onCollect"
+              @openShare="onOpenShare"
+              @viewShares="onViewShares"
+              @editPost="goDetail"
+              @deletePost="onDeletePost"
+              @toggleVisibility="onToggleVisibility"
             />
           </TransitionGroup>
         </div>
@@ -98,19 +108,37 @@
     <button class="fab-create glass-card" @click="goCreate">
       <van-icon name="edit" size="24" />
     </button>
+
+    <!-- 分享面板 -->
+    <ShareSheet
+      v-model:show="showShareSheet"
+      :post-id="shareTargetPostId"
+      :post-content="shareTargetContent"
+      @shared="onShared"
+    />
+
+    <!-- 转发链弹窗 -->
+    <ShareChainDialog
+      v-model:show="showShareChain"
+      :post-id="shareChainPostId"
+      @click-share="router.push(`/post/${$event}`)"
+      @click-user="router.push(`/profile/${$event}`)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
+import { showToast, showConfirmDialog } from 'vant'
 import PostCard from '@/components/PostCard.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ShareSheet from '@/components/ShareSheet.vue'
+import ShareChainDialog from '@/components/ShareChainDialog.vue'
 import { useUserStore } from '@/stores/user'
 import { useChatStore } from '@/stores/chat'
-import { getFeed, toggleLike, toggleCollect } from '@/api/post'
+import { getFeed, toggleLike, toggleCollect, deletePost, togglePostVisibility } from '@/api/post'
 import { wsClient } from '@/utils/websocket'
 import type { Post } from '@/types'
 
@@ -141,6 +169,20 @@ const hasMore = ref(true)
 const currentPage = ref(1)
 const pageSize = 10
 const newCommentTip = ref('')
+
+// ---------- 分享面板 ----------
+/** 分享面板是否显示 */
+const showShareSheet = ref(false)
+/** 分享目标帖子ID */
+const shareTargetPostId = ref(0)
+/** 分享目标帖子内容（用于生成默认转发文案） */
+const shareTargetContent = ref('')
+
+// ---------- 转发链弹窗 ----------
+/** 转发链弹窗是否显示 */
+const showShareChain = ref(false)
+/** 转发链目标帖子ID */
+const shareChainPostId = ref(0)
 
 // ---------- 计算属性 ----------
 /** 未读消息数 */
@@ -263,6 +305,73 @@ async function onCollect(postId: number): Promise<void> {
     await toggleCollect(postId, !post.collected)
     post.collected = !post.collected
     post.collectCount += post.collected ? 1 : -1
+  } catch {
+    showToast('操作失败')
+  }
+}
+
+/**
+ * 打开分享面板
+ * @param {number} postId - 目标帖子ID
+ * @description 根据帖子ID查找对应帖子内容，设置目标后打开 ShareSheet
+ */
+function onOpenShare(postId: number): void {
+  const target = posts.value.find(p => p.id === postId)
+  shareTargetPostId.value = postId
+  shareTargetContent.value = target?.content || ''
+  showShareSheet.value = true
+}
+
+/**
+ * 分享成功回调
+ * @description 接收 ShareSheet 的 shared 事件，更新本地转发计数
+ */
+function onShared(): void {
+  const post = posts.value.find(p => p.id === shareTargetPostId.value)
+  if (post) post.shareCount++
+}
+
+/**
+ * 打开转发链弹窗
+ * @param {number} postId - 目标帖子ID
+ */
+function onViewShares(postId: number): void {
+  shareChainPostId.value = postId
+  showShareChain.value = true
+}
+
+/**
+ * 删除帖子（从 PostCard emit）
+ *
+ * @param {number} postId - 帖子ID
+ * @description 弹出确认框后调用删除接口，成功后从本地列表移除
+ */
+async function onDeletePost(postId: number): Promise<void> {
+  try {
+    await showConfirmDialog({
+      title: '确认删除',
+      message: '删除后不可恢复，确认删除该帖子吗？'
+    })
+    await deletePost(postId)
+    posts.value = posts.value.filter(p => p.id !== postId)
+    showToast('已删除')
+  } catch (e: any) {
+    if (e !== 'cancel') showToast('删除失败')
+  }
+}
+
+/**
+ * 切换帖子可见性（从 PostCard emit）
+ *
+ * @param {number} postId - 帖子ID
+ * @param {number} visibility - 目标可见性(0=公开 2=隐藏)
+ * @description 调用接口切换可见性，更新本地数据
+ */
+async function onToggleVisibility(postId: number, visibility: number): Promise<void> {
+  try {
+    await togglePostVisibility(postId, visibility)
+    const post = posts.value.find(p => p.id === postId)
+    if (post) post.visibility = visibility
   } catch {
     showToast('操作失败')
   }

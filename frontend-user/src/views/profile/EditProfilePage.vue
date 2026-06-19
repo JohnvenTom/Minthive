@@ -284,7 +284,7 @@ async function confirmCrop(): Promise<void> {
     avatarProgress.value = 100
 
     // 7. 用 MinIO URL 替换 blob 预览
-    form.value.avatar = res.data.url
+    form.value.avatar = res.data
     URL.revokeObjectURL(previewUrl)
   } catch {
     showToast('头像处理失败')

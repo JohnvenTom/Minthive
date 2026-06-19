@@ -6,6 +6,7 @@ import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import io.minio.SetBucketPolicyArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -94,6 +95,26 @@ public class MinioUtil {
                     .build());
             log.info("MinIO 存储桶创建成功: {}", minioConfig.getBucket());
         }
+        setBucketPublicPolicy();
+    }
+
+    private void setBucketPublicPolicy() throws Exception {
+        String bucket = minioConfig.getBucket();
+        String policy = """
+                {
+                  "Version": "2012-10-17",
+                  "Statement": [{
+                    "Effect": "Allow",
+                    "Principal": {"AWS": ["*"]},
+                    "Action": ["s3:GetObject"],
+                    "Resource": ["arn:aws:s3:::%s/*"]
+                  }]
+                }
+                """.formatted(bucket);
+        minioClient.setBucketPolicy(SetBucketPolicyArgs.builder()
+                .bucket(bucket)
+                .config(policy)
+                .build());
     }
 
     /**

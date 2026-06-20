@@ -6,13 +6,16 @@ import com.minthive.common.BusinessException;
 import com.minthive.common.ResultCode;
 import com.minthive.entity.Comment;
 import com.minthive.entity.LikeCollect;
+import com.minthive.entity.User;
 import com.minthive.mapper.CommentMapper;
 import com.minthive.mapper.LikeCollectMapper;
+import com.minthive.mapper.UserMapper;
 import com.minthive.service.CommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 评论服务实现
@@ -24,6 +27,8 @@ public class CommentServiceImpl implements CommentService {
     private final CommentMapper commentMapper;
 
     private final LikeCollectMapper likeCollectMapper;
+
+    private final UserMapper userMapper;
 
     /**
      * 发表评论
@@ -46,7 +51,7 @@ public class CommentServiceImpl implements CommentService {
      * @param current 当前页
      * @param size    每页大小
      * @param postId  帖子ID
-     * @return 分页结果
+     * @return 分页结果（每条评论已填充 nickname、avatar、likeCount）
      */
     @Override
     public Page<Comment> pageByPost(long current, long size, Long postId) {
@@ -56,6 +61,8 @@ public class CommentServiceImpl implements CommentService {
         Page<Comment> result = commentMapper.selectPage(new Page<>(current, size), wrapper);
         // 实时统计每条评论的点赞数（从 like_collect 表查询，不依赖冗余字段）
         enrichPageCommentLikeCounts(result);
+        // 批量查询并填充每条评论的评论者信息（nickname、avatar）
+        enrichPageCommentUserInfo(result);
         return result;
     }
 
@@ -108,5 +115,57 @@ public class CommentServiceImpl implements CommentService {
                         .eq(LikeCollect::getTargetId, commentId)
                         .eq(LikeCollect::getType, 2));
         comment.setLikeCount((int) likeCount);
+    }
+
+    /**
+     * 批量填充分页评论列表中每条评论的评论者用户信息
+     * 收集所有评论的 userId，批量查询 user 表，将 nickname 和 avatar 写入每条评论
+     *
+     * @param page 评论分页结果
+     * @description nickname 和 avatar 为 Comment 实体的 @TableField(exist = false) 非持久化字段，
+     *              仅用于 API 响应返回给前端展示
+     */
+    private void enrichPageCommentUserInfo(Page<Comment> page) {
+        List<Comment> records = page.getRecords();
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        // 1. 收集所有评论者的 userId
+        Set<Long> userIds = new HashSet<>();
+        for (Comment c : records) {
+            if (c.getUserId() != null) {
+                userIds.add(c.getUserId());
+            }
+        }
+        // 2. 批量查询用户信息（只查 id、nickname、avatar）
+        Map<Long, User> userMap = batchGetUsers(userIds);
+        // 3. 填充到每条评论
+        for (Comment c : records) {
+            User user = userMap.get(c.getUserId());
+            if (user != null) {
+                c.setNickname(user.getNickname());
+                c.setAvatar(user.getAvatar());
+            } else {
+                c.setNickname("未知用户");
+                c.setAvatar("");
+            }
+        }
+    }
+
+    /**
+     * 批量查询用户信息（仅 id、nickname、avatar 字段）
+     *
+     * @param userIds 用户ID集合
+     * @return userId -> User 的映射
+     */
+    private Map<Long, User> batchGetUsers(Set<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<User>()
+                .in(User::getId, userIds)
+                .select(User::getId, User::getNickname, User::getAvatar);
+        List<User> users = userMapper.selectList(wrapper);
+        return users.stream().collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
     }
 }

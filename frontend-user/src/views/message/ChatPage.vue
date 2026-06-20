@@ -63,8 +63,11 @@
             </div>
           </template>
 
-          <!-- 自己的消息 -->
+          <!-- 自己的消息：头像靠右，气泡在头像左侧 -->
           <template v-else>
+            <div class="msg-avatar self">
+              <img :src="currentUserAvatar" alt="我" />
+            </div>
             <div class="msg-bubble-wrap is-self">
               <!-- AI代回复标记 -->
               <div v-if="msg.aiReply" class="ai-reply-tag self">
@@ -86,9 +89,6 @@
               <span class="msg-read-status">{{ msg.read ? '已读' : '未读' }}</span>
               <!-- 时间 -->
               <span class="msg-time">{{ formatRelativeTime(msg.createTime) }}</span>
-            </div>
-            <div class="msg-avatar">
-              <img :src="currentUserAvatar" alt="我" />
             </div>
           </template>
         </div>
@@ -737,7 +737,7 @@ onUnmounted(() => {
   animation: fade-up 0.35s $ease-out both;
 
   &.is-self {
-    flex-direction: row-reverse;
+    justify-content: flex-end; /* 自己的消息整行靠右 */
   }
 }
 

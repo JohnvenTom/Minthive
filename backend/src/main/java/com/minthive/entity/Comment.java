@@ -52,6 +52,10 @@ public class Comment implements Serializable {
     @TableField(exist = false)
     private String avatar;
 
+    /** 当前用户是否已点赞该评论（非持久化字段） */
+    @TableField(exist = false)
+    private Boolean liked;
+
     /** AI评论标记:0手动 1AI生成 */
     private Integer aiGenerated;
 

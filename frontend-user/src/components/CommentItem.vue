@@ -117,7 +117,7 @@ const formattedTime = computed(() => formatRelativeTime(props.comment.createTime
 
 /** 处理点赞 */
 function handleLike(): void {
-  emit('like', props.comment.id)
+  emit('like', props.comment)
 }
 
 /** 处理回复 */

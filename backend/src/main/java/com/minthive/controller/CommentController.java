@@ -60,7 +60,7 @@ public class CommentController {
     public Result<Page<Comment>> page(@RequestParam Long postId,
                                       @RequestParam(defaultValue = "1") long current,
                                       @RequestParam(defaultValue = "10") long size) {
-        return Result.success(commentService.pageByPost(current, size, postId));
+        return Result.success(commentService.pageByPost(current, size, postId, UserContext.getUserId()));
     }
 
     /**

@@ -3,6 +3,7 @@ package com.minthive.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.BusinessException;
+import com.minthive.common.Constants;
 import com.minthive.common.ResultCode;
 import com.minthive.entity.Comment;
 import com.minthive.entity.LikeCollect;
@@ -51,10 +52,11 @@ public class CommentServiceImpl implements CommentService {
      * @param current 当前页
      * @param size    每页大小
      * @param postId  帖子ID
-     * @return 分页结果（每条评论已填充 nickname、avatar、likeCount）
+     * @param userId  当前登录用户ID（用于查询每条评论的 liked 状态，可为 null）
+     * @return 分页结果（每条评论已填充 nickname、avatar、likeCount、liked）
      */
     @Override
-    public Page<Comment> pageByPost(long current, long size, Long postId) {
+    public Page<Comment> pageByPost(long current, long size, Long postId, Long userId) {
         LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getPostId, postId)
                 .orderByAsc(Comment::getCreateTime);
@@ -63,6 +65,10 @@ public class CommentServiceImpl implements CommentService {
         enrichPageCommentLikeCounts(result);
         // 批量查询并填充每条评论的评论者信息（nickname、avatar）
         enrichPageCommentUserInfo(result);
+        // 填充当前用户对每条评论的点赞状态
+        if (userId != null) {
+            enrichPageCommentLikedStatus(result, userId);
+        }
         return result;
     }
 
@@ -167,5 +173,45 @@ public class CommentServiceImpl implements CommentService {
                 .select(User::getId, User::getNickname, User::getAvatar);
         List<User> users = userMapper.selectList(wrapper);
         return users.stream().collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+    }
+
+    /**
+     * 批量填充分页评论列表中当前用户对每条评论的点赞状态
+     * 批量查询 like_collect 表（type=2），将结果写入每条评论的 liked 字段
+     *
+     * @param page   评论分页结果
+     * @param userId 当前登录用户ID
+     * @description liked 为 Comment 实体的 @TableField(exist = false) 非持久化字段，
+     *              仅用于 API 响应返回给前端展示，标识当前用户是否已点赞该评论
+     */
+    private void enrichPageCommentLikedStatus(Page<Comment> page, Long userId) {
+        List<Comment> records = page.getRecords();
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        // 1. 收集所有评论 ID
+        Set<Long> commentIds = new HashSet<>();
+        for (Comment c : records) {
+            if (c.getId() != null) {
+                commentIds.add(c.getId());
+            }
+        }
+        // 2. 批量查询当前用户对这些评论的点赞记录（type=2 表示评论点赞）
+        Set<Long> likedCommentIds = new HashSet<>();
+        if (!commentIds.isEmpty()) {
+            LambdaQueryWrapper<LikeCollect> wrapper = new LambdaQueryWrapper<LikeCollect>()
+                    .eq(LikeCollect::getUserId, userId)
+                    .eq(LikeCollect::getType, Constants.LC_TYPE_LIKE_COMMENT)
+                    .in(LikeCollect::getTargetId, commentIds)
+                    .select(LikeCollect::getTargetId);
+            List<LikeCollect> likes = likeCollectMapper.selectList(wrapper);
+            for (LikeCollect lc : likes) {
+                likedCommentIds.add(lc.getTargetId());
+            }
+        }
+        // 3. 逐条设置 liked 状态
+        for (Comment c : records) {
+            c.setLiked(likedCommentIds.contains(c.getId()));
+        }
     }
 }

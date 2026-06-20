@@ -183,6 +183,18 @@
       </section>
     </main>
 
+    <!-- 帖子不存在 -->
+    <div v-else class="post-not-found">
+      <EmptyState
+        title="帖子不存在"
+        description="该帖子已被删除或不存在"
+        icon="warning-o"
+      />
+      <van-button type="primary" size="small" class="back-home-btn" @click="router.push('/')">
+        返回首页
+      </van-button>
+    </div>
+
     <!-- 底部评论输入栏 -->
     <footer class="comment-input-bar glass-card">
       <div class="input-area">
@@ -395,8 +407,9 @@ async function fetchPostDetail(): Promise<void> {
       p.collected = !!p.collected
     }
     post.value = p
-  } catch {
-    showToast('帖子加载失败')
+  } catch (err) {
+    // 业务异常(如帖子不存在)已由响应拦截器弹过 toast，此处静默并展示空状态页
+    console.warn('[PostDetail] 加载帖子失败:', err)
   } finally {
     loading.value = false
   }
@@ -831,6 +844,17 @@ onUnmounted(() => {
 .loading-wrap {
   @include center(column);
   padding-top: 120px;
+}
+
+// ---------- 帖子不存在 ----------
+.post-not-found {
+  @include center(column);
+  padding-top: 120px;
+  gap: $space-4;
+
+  .back-home-btn {
+    width: 140px;
+  }
 }
 
 // ---------- 帖子内容卡片 ----------

@@ -331,7 +331,7 @@ public class MessageServiceImpl implements MessageService {
                     .orderByDesc(LikeCollect::getCreateTime)
                     .last("LIMIT 100");
             List<LikeCollect> postLikes = likeCollectMapper.selectList(postLikeWrapper);
-            notifications.addAll(buildLikeNoticeItems(postLikes, "赞了你的动态"));
+            notifications.addAll(buildLikeNoticeItems(postLikes, "赞了你的动态", null));
         }
 
         // ---------- 2) 评论点赞通知 ----------
@@ -344,7 +344,9 @@ public class MessageServiceImpl implements MessageService {
                     .orderByDesc(LikeCollect::getCreateTime)
                     .last("LIMIT 100");
             List<LikeCollect> commentLikes = likeCollectMapper.selectList(commentLikeWrapper);
-            notifications.addAll(buildLikeNoticeItems(commentLikes, "赞了你的评论"));
+            // 批量查询被点赞评论所属的帖子ID，用于跳转到正确的帖子详情页
+            Map<Long, Long> commentToPostMap = getCommentPostMap(commentLikes);
+            notifications.addAll(buildLikeNoticeItems(commentLikes, "赞了你的评论", commentToPostMap));
         }
 
         return notifications;
@@ -513,13 +515,17 @@ public class MessageServiceImpl implements MessageService {
     /**
      * 通用点赞通知条目构建方法
      *
-     * <p>将点赞记录列表转换为通知Map列表，批量查询点赞者信息后填充昵称和头像</p>
+     * <p>将点赞记录列表转换为通知Map列表，批量查询点赞者信息后填充昵称和头像。
+     * 对于评论点赞通知（type=2），通过 commentToPostMap 将评论ID转换为帖子ID，
+     * 确保前端点击通知时能跳转到正确的帖子详情页</p>
      *
-     * @param likes   点赞记录列表
-     * @param content 通知文案（如"赞了你的动态"、"赞了你的评论"）
+     * @param likes            点赞记录列表
+     * @param content          通知文案（如"赞了你的动态"、"赞了你的评论"）
+     * @param commentToPostMap 评论ID→帖子ID的映射（评论点赞时传入，帖子点赞时传null即可）
      * @return 通知Map列表
      */
-    private List<Map<String, Object>> buildLikeNoticeItems(List<LikeCollect> likes, String content) {
+    private List<Map<String, Object>> buildLikeNoticeItems(List<LikeCollect> likes, String content,
+                                                            Map<Long, Long> commentToPostMap) {
         if (likes.isEmpty()) {
             return Collections.emptyList();
         }
@@ -530,19 +536,45 @@ public class MessageServiceImpl implements MessageService {
         List<Map<String, Object>> notifications = new ArrayList<>();
         for (LikeCollect lc : likes) {
             User liker = userMap.get(lc.getUserId());
+            // 评论点赞时：targetId 需要映射为帖子ID；帖子点赞时：直接使用 targetId
+            Long targetId = lc.getTargetId();
+            if (commentToPostMap != null && commentToPostMap.containsKey(targetId)) {
+                targetId = commentToPostMap.get(targetId);
+            }
             Map<String, Object> notice = new HashMap<>();
             notice.put("id", lc.getId());
             notice.put("type", "like");
             notice.put("fromUserId", lc.getUserId());
             notice.put("fromNickname", liker != null ? liker.getNickname() : "未知用户");
             notice.put("fromAvatar", liker != null ? liker.getAvatar() : "");
-            notice.put("targetId", lc.getTargetId());
+            notice.put("targetId", targetId);
             notice.put("content", content);
             notice.put("read", false);
             notice.put("createTime", lc.getCreateTime());
             notifications.add(notice);
         }
         return notifications;
+    }
+
+    /**
+     * 批量查询评论所属的帖子ID映射
+     *
+     * <p>根据点赞记录中的评论ID集合，批量查询每条评论对应的帖子ID，
+     * 用于构建评论点赞通知时的跳转目标</p>
+     *
+     * @param commentLikes 评论点赞记录列表（targetId 为评论ID）
+     * @return 评论ID→帖子ID 的映射
+     */
+    private Map<Long, Long> getCommentPostMap(List<LikeCollect> commentLikes) {
+        if (commentLikes == null || commentLikes.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Set<Long> commentIds = commentLikes.stream()
+                .map(LikeCollect::getTargetId)
+                .collect(Collectors.toSet());
+        List<Comment> comments = commentMapper.selectBatchIds(commentIds);
+        return comments.stream()
+                .collect(Collectors.toMap(Comment::getId, Comment::getPostId));
     }
 
     /**

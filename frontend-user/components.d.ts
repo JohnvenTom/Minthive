@@ -30,6 +30,7 @@ declare module 'vue' {
     TabBar: typeof import('./src/components/TabBar.vue')['default']
     UserCard: typeof import('./src/components/UserCard.vue')['default']
     VanActionSheet: typeof import('vant/es')['ActionSheet']
+    VanButton: typeof import('vant/es')['Button']
     VanDialog: typeof import('vant/es')['Dialog']
     VanEmpty: typeof import('vant/es')['Empty']
     VanIcon: typeof import('vant/es')['Icon']

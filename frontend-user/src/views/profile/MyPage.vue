@@ -29,17 +29,17 @@
         <!-- 数据统计行 -->
         <div class="my-stats">
           <div class="stat-item" @click="goProfile">
-            <span class="stat-num font-heading">{{ formatNumber(userInfo.postCount || 0) }}</span>
+            <span class="stat-num font-heading"><AnimatedNumber :value="userInfo.postCount || 0" /></span>
             <span class="stat-label">帖子</span>
           </div>
           <div class="stat-divider" />
           <div class="stat-item" @click="goFollowing">
-            <span class="stat-num font-heading">{{ formatNumber(userInfo.followCount || 0) }}</span>
+            <span class="stat-num font-heading"><AnimatedNumber :value="userInfo.followCount || 0" /></span>
             <span class="stat-label">关注</span>
           </div>
           <div class="stat-divider" />
           <div class="stat-item" @click="goFollowers">
-            <span class="stat-num font-heading">{{ formatNumber(userInfo.fanCount || 0) }}</span>
+            <span class="stat-num font-heading"><AnimatedNumber :value="userInfo.fanCount || 0" /></span>
             <span class="stat-label">粉丝</span>
           </div>
         </div>
@@ -180,7 +180,7 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { useUserStore } from '@/stores/user'
 import { getUserProfile } from '@/api/user'
-import { formatNumber } from '@/utils/format'
+import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import type { User } from '@/types'
 
 // ---------- 路由与Store ----------
@@ -482,6 +482,10 @@ onMounted(() => {
   font-size: 20px;
   font-weight: 700;
   color: $ink-900;
+  line-height: 1;
+  height: 1em;
+  display: inline-flex;
+  align-items: center;
 }
 
 .stat-label {

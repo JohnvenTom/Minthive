@@ -38,17 +38,17 @@
         <!-- 数据统计 -->
         <div class="stats-row">
           <div class="stat-item" @click="goStat('posts')">
-            <span class="stat-num font-heading">{{ formatNumber(userInfo.postCount || 0) }}</span>
+            <span class="stat-num font-heading"><AnimatedNumber :value="userInfo.postCount || 0" /></span>
             <span class="stat-label">帖子</span>
           </div>
           <div class="stat-divider" />
           <div class="stat-item" @click="goStat('following')">
-            <span class="stat-num font-heading">{{ formatNumber(userInfo.followCount || 0) }}</span>
+            <span class="stat-num font-heading"><AnimatedNumber :value="userInfo.followCount || 0" /></span>
             <span class="stat-label">关注</span>
           </div>
           <div class="stat-divider" />
           <div class="stat-item" @click="goStat('followers')">
-            <span class="stat-num font-heading">{{ formatNumber(userInfo.fanCount || 0) }}</span>
+            <span class="stat-num font-heading"><AnimatedNumber :value="userInfo.fanCount || 0" /></span>
             <span class="stat-label">粉丝</span>
           </div>
         </div>
@@ -327,6 +327,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 import PostCard from '@/components/PostCard.vue'
+import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import ShareSheet from '@/components/ShareSheet.vue'
@@ -335,7 +336,6 @@ import { useUserStore } from '@/stores/user'
 import { getUserProfile, getUserPosts, getUserCollects, getUserLikes } from '@/api/user'
 import { toggleFollow, checkFollowStatus } from '@/api/follow'
 import { deletePost, togglePostVisibility } from '@/api/post'
-import { formatNumber } from '@/utils/format'
 import type { User, Post } from '@/types'
 
 // ---------- 路由与Store ----------
@@ -931,6 +931,10 @@ watch(() => route.params.id, (newId) => {
   font-size: 22px;
   font-weight: 700;
   color: $ink-900;
+  line-height: 1;
+  height: 1em;
+  display: inline-flex;
+  align-items: center;
 }
 
 .stat-label {

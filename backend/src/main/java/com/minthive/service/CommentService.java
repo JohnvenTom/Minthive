@@ -22,9 +22,10 @@ public interface CommentService {
      * @param current 当前页
      * @param size    每页大小
      * @param postId  帖子ID
+     * @param userId  当前登录用户ID（用于查询每条评论的 liked 状态，可为 null）
      * @return 分页结果
      */
-    Page<Comment> pageByPost(long current, long size, Long postId);
+    Page<Comment> pageByPost(long current, long size, Long postId, Long userId);
 
     /**
      * 删除评论

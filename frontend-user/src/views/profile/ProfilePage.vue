@@ -333,7 +333,7 @@ import ShareSheet from '@/components/ShareSheet.vue'
 import ShareChainDialog from '@/components/ShareChainDialog.vue'
 import { useUserStore } from '@/stores/user'
 import { getUserProfile, getUserPosts, getUserCollects, getUserLikes } from '@/api/user'
-import { toggleFollow } from '@/api/follow'
+import { toggleFollow, checkFollowStatus } from '@/api/follow'
 import { deletePost, togglePostVisibility } from '@/api/post'
 import { formatNumber } from '@/utils/format'
 import type { User, Post } from '@/types'
@@ -444,6 +444,12 @@ async function fetchUserProfile(): Promise<void> {
     if (res.data) {
       userInfo.value = res.data
     }
+    if (!isSelf.value && userStore.isLoggedIn) {
+      const followRes = await checkFollowStatus(profileUserId.value)
+      isFollowing.value = !!followRes.data
+    } else {
+      isFollowing.value = false
+    }
   } catch {
     showToast('加载用户信息失败')
   }
@@ -529,13 +535,16 @@ function collapseContent(): void {
  */
 async function onToggleFollow(): Promise<void> {
   try {
-    await toggleFollow(profileUserId.value, !isFollowing.value)
-    isFollowing.value = !isFollowing.value
-    // 更新粉丝数
+    const willFollow = !isFollowing.value
+    await toggleFollow(profileUserId.value, willFollow)
+    isFollowing.value = willFollow
     if (userInfo.value.fanCount !== undefined) {
-      userInfo.value.fanCount += isFollowing.value ? 1 : -1
+      userInfo.value.fanCount += willFollow ? 1 : -1
     }
-    showToast(isFollowing.value ? '关注成功' : '已取消关注')
+    if (userStore.userInfo) {
+      userStore.userInfo.followCount += willFollow ? 1 : -1
+    }
+    showToast(willFollow ? '关注成功' : '已取消关注')
   } catch {
     showToast('操作失败')
   }

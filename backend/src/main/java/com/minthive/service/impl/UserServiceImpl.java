@@ -258,10 +258,10 @@ public class UserServiceImpl implements UserService {
                 new LambdaQueryWrapper<Post>().eq(Post::getUserId, userId));
         // 关注数（我关注了谁）
         long followCount = followMapper.selectCount(
-                new LambdaQueryWrapper<Follow>().eq(Follow::getFollowUserId, userId));
+                new LambdaQueryWrapper<Follow>().eq(Follow::getUserId, userId));
         // 粉丝数（谁关注了我）
         long fanCount = followMapper.selectCount(
-                new LambdaQueryWrapper<Follow>().eq(Follow::getUserId, userId));
+                new LambdaQueryWrapper<Follow>().eq(Follow::getFollowUserId, userId));
 
         user.setPostCount((int) postCount);
         user.setFollowCount((int) followCount);

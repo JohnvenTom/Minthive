@@ -19,6 +19,14 @@ export function toggleFollow(userId: number, follow: boolean) {
 }
 
 /**
+ * 查询是否已关注
+ * @param {number} userId
+ */
+export function checkFollowStatus(userId: number) {
+  return request<boolean>({ url: `/follow/${userId}`, method: 'get' })
+}
+
+/**
  * 关注列表
  * @param {number} userId
  */

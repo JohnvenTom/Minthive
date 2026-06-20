@@ -42,6 +42,8 @@ public class CommentServiceImpl implements CommentService {
         if (comment.getParentId() == null) {
             comment.setParentId(0L);
         }
+        comment.setLikeCount(0);
+        comment.setLiked(false);
         commentMapper.insert(comment);
         return comment;
     }
@@ -57,17 +59,51 @@ public class CommentServiceImpl implements CommentService {
      */
     @Override
     public Page<Comment> pageByPost(long current, long size, Long postId, Long userId) {
-        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
+        LambdaQueryWrapper<Comment> countWrapper = new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getPostId, postId)
-                .orderByAsc(Comment::getCreateTime);
-        Page<Comment> result = commentMapper.selectPage(new Page<>(current, size), wrapper);
-        enrichPageCommentLikeCounts(result);
-        enrichPageCommentUserInfo(result);
-        enrichPageCommentReplyTo(result);
-        buildCommentTree(result);
-        if (userId != null) {
-            enrichPageCommentLikedStatus(result, userId);
+                .eq(Comment::getParentId, 0L);
+        long total = commentMapper.selectCount(countWrapper);
+
+        List<Comment> allComments = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getPostId, postId)
+                .select(Comment::getId, Comment::getPostId, Comment::getUserId,
+                        Comment::getParentId, Comment::getReplyToId, Comment::getContent,
+                        Comment::getImages, Comment::getAiGenerated, Comment::getCreateTime)
+                .orderByAsc(Comment::getCreateTime));
+
+        enrichListCommentLikeCounts(allComments);
+        enrichListCommentUserInfo(allComments);
+        enrichListCommentReplyTo(allComments);
+
+        Map<Long, Comment> commentMap = new HashMap<>();
+        for (Comment c : allComments) {
+            commentMap.put(c.getId(), c);
         }
+        List<Comment> roots = new ArrayList<>();
+        for (Comment c : allComments) {
+            if (c.getParentId() == null || c.getParentId() == 0L) {
+                roots.add(c);
+            } else {
+                Comment parent = commentMap.get(c.getParentId());
+                if (parent != null) {
+                    if (parent.getChildren() == null) {
+                        parent.setChildren(new ArrayList<>());
+                    }
+                    parent.getChildren().add(c);
+                }
+            }
+        }
+
+        if (userId != null) {
+            enrichListCommentLikedStatus(allComments, userId);
+        }
+
+        int fromIndex = (int) ((current - 1) * size);
+        int toIndex = Math.min(fromIndex + (int) size, roots.size());
+        List<Comment> pageRecords = fromIndex < roots.size() ? roots.subList(fromIndex, toIndex) : new ArrayList<>();
+
+        Page<Comment> result = new Page<>(current, size, total);
+        result.setRecords(pageRecords);
         return result;
     }
 
@@ -96,10 +132,9 @@ public class CommentServiceImpl implements CommentService {
      * @param page 评论分页结果
      * @description 遍历分页结果中的每条评论，调用 enrichCommentLikeCount 查询真实点赞数
      */
-    private void enrichPageCommentLikeCounts(Page<Comment> page) {
-        List<Comment> records = page.getRecords();
-        if (records != null && !records.isEmpty()) {
-            for (Comment comment : records) {
+    private void enrichListCommentLikeCounts(List<Comment> comments) {
+        if (comments != null && !comments.isEmpty()) {
+            for (Comment comment : comments) {
                 enrichCommentLikeCount(comment);
             }
         }
@@ -130,13 +165,12 @@ public class CommentServiceImpl implements CommentService {
      * @description nickname 和 avatar 为 Comment 实体的 @TableField(exist = false) 非持久化字段，
      *              仅用于 API 响应返回给前端展示
      */
-    private void enrichPageCommentUserInfo(Page<Comment> page) {
-        List<Comment> records = page.getRecords();
-        if (records == null || records.isEmpty()) {
+    private void enrichListCommentUserInfo(List<Comment> comments) {
+        if (comments == null || comments.isEmpty()) {
             return;
         }
         Set<Long> userIds = new HashSet<>();
-        for (Comment c : records) {
+        for (Comment c : comments) {
             if (c.getUserId() != null) {
                 userIds.add(c.getUserId());
             }
@@ -145,7 +179,7 @@ public class CommentServiceImpl implements CommentService {
             }
         }
         Map<Long, User> userMap = batchGetUsers(userIds);
-        for (Comment c : records) {
+        for (Comment c : comments) {
             User user = userMap.get(c.getUserId());
             if (user != null) {
                 c.setNickname(user.getNickname());
@@ -184,16 +218,15 @@ public class CommentServiceImpl implements CommentService {
      *
      * @param page 评论分页结果
      */
-    private void enrichPageCommentReplyTo(Page<Comment> page) {
-        List<Comment> records = page.getRecords();
-        if (records == null || records.isEmpty()) {
+    private void enrichListCommentReplyTo(List<Comment> comments) {
+        if (comments == null || comments.isEmpty()) {
             return;
         }
         Map<Long, Comment> commentMap = new HashMap<>();
-        for (Comment c : records) {
+        for (Comment c : comments) {
             commentMap.put(c.getId(), c);
         }
-        for (Comment c : records) {
+        for (Comment c : comments) {
             if (c.getParentId() != null && c.getParentId() != 0L
                     && c.getReplyToId() == null && (c.getReplyTo() == null || c.getReplyTo().isEmpty())) {
                 Comment parent = commentMap.get(c.getParentId());
@@ -205,54 +238,18 @@ public class CommentServiceImpl implements CommentService {
     }
 
     /**
-     * 将扁平评论列表构建为树形结构
-     * parentId=0 的为一级评论，其余为子评论，挂载到对应父评论的 children 列表
-     * 构建完成后只保留一级评论在分页结果中
-     *
-     * @param page 评论分页结果
+     * 批量填充评论列表中当前用户对每条评论的点赞状态
      */
-    private void buildCommentTree(Page<Comment> page) {
-        List<Comment> records = page.getRecords();
-        if (records == null || records.isEmpty()) {
-            return;
-        }
-        Map<Long, Comment> commentMap = new HashMap<>();
-        for (Comment c : records) {
-            commentMap.put(c.getId(), c);
-        }
-        List<Comment> roots = new ArrayList<>();
-        for (Comment c : records) {
-            if (c.getParentId() == null || c.getParentId() == 0L) {
-                roots.add(c);
-            } else {
-                Comment parent = commentMap.get(c.getParentId());
-                if (parent != null) {
-                    if (parent.getChildren() == null) {
-                        parent.setChildren(new ArrayList<>());
-                    }
-                    parent.getChildren().add(c);
-                }
-            }
-        }
-        page.setRecords(roots);
-    }
-
-    /**
-     * 批量填充分页评论列表中当前用户对每条评论的点赞状态
-     * 批量查询 like_collect 表（type=2），将结果写入每条评论的 liked 字段
-     *
-     * @param page   评论分页结果
-     * @param userId 当前登录用户ID
-     * @description liked 为 Comment 实体的 @TableField(exist = false) 非持久化字段，
-     *              仅用于 API 响应返回给前端展示，标识当前用户是否已点赞该评论
-     */
-    private void enrichPageCommentLikedStatus(Page<Comment> page, Long userId) {
-        List<Comment> records = page.getRecords();
-        if (records == null || records.isEmpty()) {
+    private void enrichListCommentLikedStatus(List<Comment> comments, Long userId) {
+        if (comments == null || comments.isEmpty()) {
             return;
         }
         Set<Long> commentIds = new HashSet<>();
-        collectAllCommentIds(records, commentIds);
+        for (Comment c : comments) {
+            if (c.getId() != null) {
+                commentIds.add(c.getId());
+            }
+        }
         Set<Long> likedCommentIds = new HashSet<>();
         if (!commentIds.isEmpty()) {
             LambdaQueryWrapper<LikeCollect> wrapper = new LambdaQueryWrapper<LikeCollect>()
@@ -265,26 +262,8 @@ public class CommentServiceImpl implements CommentService {
                 likedCommentIds.add(lc.getTargetId());
             }
         }
-        setLikedStatus(records, likedCommentIds);
-    }
-
-    private void collectAllCommentIds(List<Comment> comments, Set<Long> ids) {
         for (Comment c : comments) {
-            if (c.getId() != null) {
-                ids.add(c.getId());
-            }
-            if (c.getChildren() != null && !c.getChildren().isEmpty()) {
-                collectAllCommentIds(c.getChildren(), ids);
-            }
-        }
-    }
-
-    private void setLikedStatus(List<Comment> comments, Set<Long> likedIds) {
-        for (Comment c : comments) {
-            c.setLiked(likedIds.contains(c.getId()));
-            if (c.getChildren() != null && !c.getChildren().isEmpty()) {
-                setLikedStatus(c.getChildren(), likedIds);
-            }
+            c.setLiked(likedCommentIds.contains(c.getId()));
         }
     }
 }

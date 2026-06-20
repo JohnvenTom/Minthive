@@ -44,6 +44,14 @@ public class Comment implements Serializable {
     @TableField(exist = false)
     private Integer likeCount;
 
+    /** 评论者昵称（非持久化字段） */
+    @TableField(exist = false)
+    private String nickname;
+
+    /** 评论者头像（非持久化字段） */
+    @TableField(exist = false)
+    private String avatar;
+
     /** AI评论标记:0手动 1AI生成 */
     private Integer aiGenerated;
 

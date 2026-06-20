@@ -9,6 +9,7 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 评论实体类
@@ -30,6 +31,13 @@ public class Comment implements Serializable {
 
     /** 父级评论ID(0为一级评论) */
     private Long parentId;
+
+    /** 回复目标用户ID（持久化） */
+    private Long replyToId;
+
+    /** 回复目标用户昵称（非持久化字段，由服务层从 user 表填充） */
+    @TableField(exist = false)
+    private String replyTo;
 
     /** 评论内容 */
     private String content;
@@ -55,6 +63,10 @@ public class Comment implements Serializable {
     /** 当前用户是否已点赞该评论（非持久化字段） */
     @TableField(exist = false)
     private Boolean liked;
+
+    /** 子评论列表（非持久化字段，由服务层构建树形结构时填充） */
+    @TableField(exist = false)
+    private List<Comment> children;
 
     /** AI评论标记:0手动 1AI生成 */
     private Integer aiGenerated;

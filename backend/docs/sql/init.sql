@@ -92,6 +92,7 @@ CREATE TABLE `comment` (
     `post_id`       BIGINT       NOT NULL COMMENT '帖子ID',
     `user_id`       BIGINT       NOT NULL COMMENT '评论用户ID',
     `parent_id`     BIGINT       DEFAULT 0 COMMENT '父级评论ID(0为一级评论)',
+    `reply_to_id`   BIGINT       DEFAULT NULL COMMENT '回复目标用户ID',
     `content`       VARCHAR(1000) NOT NULL COMMENT '评论内容',
     `images`        VARCHAR(2000) DEFAULT NULL COMMENT '评论图片(JSON)',
     `ai_generated`  TINYINT      NOT NULL DEFAULT 0 COMMENT 'AI评论标记:0手动 1AI生成',

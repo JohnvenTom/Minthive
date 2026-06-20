@@ -319,43 +319,34 @@ public class MessageServiceImpl implements MessageService {
      * @return 点赞通知Map列表
      */
     private List<Map<String, Object>> buildLikeNotifications(Long userId) {
-        List<Long> myPostIds = getMyPostIds(userId);
-        if (myPostIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // 查询别人对我帖子的点赞记录
-        LambdaQueryWrapper<LikeCollect> wrapper = new LambdaQueryWrapper<LikeCollect>()
-                .in(LikeCollect::getTargetId, myPostIds)
-                .eq(LikeCollect::getType, Constants.LC_TYPE_LIKE_POST)
-                .ne(LikeCollect::getUserId, userId)  // 排除自己点赞
-                .orderByDesc(LikeCollect::getCreateTime)
-                .last("LIMIT 100");
-        List<LikeCollect> likes = likeCollectMapper.selectList(wrapper);
-
-        if (likes.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // 批量获取点赞者信息
-        Set<Long> likerIds = likes.stream().map(LikeCollect::getUserId).collect(Collectors.toSet());
-        Map<Long, User> userMap = batchGetUsers(likerIds);
-
         List<Map<String, Object>> notifications = new ArrayList<>();
-        for (LikeCollect lc : likes) {
-            User liker = userMap.get(lc.getUserId());
-            Map<String, Object> notice = new HashMap<>();
-            notice.put("id", lc.getId());
-            notice.put("type", "like");
-            notice.put("fromUserId", lc.getUserId());
-            notice.put("fromNickname", liker != null ? liker.getNickname() : "未知用户");
-            notice.put("fromAvatar", liker != null ? liker.getAvatar() : "");
-            notice.put("targetId", lc.getTargetId());
-            notice.put("content", "赞了你的动态");
-            notice.put("read", false);
-            notice.put("createTime", lc.getCreateTime());
-            notifications.add(notice);
+
+        // ---------- 1) 帖子点赞通知 ----------
+        List<Long> myPostIds = getMyPostIds(userId);
+        if (!myPostIds.isEmpty()) {
+            LambdaQueryWrapper<LikeCollect> postLikeWrapper = new LambdaQueryWrapper<LikeCollect>()
+                    .in(LikeCollect::getTargetId, myPostIds)
+                    .eq(LikeCollect::getType, Constants.LC_TYPE_LIKE_POST)
+                    .ne(LikeCollect::getUserId, userId)
+                    .orderByDesc(LikeCollect::getCreateTime)
+                    .last("LIMIT 100");
+            List<LikeCollect> postLikes = likeCollectMapper.selectList(postLikeWrapper);
+            notifications.addAll(buildLikeNoticeItems(postLikes, "赞了你的动态"));
         }
+
+        // ---------- 2) 评论点赞通知 ----------
+        List<Long> myCommentIds = getMyCommentIds(userId);
+        if (!myCommentIds.isEmpty()) {
+            LambdaQueryWrapper<LikeCollect> commentLikeWrapper = new LambdaQueryWrapper<LikeCollect>()
+                    .in(LikeCollect::getTargetId, myCommentIds)
+                    .eq(LikeCollect::getType, Constants.LC_TYPE_LIKE_COMMENT)
+                    .ne(LikeCollect::getUserId, userId)
+                    .orderByDesc(LikeCollect::getCreateTime)
+                    .last("LIMIT 100");
+            List<LikeCollect> commentLikes = likeCollectMapper.selectList(commentLikeWrapper);
+            notifications.addAll(buildLikeNoticeItems(commentLikes, "赞了你的评论"));
+        }
+
         return notifications;
     }
 
@@ -503,6 +494,55 @@ public class MessageServiceImpl implements MessageService {
                 .select(Post::getId);
         List<Post> posts = postMapper.selectList(wrapper);
         return posts.stream().map(Post::getId).collect(Collectors.toList());
+    }
+
+    /**
+     * 查询当前用户的所有评论ID
+     *
+     * @param userId 当前用户ID
+     * @return 当前用户发布的所有评论ID列表
+     */
+    private List<Long> getMyCommentIds(Long userId) {
+        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getUserId, userId)
+                .select(Comment::getId);
+        List<Comment> comments = commentMapper.selectList(wrapper);
+        return comments.stream().map(Comment::getId).collect(Collectors.toList());
+    }
+
+    /**
+     * 通用点赞通知条目构建方法
+     *
+     * <p>将点赞记录列表转换为通知Map列表，批量查询点赞者信息后填充昵称和头像</p>
+     *
+     * @param likes   点赞记录列表
+     * @param content 通知文案（如"赞了你的动态"、"赞了你的评论"）
+     * @return 通知Map列表
+     */
+    private List<Map<String, Object>> buildLikeNoticeItems(List<LikeCollect> likes, String content) {
+        if (likes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // 批量获取点赞者信息
+        Set<Long> likerIds = likes.stream().map(LikeCollect::getUserId).collect(Collectors.toSet());
+        Map<Long, User> userMap = batchGetUsers(likerIds);
+
+        List<Map<String, Object>> notifications = new ArrayList<>();
+        for (LikeCollect lc : likes) {
+            User liker = userMap.get(lc.getUserId());
+            Map<String, Object> notice = new HashMap<>();
+            notice.put("id", lc.getId());
+            notice.put("type", "like");
+            notice.put("fromUserId", lc.getUserId());
+            notice.put("fromNickname", liker != null ? liker.getNickname() : "未知用户");
+            notice.put("fromAvatar", liker != null ? liker.getAvatar() : "");
+            notice.put("targetId", lc.getTargetId());
+            notice.put("content", content);
+            notice.put("read", false);
+            notice.put("createTime", lc.getCreateTime());
+            notifications.add(notice);
+        }
+        return notifications;
     }
 
     /**

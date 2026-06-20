@@ -70,6 +70,7 @@ export interface Comment {
   nickname: string
   avatar: string
   parentId: number | null
+  replyToId?: number
   replyTo?: string
   content: string
   images: string[]

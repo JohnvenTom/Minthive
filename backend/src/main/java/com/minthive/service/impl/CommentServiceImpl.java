@@ -61,11 +61,10 @@ public class CommentServiceImpl implements CommentService {
                 .eq(Comment::getPostId, postId)
                 .orderByAsc(Comment::getCreateTime);
         Page<Comment> result = commentMapper.selectPage(new Page<>(current, size), wrapper);
-        // 实时统计每条评论的点赞数（从 like_collect 表查询，不依赖冗余字段）
         enrichPageCommentLikeCounts(result);
-        // 批量查询并填充每条评论的评论者信息（nickname、avatar）
         enrichPageCommentUserInfo(result);
-        // 填充当前用户对每条评论的点赞状态
+        enrichPageCommentReplyTo(result);
+        buildCommentTree(result);
         if (userId != null) {
             enrichPageCommentLikedStatus(result, userId);
         }
@@ -136,16 +135,16 @@ public class CommentServiceImpl implements CommentService {
         if (records == null || records.isEmpty()) {
             return;
         }
-        // 1. 收集所有评论者的 userId
         Set<Long> userIds = new HashSet<>();
         for (Comment c : records) {
             if (c.getUserId() != null) {
                 userIds.add(c.getUserId());
             }
+            if (c.getReplyToId() != null) {
+                userIds.add(c.getReplyToId());
+            }
         }
-        // 2. 批量查询用户信息（只查 id、nickname、avatar）
         Map<Long, User> userMap = batchGetUsers(userIds);
-        // 3. 填充到每条评论
         for (Comment c : records) {
             User user = userMap.get(c.getUserId());
             if (user != null) {
@@ -154,6 +153,10 @@ public class CommentServiceImpl implements CommentService {
             } else {
                 c.setNickname("未知用户");
                 c.setAvatar("");
+            }
+            if (c.getReplyToId() != null) {
+                User replyUser = userMap.get(c.getReplyToId());
+                c.setReplyTo(replyUser != null ? replyUser.getNickname() : "未知用户");
             }
         }
     }
@@ -176,6 +179,65 @@ public class CommentServiceImpl implements CommentService {
     }
 
     /**
+     * 填充分页评论列表中子评论的 replyTo 字段
+     * 对于 replyTo 为空的子评论（parentId != 0），从父评论作者信息中补充
+     *
+     * @param page 评论分页结果
+     */
+    private void enrichPageCommentReplyTo(Page<Comment> page) {
+        List<Comment> records = page.getRecords();
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        Map<Long, Comment> commentMap = new HashMap<>();
+        for (Comment c : records) {
+            commentMap.put(c.getId(), c);
+        }
+        for (Comment c : records) {
+            if (c.getParentId() != null && c.getParentId() != 0L
+                    && c.getReplyToId() == null && (c.getReplyTo() == null || c.getReplyTo().isEmpty())) {
+                Comment parent = commentMap.get(c.getParentId());
+                if (parent != null && parent.getNickname() != null) {
+                    c.setReplyTo(parent.getNickname());
+                }
+            }
+        }
+    }
+
+    /**
+     * 将扁平评论列表构建为树形结构
+     * parentId=0 的为一级评论，其余为子评论，挂载到对应父评论的 children 列表
+     * 构建完成后只保留一级评论在分页结果中
+     *
+     * @param page 评论分页结果
+     */
+    private void buildCommentTree(Page<Comment> page) {
+        List<Comment> records = page.getRecords();
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        Map<Long, Comment> commentMap = new HashMap<>();
+        for (Comment c : records) {
+            commentMap.put(c.getId(), c);
+        }
+        List<Comment> roots = new ArrayList<>();
+        for (Comment c : records) {
+            if (c.getParentId() == null || c.getParentId() == 0L) {
+                roots.add(c);
+            } else {
+                Comment parent = commentMap.get(c.getParentId());
+                if (parent != null) {
+                    if (parent.getChildren() == null) {
+                        parent.setChildren(new ArrayList<>());
+                    }
+                    parent.getChildren().add(c);
+                }
+            }
+        }
+        page.setRecords(roots);
+    }
+
+    /**
      * 批量填充分页评论列表中当前用户对每条评论的点赞状态
      * 批量查询 like_collect 表（type=2），将结果写入每条评论的 liked 字段
      *
@@ -189,14 +251,8 @@ public class CommentServiceImpl implements CommentService {
         if (records == null || records.isEmpty()) {
             return;
         }
-        // 1. 收集所有评论 ID
         Set<Long> commentIds = new HashSet<>();
-        for (Comment c : records) {
-            if (c.getId() != null) {
-                commentIds.add(c.getId());
-            }
-        }
-        // 2. 批量查询当前用户对这些评论的点赞记录（type=2 表示评论点赞）
+        collectAllCommentIds(records, commentIds);
         Set<Long> likedCommentIds = new HashSet<>();
         if (!commentIds.isEmpty()) {
             LambdaQueryWrapper<LikeCollect> wrapper = new LambdaQueryWrapper<LikeCollect>()
@@ -209,9 +265,26 @@ public class CommentServiceImpl implements CommentService {
                 likedCommentIds.add(lc.getTargetId());
             }
         }
-        // 3. 逐条设置 liked 状态
-        for (Comment c : records) {
-            c.setLiked(likedCommentIds.contains(c.getId()));
+        setLikedStatus(records, likedCommentIds);
+    }
+
+    private void collectAllCommentIds(List<Comment> comments, Set<Long> ids) {
+        for (Comment c : comments) {
+            if (c.getId() != null) {
+                ids.add(c.getId());
+            }
+            if (c.getChildren() != null && !c.getChildren().isEmpty()) {
+                collectAllCommentIds(c.getChildren(), ids);
+            }
+        }
+    }
+
+    private void setLikedStatus(List<Comment> comments, Set<Long> likedIds) {
+        for (Comment c : comments) {
+            c.setLiked(likedIds.contains(c.getId()));
+            if (c.getChildren() != null && !c.getChildren().isEmpty()) {
+                setLikedStatus(c.getChildren(), likedIds);
+            }
         }
     }
 }

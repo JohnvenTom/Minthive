@@ -27,6 +27,7 @@ export function getComments(postId: number, page = 1, pageSize = 20) {
 export function createComment(data: {
   postId: number
   parentId?: number
+  replyToId?: number
   content: string
   images?: string[]
   aiGenerated?: boolean

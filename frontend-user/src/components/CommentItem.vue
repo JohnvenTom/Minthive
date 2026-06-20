@@ -38,7 +38,7 @@
         <!-- 底部操作 -->
         <div class="comment-item__footer">
           <span class="comment-item__time">{{ formattedTime }}</span>
-          <div class="comment-item__ops">
+          <div v-if="!isChild" class="comment-item__ops">
             <button
               class="comment-item__op"
               :class="{ 'is-liked': comment.liked }"
@@ -61,6 +61,9 @@
               回复
             </button>
           </div>
+          <div v-else class="comment-item__ops">
+            <button class="comment-item__op" @click="handleReply">回复</button>
+          </div>
         </div>
       </div>
     </div>
@@ -71,8 +74,9 @@
         v-for="child in comment.children"
         :key="child.id"
         :comment="child"
-        @reply="(id: number) => emit('reply', id)"
-        @like="(id: number) => emit('like', id)"
+        :is-child="true"
+        @reply="(c: Comment) => emit('reply', c)"
+        @like="(c: Comment) => emit('like', c)"
         @delete="(id: number) => emit('delete', id)"
       />
     </div>
@@ -94,18 +98,14 @@ import type { Comment } from '@/types'
 import { formatRelativeTime, formatNumber } from '@/utils/format'
 
 const props = defineProps<{
-  /** 评论数据 */
   comment: Comment
+  isChild?: boolean
 }>()
 
 const emit = defineEmits<{
-  /** 回复事件 */
-  (e: 'reply', id: number): void
-  /** 点赞事件 */
-  (e: 'like', id: number): void
-  /** 删除事件 */
+  (e: 'reply', comment: Comment): void
+  (e: 'like', comment: Comment): void
   (e: 'delete', id: number): void
-  /** 点击用户（头像/昵称），参数为用户ID */
   (e: 'click-user', userId: number): void
 }>()
 
@@ -122,7 +122,7 @@ function handleLike(): void {
 
 /** 处理回复 */
 function handleReply(): void {
-  emit('reply', props.comment.id)
+  emit('reply', props.comment)
 }
 
 /** 处理头像/昵称点击，跳转用户主页 */

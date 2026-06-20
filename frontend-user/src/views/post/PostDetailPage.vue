@@ -328,6 +328,7 @@ const commentPageSize = 20
 // ---------- 评论输入 ----------
 const commentText = ref('')
 const replyTarget = ref('')
+const replyToId = ref<number | null>(null)
 const replyParentId = ref<number | null>(null)
 
 // ---------- AI 评论 ----------
@@ -542,7 +543,8 @@ async function onCommentLike(comment: Comment): Promise<void> {
  */
 function onReply(comment: Comment): void {
   replyTarget.value = comment.nickname
-  replyParentId.value = comment.parentId || comment.id
+  replyToId.value = comment.userId
+  replyParentId.value = comment.parentId && comment.parentId !== 0 ? comment.parentId : comment.id
   commentText.value = `@${comment.nickname} `
 }
 
@@ -596,11 +598,13 @@ async function onSubmitComment(): Promise<void> {
     await createComment({
       postId: postId.value,
       parentId: replyParentId.value || undefined,
+      replyToId: replyToId.value || undefined,
       content
     })
 
     commentText.value = ''
     replyTarget.value = ''
+    replyToId.value = null
     replyParentId.value = null
 
     // 重新加载评论

@@ -63,11 +63,8 @@
             </div>
           </template>
 
-          <!-- 自己的消息：头像靠右，气泡在头像左侧 -->
+          <!-- 自己的消息：气泡在左，头像贴右边缘 -->
           <template v-else>
-            <div class="msg-avatar self">
-              <img :src="currentUserAvatar" alt="我" />
-            </div>
             <div class="msg-bubble-wrap is-self">
               <!-- AI代回复标记 -->
               <div v-if="msg.aiReply" class="ai-reply-tag self">
@@ -89,6 +86,9 @@
               <span class="msg-read-status">{{ msg.read ? '已读' : '未读' }}</span>
               <!-- 时间 -->
               <span class="msg-time">{{ formatRelativeTime(msg.createTime) }}</span>
+            </div>
+            <div class="msg-avatar self">
+              <img :src="currentUserAvatar" alt="我" />
             </div>
           </template>
         </div>

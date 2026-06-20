@@ -162,6 +162,9 @@ const cropperRef = ref<InstanceType<typeof VueCropper> | null>(null)
 /** 待裁剪的原始 File 对象 */
 const pendingFile = ref<File | null>(null)
 
+/** 裁剪后待上传的 File 对象（保存时才会上传到 MinIO） */
+const pendingCropFile = ref<File | null>(null)
+
 /** 保存中状态 */
 const saving = ref(false)
 
@@ -244,9 +247,10 @@ async function handleAvatarChange(event: Event): Promise<void> {
 }
 
 /**
- * 确认裁剪 — 获取裁剪结果 → 压缩 → 上传MinIO → 更新表单预览
+ * 确认裁剪 — 获取裁剪结果 → 本地预览（不立即上传）
  * @description 调用 vue-cropper 的 getCropBlob 获取裁剪后的 Blob，
- *   然后压缩并上传到 MinIO 对象存储，成功后更新表单中的头像 URL
+ *   仅用 blob URL 做本地预览，将 File 对象暂存到 pendingCropFile，
+ *   等用户点击"保存"时再上传到 MinIO
  */
 async function confirmCrop(): Promise<void> {
   if (!cropperRef.value || !pendingFile.value) return
@@ -261,38 +265,19 @@ async function confirmCrop(): Promise<void> {
       })
     })
 
-    // 2. 将 Blob 转为 File 对象
+    // 2. 将 Blob 转为 File 对象，暂存待上传
     const cropFile = new File([cropBlob], `avatar_${Date.now()}.png`, { type: 'image/png' })
+    pendingCropFile.value = cropFile
 
-    // 3. 本地预览（先用 blob URL 显示）
-    const previewUrl = URL.createObjectURL(cropFile)
-    form.value.avatar = previewUrl
+    // 3. 本地预览（用 blob URL 显示，不传到服务端）
+    form.value.avatar = URL.createObjectURL(cropFile)
 
     // 关闭裁剪弹窗
     closeCropModal()
-
-    // 4. 开始上传流程
-    avatarUploading.value = true
-    avatarProgress.value = 30
-
-    // 5. 压缩图片
-    const compressed = await compressImage(cropFile)
-    avatarProgress.value = 60
-
-    // 6. 上传到 MinIO
-    const res = await uploadImage(compressed)
-    avatarProgress.value = 100
-
-    // 7. 用 MinIO URL 替换 blob 预览
-    form.value.avatar = res.data
-    URL.revokeObjectURL(previewUrl)
   } catch {
     showToast('头像处理失败')
-    form.value.avatar = initialValues.value.avatar
   } finally {
     cropConfirming.value = false
-    avatarUploading.value = false
-    setTimeout(() => { avatarProgress.value = 0 }, 300)
   }
 }
 
@@ -341,7 +326,8 @@ function goInterestSelect(): void {
 
 /**
  * 保存个人资料
- * @description 将昵称、简介、头像一次性通过 updateProfile 接口提交到后端，
+ * @description 如果有待上传的裁剪头像（pendingCropFile），先压缩并上传到 MinIO，
+ *   然后将昵称、简介、头像 URL 一次性通过 updateProfile 接口提交到后端，
  *   成功后更新本地 store 并提示用户
  */
 async function onSave(): Promise<void> {
@@ -355,17 +341,44 @@ async function onSave(): Promise<void> {
 
   saving.value = true
   try {
+    let avatarUrl = form.value.avatar || ''
+
+    // 如果有裁剪后待上传的头像文件，先上传到 MinIO
+    if (pendingCropFile.value) {
+      avatarUploading.value = true
+      avatarProgress.value = 30
+
+      // 压缩图片
+      const compressed = await compressImage(pendingCropFile.value)
+      avatarProgress.value = 60
+
+      // 上传到 MinIO，获取远程 URL
+      const res = await uploadImage(compressed)
+      avatarProgress.value = 100
+
+      // 用 MinIO 远程 URL 替换 blob 预览地址
+      avatarUrl = res.data
+      form.value.avatar = avatarUrl
+
+      // 释放 blob 资源
+      if (form.value.avatar.startsWith('blob:')) {
+        URL.revokeObjectURL(form.value.avatar)
+      }
+      pendingCropFile.value = null
+      avatarUploading.value = false
+      setTimeout(() => { avatarProgress.value = 0 }, 300)
+    }
+
     // 判断头像是否为新上传的远程 URL（非 blob URL 且非默认头像）
-    const avatar = form.value.avatar || ''
-    const isNewAvatar = avatar !== initialValues.value.avatar &&
-                        !avatar.startsWith('blob:') &&
-                        !avatar.includes('dicebear.com')
+    const isNewAvatar = avatarUrl !== initialValues.value.avatar &&
+                        !avatarUrl.startsWith('blob:') &&
+                        !avatarUrl.includes('dicebear.com')
 
     // 一次性更新：昵称 + 简介 + 头像（如有变更）
     await updateProfile({
       nickname: form.value.nickname,
       bio: form.value.bio,
-      ...(isNewAvatar ? { avatar: form.value.avatar } : {})
+      ...(isNewAvatar ? { avatar: avatarUrl } : {})
     })
 
     // 刷新 store 数据
@@ -382,6 +395,7 @@ async function onSave(): Promise<void> {
     showToast(e?.message || '保存失败')
   } finally {
     saving.value = false
+    avatarUploading.value = false
   }
 }
 

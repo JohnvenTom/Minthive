@@ -32,13 +32,18 @@ public class SystemMsgServiceImpl implements SystemMsgService {
      */
     @Override
     public void push(Long userId, Integer msgType, String content) {
+        push(userId, msgType, content, null);
+    }
+
+    @Override
+    public void push(Long userId, Integer msgType, String content, Long targetId) {
         SystemMsg msg = new SystemMsg();
         msg.setUserId(userId);
         msg.setMsgType(msgType);
         msg.setContent(content);
+        msg.setTargetId(targetId);
         msg.setIsRead(Constants.READ_STATUS_UNREAD);
         systemMsgMapper.insert(msg);
-        // 更新未读数缓存
         String key = RedisConstants.UNREAD_MSG_PREFIX + userId;
         stringRedisTemplate.opsForValue().increment(key);
     }

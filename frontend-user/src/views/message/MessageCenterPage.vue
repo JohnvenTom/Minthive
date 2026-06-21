@@ -127,8 +127,11 @@
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/>
               </svg>
               <svg v-else-if="notify.type === 'comment'" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+               </svg>
+               <svg v-else-if="notify.type === 'reply'" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                 <path d="M9 10L5 14l4 4M5 14h12a4 4 0 004-4V6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+               </svg>
               <svg v-else-if="notify.type === 'follow'" width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M12.5 11a4 4 0 100-8 4 4 0 000 8zM20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
@@ -364,7 +367,7 @@ function openChat(chat: ChatItem): void {
  * @description 根据通知类型跳转到对应页面
  */
 function onNotifyClick(notify: Notification): void {
-  if (notify.type === 'like' || notify.type === 'comment') {
+  if (notify.type === 'like' || notify.type === 'comment' || notify.type === 'reply') {
     router.push(`/post/${notify.targetId}`)
   } else if (notify.type === 'follow') {
     router.push(`/profile/${notify.fromUserId}`)
@@ -378,10 +381,11 @@ function onNotifyClick(notify: Notification): void {
  * @param {'like' | 'comment' | 'follow' | 'circle' | 'system'} type - 通知类型
  * @returns {string} 动作描述文本
  */
-function getNotifyAction(type: 'like' | 'comment' | 'follow' | 'circle' | 'system'): string {
+function getNotifyAction(type: 'like' | 'comment' | 'reply' | 'follow' | 'circle' | 'system'): string {
   const map: Record<string, string> = {
     like: '赞了你的动态',
     comment: '评论了你的动态',
+    reply: '回复了你',
     follow: '关注了你',
     circle: '圈子有新动态',
     system: '系统通知'
@@ -430,11 +434,15 @@ onMounted(() => {
   chatStore.connectWs()
   wsClient.on('message', onWsMessage)
   wsClient.on('notice', onWsNotify)
+  wsClient.on('reply', onWsNotify)
+  wsClient.on('comment', onWsNotify)
 })
 
 onUnmounted(() => {
   wsClient.off('message', onWsMessage)
   wsClient.off('notice', onWsNotify)
+  wsClient.off('reply', onWsNotify)
+  wsClient.off('comment', onWsNotify)
 })
 </script>
 
@@ -798,6 +806,11 @@ onUnmounted(() => {
   &.comment {
     background: rgba(78, 205, 196, 0.12);
     color: $mint-500;
+  }
+
+  &.reply {
+    background: rgba(255, 182, 39, 0.12);
+    color: $amber-500;
   }
 
   &.follow {

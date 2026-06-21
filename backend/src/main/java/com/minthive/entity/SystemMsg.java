@@ -29,6 +29,9 @@ public class SystemMsg implements Serializable {
     /** 消息内容 */
     private String content;
 
+    /** 关联目标ID(如帖子ID) */
+    private Long targetId;
+
     /** 是否已读:0未读 1已读 */
     private Integer isRead;
 

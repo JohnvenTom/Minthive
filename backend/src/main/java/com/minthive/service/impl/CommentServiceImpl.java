@@ -7,11 +7,17 @@ import com.minthive.common.Constants;
 import com.minthive.common.ResultCode;
 import com.minthive.entity.Comment;
 import com.minthive.entity.LikeCollect;
+import com.minthive.entity.Post;
 import com.minthive.entity.User;
 import com.minthive.mapper.CommentMapper;
 import com.minthive.mapper.LikeCollectMapper;
+import com.minthive.mapper.PostMapper;
 import com.minthive.mapper.UserMapper;
 import com.minthive.service.CommentService;
+import com.minthive.service.SystemMsgService;
+import com.minthive.websocket.MessageType;
+import com.minthive.websocket.WsMessage;
+import com.minthive.websocket.WebSocketServer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +37,10 @@ public class CommentServiceImpl implements CommentService {
 
     private final UserMapper userMapper;
 
+    private final PostMapper postMapper;
+
+    private final SystemMsgService systemMsgService;
+
     /**
      * 发表评论
      *
@@ -45,6 +55,48 @@ public class CommentServiceImpl implements CommentService {
         comment.setLikeCount(0);
         comment.setLiked(false);
         commentMapper.insert(comment);
+
+        Long fromUserId = comment.getUserId();
+        boolean isReply = comment.getParentId() != null && comment.getParentId() != 0L;
+
+        if (isReply) {
+            Comment parentComment = commentMapper.selectById(comment.getParentId());
+            if (parentComment != null) {
+                Long replyTargetUserId = comment.getReplyToId() != null
+                        ? comment.getReplyToId() : parentComment.getUserId();
+                if (!replyTargetUserId.equals(fromUserId)) {
+                    User fromUser = userMapper.selectById(fromUserId);
+                    String fromNickname = fromUser != null ? fromUser.getNickname() : "有人";
+                    String preview = comment.getContent() != null && comment.getContent().length() > 50
+                            ? comment.getContent().substring(0, 50) + "..." : comment.getContent();
+                    String content = fromNickname + " 回复了你: " + (preview != null ? preview : "");
+                    systemMsgService.push(replyTargetUserId, Constants.SYS_MSG_TYPE_REPLY, content, comment.getPostId());
+                    WebSocketServer.sendToUser(replyTargetUserId,
+                            WsMessage.of(MessageType.REPLY.getCode(), fromUserId, replyTargetUserId,
+                                    Map.of("commentId", comment.getId(),
+                                            "postId", comment.getPostId(),
+                                            "content", preview)));
+                }
+            }
+        } else {
+            if (comment.getPostId() != null) {
+                Post post = postMapper.selectById(comment.getPostId());
+                if (post != null && !post.getUserId().equals(fromUserId)) {
+                    User fromUser = userMapper.selectById(fromUserId);
+                    String fromNickname = fromUser != null ? fromUser.getNickname() : "有人";
+                    String preview = comment.getContent() != null && comment.getContent().length() > 50
+                            ? comment.getContent().substring(0, 50) + "..." : comment.getContent();
+                    String content = fromNickname + " 评论了你的动态: " + (preview != null ? preview : "");
+                    systemMsgService.push(post.getUserId(), 2, content, comment.getPostId());
+                    WebSocketServer.sendToUser(post.getUserId(),
+                            WsMessage.of(MessageType.COMMENT.getCode(), fromUserId, post.getUserId(),
+                                    Map.of("commentId", comment.getId(),
+                                            "postId", comment.getPostId(),
+                                            "content", preview)));
+                }
+            }
+        }
+
         return comment;
     }
 

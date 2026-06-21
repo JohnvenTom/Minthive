@@ -67,6 +67,9 @@ public final class Constants {
     /** 消息类型: 表情 */
     public static final int MSG_TYPE_EMOJI = 2;
 
+    /** 系统消息类型: 回复通知 */
+    public static final int SYS_MSG_TYPE_REPLY = 6;
+
     /** 已读状态: 未读 */
     public static final int READ_STATUS_UNREAD = 0;
     /** 已读状态: 已读 */

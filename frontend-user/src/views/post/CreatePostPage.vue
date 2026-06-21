@@ -38,13 +38,13 @@
               </svg>
               AI 生成
             </button>
-            <button class="ai-chip" :disabled="!form.content.trim()" @click="onAiPolish">
+            <button class="ai-chip" :disabled="!form?.content?.trim()" @click="onAiPolish">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5V5H4.5A2.5 2.5 0 0 1 7 2.5H9.5ZM12 7H4V20C4 21.1 4.9 22 6 22H14C15.1 22 16 21.1 16 20V7H12ZM14.5 2H12V5H14.5A2.5 2.5 0 0 0 17 2.5V2H14.5Z" fill="currentColor"/>
               </svg>
               润色
             </button>
-            <button class="ai-chip" :disabled="!form.content.trim()" @click="onAiCheck">
+            <button class="ai-chip" :disabled="!form?.content?.trim()" @click="onAiCheck">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2"/>
                 <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -74,6 +74,7 @@
               <span class="section-hint">最多9张</span>
             </div>
             <ImageUploader
+              ref="imageUploaderRef"
               :max-count="9"
               @change="onImageChange"
             />
@@ -263,7 +264,7 @@
             @click="selectDraft(idx)"
           >
             <div class="draft-header">
-              <span class="draft-style-badge">{{ draft.styleName }}</span>
+              <span class="draft-style-badge">{{ draft.styleName || `文案 ${idx + 1}` }}</span>
               <div v-if="selectedDraftIdx === idx" class="draft-check">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -372,6 +373,7 @@ const canPublish = computed(() => form.value.content.trim().length > 0)
 // ---------- DOM引用 ----------
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const videoInputRef = ref<HTMLInputElement | null>(null)
+const imageUploaderRef = ref<InstanceType<typeof ImageUploader> | null>(null)
 
 // ---------- AI 文案生成 ----------
 const showAiPanel = ref(false)
@@ -433,7 +435,6 @@ function removeTopic(idx: number): void {
  * @description 用 ImageUploader 的 change 事件同步图片URL到表单
  */
 function onImageChange(urls: string[]): void {
-  console.log('[CreatePostPage] onImageChange, urls:', urls)
   form.value.images = urls
 }
 
@@ -528,7 +529,18 @@ async function onAiGenerateSubmit(): Promise<void> {
   aiGenerating.value = true
   try {
     const res = await aiGeneratePost(keyword)
-    aiDrafts.value = res.data || []
+    // 后端返回的是字符串数组（每条文案一个字符串），需转换为 AiPostDraft 对象格式
+    const raw = res.data
+    if (Array.isArray(raw) && typeof raw[0] === 'string') {
+      aiDrafts.value = (raw as string[]).map((text, idx) => ({
+        style: ['simple', 'vibe', 'pro'][idx] as 'simple' | 'vibe' | 'pro',
+        styleName: ['简约', '氛围', '干货'][idx],
+        content: text.trim(),
+        topics: []
+      }))
+    } else {
+      aiDrafts.value = raw || []
+    }
   } catch {
     showToast('AI 生成失败，请重试')
   } finally {
@@ -646,24 +658,29 @@ async function onSaveDraft(): Promise<void> {
 /**
  * 发布帖子
  * @returns {Promise<void>}
- * @description 校验表单后调用创建帖子接口，成功后跳转首页
+ * @description 先上传图片到 MinIO，再调用创建帖子接口，成功后跳转首页
  */
 async function onPublish(): Promise<void> {
   if (!canPublish.value || publishing.value) return
 
   publishing.value = true
   try {
-    // DEBUG: 检查图片数据是否正确收集
-    console.log('[CreatePost] form.images =', form.value.images)
+    // 先上传图片到 MinIO
+    let imageUrls: string[] = form.value.images
+    if (imageUploaderRef.value) {
+      showToast({ message: '图片上传中...', duration: 0, forbidClick: true })
+      imageUrls = await imageUploaderRef.value.uploadAll()
+      form.value.images = imageUrls
+    }
+
     const postData = {
       content: form.value.content,
-      images: form.value.images.length > 0 ? JSON.stringify(form.value.images) : undefined,
+      images: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined,
       video: form.value.video || undefined,
       tags: form.value.topics.length > 0 ? form.value.topics.join(',') : undefined,
       visibility: { public: 0, fans: 1, self: 2 }[form.value.visibility] ?? 0,
       circleId: form.value.circleId
     }
-    console.log('[CreatePost] postData =', JSON.stringify(postData))
     await createPost(postData)
 
     showToast('发布成功')

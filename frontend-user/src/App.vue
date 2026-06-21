@@ -339,6 +339,10 @@ onUnmounted(() => {
 .main-content {
   min-height: 100vh;
   padding-bottom: $space-4;
+  // 桌面端宽屏留白，内容居中
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 
   &--with-nav {
     padding-top: 64px;

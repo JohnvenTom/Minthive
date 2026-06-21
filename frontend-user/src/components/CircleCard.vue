@@ -23,7 +23,7 @@
       <!-- 名称 + 分类 -->
       <div class="circle-card__name-row">
         <h3 class="circle-card__name">{{ circle.name }}</h3>
-        <span class="circle-card__category">{{ circle.category }}</span>
+        <span class="circle-card__category">{{ circle.categoryName || '未分类' }}</span>
       </div>
 
       <!-- 简介 -->

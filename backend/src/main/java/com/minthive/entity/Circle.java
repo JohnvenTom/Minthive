@@ -28,8 +28,12 @@ public class Circle implements Serializable {
     /** 圈子名称 */
     private String name;
 
-    /** 分类 */
-    private String category;
+    /** 分类ID(关联circle_category) */
+    private Long categoryId;
+
+    /** 分类名称(非数据库字段，查询时填充) */
+    @TableField(exist = false)
+    private String categoryName;
 
     /** 圈子简介 */
     private String intro;

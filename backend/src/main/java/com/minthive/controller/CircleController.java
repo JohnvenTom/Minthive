@@ -3,6 +3,7 @@ package com.minthive.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
 import com.minthive.entity.Circle;
+import com.minthive.entity.CircleCategory;
 import com.minthive.entity.Post;
 import com.minthive.security.UserContext;
 import com.minthive.service.CircleService;
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 圈子控制器
@@ -33,13 +35,34 @@ public class CircleController {
 
     /**
      * 创建圈子
+     * <p>传入 categoryId（预设分类ID）或 categoryName（自定义分类名称，后端自动创建）</p>
      *
-     * @param circle 圈子实体
+     * @param params 圈子参数（name, categoryId/categoryName, intro, avatar, type）
      * @return 圈子实体
      */
     @Operation(summary = "创建圈子")
     @PostMapping
-    public Result<Circle> create(@RequestBody Circle circle) {
+    public Result<Circle> create(@RequestBody Map<String, Object> params) {
+        Long categoryId = null;
+        // 优先使用 categoryId
+        if (params.get("categoryId") != null) {
+            categoryId = Long.valueOf(params.get("categoryId").toString());
+        }
+        // 如果没有 categoryId 但有 categoryName（自定义），先创建分类
+        else if (params.get("categoryName") != null) {
+            String categoryName = params.get("categoryName").toString().trim();
+            if (!categoryName.isEmpty()) {
+                categoryId = circleService.createCategory(categoryName);
+            }
+        }
+        // 构建圈子对象
+        Circle circle = new Circle();
+        circle.setName((String) params.get("name"));
+        circle.setCategoryId(categoryId);
+        circle.setIntro((String) params.get("intro"));
+        circle.setAvatar((String) params.get("avatar"));
+        Object typeObj = params.get("type");
+        circle.setType(typeObj != null && "private".equals(typeObj.toString()) ? 1 : 0);
         circle.setOwnerId(UserContext.getUserId());
         return Result.success(circleService.create(circle));
     }
@@ -59,19 +82,19 @@ public class CircleController {
     /**
      * 分页查询圈子
      *
-     * @param current  当前页
-     * @param size     每页大小
-     * @param category 分类
-     * @param keyword  关键词
+     * @param current    当前页
+     * @param size       每页大小
+     * @param categoryId 分类ID
+     * @param keyword    关键词
      * @return 分页结果
      */
     @Operation(summary = "分页查询圈子")
     @GetMapping("/page")
     public Result<Page<Circle>> page(@RequestParam(defaultValue = "1") long current,
                                      @RequestParam(defaultValue = "10") long size,
-                                     @RequestParam(required = false) String category,
+                                     @RequestParam(required = false) Long categoryId,
                                      @RequestParam(required = false) String keyword) {
-        return Result.success(circleService.page(current, size, category, keyword));
+        return Result.success(circleService.page(current, size, categoryId, keyword));
     }
 
     /**
@@ -121,13 +144,13 @@ public class CircleController {
     /**
      * 获取圈子分类列表
      *
-     * <p>功能描述：返回系统预设的圈子分类名称列表</p>
+     * <p>功能描述：返回所有启用的圈子分类（含ID和名称）</p>
      *
-     * @return 分类名称列表
+     * @return 分类列表
      */
     @Operation(summary = "获取圈子分类列表")
     @GetMapping("/categories")
-    public Result<List<String>> getCategories() {
+    public Result<List<CircleCategory>> getCategories() {
         return Result.success(circleService.getCategories());
     }
 

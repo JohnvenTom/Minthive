@@ -2,6 +2,7 @@ package com.minthive.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.entity.Circle;
+import com.minthive.entity.CircleCategory;
 import com.minthive.entity.Post;
 
 import java.util.List;
@@ -30,13 +31,13 @@ public interface CircleService {
     /**
      * 分页查询圈子
      *
-     * @param current  当前页
-     * @param size     每页大小
-     * @param category 分类(可空)
-     * @param keyword  关键词(可空)
+     * @param current    当前页
+     * @param size       每页大小
+     * @param categoryId 分类ID(可空)
+     * @param keyword    关键词(可空)
      * @return 分页结果
      */
-    Page<Circle> page(long current, long size, String category, String keyword);
+    Page<Circle> page(long current, long size, Long categoryId, String keyword);
 
     /**
      * 加入圈子
@@ -77,11 +78,19 @@ public interface CircleService {
     /**
      * 获取圈子分类列表
      *
-     * <p>功能描述：返回系统预设的圈子分类名称列表</p>
+     * <p>功能描述：返回所有启用的圈子分类（从数据库查询）</p>
      *
-     * @return 分类名称列表
+     * @return 分类列表
      */
-    List<String> getCategories();
+    List<CircleCategory> getCategories();
+
+    /**
+     * 创建自定义分类（已存在则返回原ID）
+     *
+     * @param name 分类名称
+     * @return 分类ID
+     */
+    Long createCategory(String name);
 
     /**
      * 获取推荐圈子列表

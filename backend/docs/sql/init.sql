@@ -3,7 +3,7 @@
 -- 数据库: MySQL 8.0
 -- 字符集: utf8mb4
 -- 存储引擎: InnoDB
--- 共计 11 张核心表
+-- 共计 12 张核心表
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS `minthive` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -123,14 +123,26 @@ CREATE TABLE `like_collect` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='点赞收藏表';
 
 -- ============================================================
--- 6. 兴趣圈子表 circle
+-- 6. 圈子分类表 circle_category
+-- ============================================================
+DROP TABLE IF EXISTS `circle_category`;
+CREATE TABLE `circle_category` (
+    `id`       BIGINT      NOT NULL AUTO_INCREMENT COMMENT '分类ID',
+    `name`     VARCHAR(32) NOT NULL COMMENT '分类名称',
+    `sort`     INT         NOT NULL DEFAULT 0 COMMENT '排序(越小越前)',
+    `status`   TINYINT     NOT NULL DEFAULT 1 COMMENT '状态:0禁用 1启用',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='圈子分类表';
+
+-- ============================================================
+-- 7. 兴趣圈子表 circle
 -- ============================================================
 DROP TABLE IF EXISTS `circle`;
 CREATE TABLE `circle` (
     `id`           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '圈子ID',
     `owner_id`     BIGINT       NOT NULL COMMENT '圈主用户ID',
     `name`         VARCHAR(64)  NOT NULL COMMENT '圈子名称',
-    `category`     VARCHAR(32)  NOT NULL COMMENT '分类(游戏/影视/户外/读书等)',
+    `category_id`  BIGINT       NOT NULL COMMENT '分类ID(关联circle_category)',
     `intro`        VARCHAR(500) DEFAULT NULL COMMENT '圈子简介',
     `avatar`       VARCHAR(255) DEFAULT NULL COMMENT '圈子头像',
     `type`         TINYINT      NOT NULL DEFAULT 0 COMMENT '圈子类型:0公开 1私密',
@@ -142,12 +154,13 @@ CREATE TABLE `circle` (
     `deleted`      TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除',
     PRIMARY KEY (`id`),
     KEY `idx_owner` (`owner_id`),
-    KEY `idx_category` (`category`),
-    CONSTRAINT `fk_circle_owner` FOREIGN KEY (`owner_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
+    KEY `idx_category_id` (`category_id`),
+    CONSTRAINT `fk_circle_owner` FOREIGN KEY (`owner_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_circle_category` FOREIGN KEY (`category_id`) REFERENCES `circle_category`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='兴趣圈子表';
 
 -- ============================================================
--- 7. 圈子成员表 circle_user
+-- 8. 圈子成员表 circle_user
 -- ============================================================
 DROP TABLE IF EXISTS `circle_user`;
 CREATE TABLE `circle_user` (
@@ -254,14 +267,28 @@ SET FOREIGN_KEY_CHECKS = 1;
 INSERT INTO `user` (`account`, `password`, `phone`, `nickname`, `bio`, `role`, `status`)
 VALUES ('admin', '$2b$10$sO9SaS7A8UOiOpPFojpBzOgQkstUlUbkY08rZsG83otSfNwrtIAxS', '13800000000', '平台管理员', 'MintHive平台超级管理员', 2, 1);
 
--- 默认圈子分类数据
-INSERT INTO `circle` (`owner_id`, `name`, `category`, `intro`, `type`, `member_count`, `status`, `notice`)
+-- 圈子分类初始数据
+INSERT INTO `circle_category` (`name`, `sort`, `status`)
 VALUES
-(1, '游戏玩家联盟', '游戏', '聚集各类游戏爱好者，分享游戏心得与攻略', 0, 1, 1, '欢迎来到游戏玩家联盟！'),
-(1, '影视爱好者', '影视', '电影、电视剧、动漫讨论交流圈', 0, 1, 1, '欢迎来到影视爱好者圈子！'),
-(1, '户外露营圈', '户外', '露营、徒步、骑行等户外活动分享', 0, 1, 1, '欢迎来到户外露营圈！'),
-(1, '读书分享会', '读书', '读书笔记、好书推荐、文学讨论', 0, 1, 1, '欢迎来到读书分享会！'),
-(1, '摄影作品交流', '摄影', '摄影作品分享、技巧交流、器材讨论', 0, 1, 1, '欢迎来到摄影作品交流圈！');
+('技术',   1, 1),
+('生活',   2, 1),
+('娱乐',   3, 1),
+('学习',   4, 1),
+('运动',   5, 1),
+('美食',   6, 1),
+('旅行',   7, 1),
+('游戏',   8, 1),
+('音乐',   9, 1),
+('其他',  10, 1);
+
+-- 默认圈子数据 (category_id 对应上面的分类ID)
+INSERT INTO `circle` (`owner_id`, `name`, `category_id`, `intro`, `type`, `member_count`, `status`, `notice`)
+VALUES
+(1, '游戏玩家联盟', 8, '聚集各类游戏爱好者，分享游戏心得与攻略', 0, 1, 1, '欢迎来到游戏玩家联盟！'),
+(1, '影视爱好者', 3, '电影、电视剧、动漫讨论交流圈', 0, 1, 1, '欢迎来到影视爱好者圈子！'),
+(1, '户外露营圈', 7, '露营、徒步、骑行等户外活动分享', 0, 1, 1, '欢迎来到户外露营圈！'),
+(1, '读书分享会', 4, '读书笔记、好书推荐、文学讨论', 0, 1, 1, '欢迎来到读书分享会！'),
+(1, '摄影作品交流', 10, '摄影作品分享、技巧交流、器材讨论', 0, 1, 1, '欢迎来到摄影作品交流圈！');
 
 -- 圈主默认加入自己的圈子
 INSERT INTO `circle_user` (`circle_id`, `user_id`, `role`, `audit_status`)

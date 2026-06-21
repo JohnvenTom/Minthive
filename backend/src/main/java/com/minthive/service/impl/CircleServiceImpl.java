@@ -6,8 +6,10 @@ import com.minthive.common.BusinessException;
 import com.minthive.common.Constants;
 import com.minthive.common.ResultCode;
 import com.minthive.entity.Circle;
+import com.minthive.entity.CircleCategory;
 import com.minthive.entity.CircleUser;
 import com.minthive.entity.Post;
+import com.minthive.mapper.CircleCategoryMapper;
 import com.minthive.mapper.CircleMapper;
 import com.minthive.mapper.CircleUserMapper;
 import com.minthive.mapper.PostMapper;
@@ -17,8 +19,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.Arrays;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 圈子服务实现
@@ -33,15 +38,20 @@ public class CircleServiceImpl implements CircleService {
 
     private final PostMapper postMapper;
 
+    private final CircleCategoryMapper circleCategoryMapper;
+
     /**
      * 创建圈子
+     * <p>支持传入 categoryId（预设分类）或自动创建自定义分类</p>
      *
-     * @param circle 圈子实体
+     * @param circle 圈子实体（categoryId 为分类ID）
      * @return 圈子实体
      */
     @Override
     @Transactional
     public Circle create(Circle circle) {
+        // 确保有分类ID：如果未传 categoryId，尝试按名称匹配或新建
+        resolveCategoryId(circle);
         circle.setMemberCount(1);
         circle.setStatus(1);
         circleMapper.insert(circle);
@@ -56,6 +66,17 @@ public class CircleServiceImpl implements CircleService {
     }
 
     /**
+     * 解析/补全圈子分类ID
+     * <p>如果 categoryId 已有值则直接使用；否则忽略（兼容旧逻辑）</p>
+     */
+    private void resolveCategoryId(Circle circle) {
+        if (circle.getCategoryId() != null && circle.getCategoryId() > 0) {
+            return;
+        }
+        throw new BusinessException(ResultCode.PARAM_ERROR, "请选择圈子分类");
+    }
+
+    /**
      * 根据ID查询圈子
      *
      * @param id 圈子ID
@@ -67,26 +88,29 @@ public class CircleServiceImpl implements CircleService {
         if (circle == null) {
             throw new BusinessException(ResultCode.CIRCLE_NOT_EXISTS);
         }
+        fillCategoryName(List.of(circle));
         return circle;
     }
 
     /**
      * 分页查询圈子
      *
-     * @param current  当前页
-     * @param size     每页大小
-     * @param category 分类
-     * @param keyword  关键词
+     * @param current    当前页
+     * @param size       每页大小
+     * @param categoryId 分类ID
+     * @param keyword    关键词
      * @return 分页结果
      */
     @Override
-    public Page<Circle> page(long current, long size, String category, String keyword) {
+    public Page<Circle> page(long current, long size, Long categoryId, String keyword) {
         LambdaQueryWrapper<Circle> wrapper = new LambdaQueryWrapper<Circle>()
                 .eq(Circle::getStatus, 1)
-                .eq(StringUtils.hasText(category), Circle::getCategory, category)
+                .eq(categoryId != null && categoryId > 0, Circle::getCategoryId, categoryId)
                 .like(StringUtils.hasText(keyword), Circle::getName, keyword)
                 .orderByDesc(Circle::getMemberCount);
-        return circleMapper.selectPage(new Page<>(current, size), wrapper);
+        Page<Circle> result = circleMapper.selectPage(new Page<>(current, size), wrapper);
+        fillCategoryName(result.getRecords());
+        return result;
     }
 
     /**
@@ -173,13 +197,66 @@ public class CircleServiceImpl implements CircleService {
     /**
      * 获取圈子分类列表
      *
-     * <p>功能描述：返回系统预设的圈子分类名称列表</p>
+     * <p>功能描述：从数据库查询所有启用的圈子分类，按排序字段升序排列</p>
      *
-     * @return 预设分类名称列表，包含：技术、生活、娱乐、学习、运动、美食、旅行、游戏、音乐、其他
+     * @return 启用的分类列表
      */
     @Override
-    public List<String> getCategories() {
-        return Arrays.asList("技术", "生活", "娱乐", "学习", "运动", "美食", "旅行", "游戏", "音乐", "其他");
+    public List<CircleCategory> getCategories() {
+        return circleCategoryMapper.selectList(
+                new LambdaQueryWrapper<CircleCategory>()
+                        .eq(CircleCategory::getStatus, 1)
+                        .orderByAsc(CircleCategory::getSort)
+        );
+    }
+
+    /**
+     * 创建自定义分类并返回ID
+     *
+     * @param name 分类名称
+     * @return 新建分类的ID
+     */
+    @Override
+    @Transactional
+    public Long createCategory(String name) {
+        // 先查是否已存在同名分类
+        CircleCategory exist = circleCategoryMapper.selectOne(
+                new LambdaQueryWrapper<CircleCategory>()
+                        .eq(CircleCategory::getName, name)
+                        .last("LIMIT 1")
+        );
+        if (exist != null) {
+            return exist.getId();
+        }
+        // 获取当前最大排序值
+        Long maxSort = circleCategoryMapper.selectCount(
+                new LambdaQueryWrapper<CircleCategory>()
+        );
+        CircleCategory category = new CircleCategory();
+        category.setName(name);
+        category.setSort(maxSort.intValue() + 1);
+        category.setStatus(1);
+        circleCategoryMapper.insert(category);
+        return category.getId();
+    }
+
+    /**
+     * 批量填充圈子的分类名称
+     */
+    private void fillCategoryName(List<Circle> circles) {
+        if (circles == null || circles.isEmpty()) return;
+        // 收集所有 categoryId
+        List<Long> ids = circles.stream()
+                .map(Circle::getCategoryId)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) return;
+        // 批量查询分类名称
+        Map<Long, String> nameMap = circleCategoryMapper.selectBatchIds(ids)
+                .stream()
+                .collect(Collectors.toMap(CircleCategory::getId, CircleCategory::getName, (a, b) -> a));
+        // 填充
+        circles.forEach(c -> c.setCategoryName(nameMap.get(c.getCategoryId())));
     }
 
     /**
@@ -195,6 +272,8 @@ public class CircleServiceImpl implements CircleService {
                 .eq(Circle::getStatus, 1)
                 .orderByDesc(Circle::getMemberCount)
                 .last("LIMIT 10");
-        return circleMapper.selectList(wrapper);
+        List<Circle> list = circleMapper.selectList(wrapper);
+        fillCategoryName(list);
+        return list;
     }
 }

@@ -4,8 +4,8 @@
 <mapper namespace="com.minthive.mapper.AdminCircleMapper">
 
     <!--
-        圈子列表（关联圈主）
-        字段对齐前端 CircleInfo: circleId, ownerId, ownerName, name, category,
+        圈子列表（关联圈主 + 分类名称）
+        字段: circleId, ownerId, ownerName, name, categoryId, categoryName,
         intro, type(PUBLIC/PRIVATE), memberCount, postCount, status(ACTIVE/OFFLINE),
         recommended, icon, createTime
     -->
@@ -15,7 +15,8 @@
             c.owner_id AS ownerId,
             o.nickname AS ownerName,
             c.name,
-            c.category,
+            c.category_id AS categoryId,
+            COALESCE(cc.name, '') AS categoryName,
             COALESCE(c.intro, '') AS intro,
             CASE c.type WHEN 0 THEN 'PUBLIC' ELSE 'PRIVATE' END AS type,
             c.member_count AS memberCount,
@@ -26,13 +27,14 @@
             c.create_time AS createTime
         FROM circle c
         LEFT JOIN `user` o ON c.owner_id = o.id AND o.deleted = 0
+        LEFT JOIN circle_category cc ON c.category_id = cc.id
         <where>
             c.deleted = 0
             <if test="status != null">
                 AND c.status = #{status}
             </if>
-            <if test="category != null and category != ''">
-                AND c.category = #{category}
+            <if test="categoryId != null">
+                AND c.category_id = #{categoryId}
             </if>
             <if test="keyword != null and keyword != ''">
                 AND c.name LIKE CONCAT('%', #{keyword}, '%')
@@ -42,8 +44,8 @@
     </select>
 
     <!--
-        圈子加入申请列表（关联用户昵称）
-        字段对齐前端 CircleApply: applyId, userId, nickname, name, category,
+        圈子加入申请列表（关联用户昵称 + 分类名称）
+        字段: applyId, userId, nickname, name, categoryId, categoryName,
         intro, applyTime, status(PENDING/APPROVED/REJECTED)
     -->
     <select id="selectApplyListWithNickname" resultType="java.util.Map">
@@ -52,7 +54,8 @@
             cu.user_id AS userId,
             u.nickname,
             c.name,
-            c.category,
+            c.category_id AS categoryId,
+            COALESCE(cc.name, '') AS categoryName,
             COALESCE(c.intro, '') AS intro,
             cu.join_time AS applyTime,
             CASE cu.audit_status
@@ -62,6 +65,7 @@
             END AS status
         FROM circle_user cu
         INNER JOIN circle c ON cu.circle_id = c.id AND c.deleted = 0
+        LEFT JOIN circle_category cc ON c.category_id = cc.id
         LEFT JOIN `user` u ON cu.user_id = u.id AND u.deleted = 0
         WHERE cu.audit_status = 0
         ORDER BY cu.create_time DESC

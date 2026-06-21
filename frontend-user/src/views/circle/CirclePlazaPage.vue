@@ -34,11 +34,11 @@
       <div class="category-track">
         <button
           v-for="cat in categoryList"
-          :key="cat"
-          :class="['category-tag', { active: activeCategory === cat }]"
+          :key="cat.id ?? 'all'"
+          :class="['category-tag', { active: activeCategoryId === cat.id }]"
           @click="switchCategory(cat)"
         >
-          {{ cat }}
+          {{ cat.name }}
         </button>
       </div>
     </nav>
@@ -141,7 +141,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCircles, getCategories, getRecommendCircles } from '@/api/circle'
-import type { Circle } from '@/types'
+import type { Circle, CircleCategory } from '@/types'
 import CircleCard from '@/components/CircleCard.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -151,10 +151,11 @@ const router = useRouter()
 // ---------- 响应式状态 ----------
 /** 搜索关键词 */
 const keyword = ref('')
-/** 当前选中分类 */
-const activeCategory = ref('全部')
-/** 分类列表 */
-const categoryList = ref<string[]>(['全部'])
+/** 当前选中分类ID（null 表示"全部"） */
+const activeCategoryId = ref<number | null>(null)
+/** 分类列表（含"全部"选项） */
+interface CategoryOption { id: number | null; name: string }
+const categoryList = ref<CategoryOption[]>([{ id: null, name: '全部' }])
 /** 推荐圈子列表 */
 const recommendList = ref<Circle[]>([])
 /** 圈子列表 */
@@ -192,9 +193,15 @@ const totalDisplay = computed(() => totalCircles.value)
 async function loadCategories(): Promise<void> {
   try {
     const res = await getCategories()
-    categoryList.value = ['全部', ...(res.data || [])]
+    const list = res.data || []
+    categoryList.value = [{ id: null, name: '全部' }, ...list.map((c: CircleCategory) => ({ id: c.id, name: c.name }))]
   } catch {
-    categoryList.value = ['全部', '游戏', '影视', '户外', '读书', '摄影', '二次元', '音乐', '美食', '旅行']
+    categoryList.value = [
+      { id: null, name: '全部' },
+      { id: 8, name: '游戏' }, { id: 3, name: '影视' }, { id: 7, name: '户外' },
+      { id: 4, name: '读书' }, { id: 10, name: '摄影' }, { id: 99, name: '二次元' },
+      { id: 9, name: '音乐' }, { id: 6, name: '美食' }, { id: 7, name: '旅行' }
+    ]
   }
 }
 
@@ -226,12 +233,12 @@ async function loadCircles(append = false): Promise<void> {
     loading.value = true
   }
   try {
-    const params: { keyword?: string; category?: string; page: number; pageSize: number } = {
+    const params: { keyword?: string; categoryId?: number; page: number; pageSize: number } = {
       page: page.value,
       pageSize
     }
     if (keyword.value.trim()) params.keyword = keyword.value.trim()
-    if (activeCategory.value !== '全部') params.category = activeCategory.value
+    if (activeCategoryId.value !== null) params.categoryId = activeCategoryId.value
 
     const res = await getCircles(params)
     const data = res.data
@@ -252,11 +259,11 @@ async function loadCircles(append = false): Promise<void> {
 
 /**
  * 切换分类标签
- * @param {string} cat - 分类名称
+ * @param {CategoryOption} opt - 分类选项
  */
-function switchCategory(cat: string): void {
-  if (activeCategory.value === cat) return
-  activeCategory.value = cat
+function switchCategory(opt: CategoryOption): void {
+  if (activeCategoryId.value === opt.id) return
+  activeCategoryId.value = opt.id
   page.value = 1
   hasMore.value = true
   loadCircles()

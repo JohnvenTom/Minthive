@@ -94,6 +94,7 @@ public class CloudAiServiceImpl implements AiService {
         try {
             String prompt = "请针对以下「" + category + "」圈子的帖子内容，生成3条不同风格的友好评论（每条不超过30字）：\n" + postContent;
             String response = callChatApi(prompt);
+            log.info("[CloudAI] 评论生成原始回复: {}", response);
             return parseComments(response);
         } catch (Exception e) {
             log.error("[CloudAI] 生成评论异常: ", e);
@@ -392,18 +393,58 @@ public class CloudAiServiceImpl implements AiService {
 
     /**
      * 解析评论返回值
+     *
+     * <p>兼容多种 AI 返回格式：换行分隔、编号列表（1. xxx）、中文序号等</p>
      */
     private List<String> parseComments(String response) {
+        if (response == null || response.isBlank()) {
+            return aiFallback.fallbackComment();
+        }
+
+        // 先尝试按换行分割
         String[] lines = response.split("\n");
-        List<String> comments = Arrays.stream(lines)
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .limit(3)
-                .toList();
+        List<String> comments = new java.util.ArrayList<>();
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) continue;
+
+            // 去除编号前缀：1. / 1、/ (1) / 【1】 等
+            String cleaned = trimmed
+                    .replaceAll("^(\\d+[.、)）]\\s*)", "")
+                    .replaceAll("^(【\\d+】\\s*)", "")
+                    .replaceAll("^[-*•]\\s*", "");
+
+            if (!cleaned.isEmpty()) {
+                comments.add(cleaned);
+            }
+        }
+
+        // 如果按换行分割不足3条，尝试用其他分隔符
+        if (comments.size() < 3) {
+            // 尝试按 ||| 分割
+            if (response.contains("|||")) {
+                comments = Arrays.stream(response.split("\\|\\|\\|"))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .limit(3)
+                        .toList();
+            }
+        }
+
+        log.info("[CloudAI] 解析出 {} 条评论: {}", comments.size(), comments);
+
         if (comments.size() >= 3) {
+            return comments.subList(0, 3);
+        }
+        // 解析出的条数不足但有多于0条，补齐
+        if (!comments.isEmpty()) {
+            while (comments.size() < 3) {
+                comments.add(aiFallback.fallbackComment().get(comments.size()));
+            }
             return comments;
         }
-        return Arrays.asList("内容很赞，学到了！", "同好一枚，期待更多分享～", "这个角度很新颖，感谢楼主。");
+        return aiFallback.fallbackComment();
     }
 
     // ==================== 内部数据类 ====================

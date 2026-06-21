@@ -1,49 +1,15 @@
 <template>
   <div class="ai-assistant">
-    <!-- 悬浮按钮（蜂巢形状） -->
-    <button
-      class="ai-assistant__fab"
-      :class="{ 'is-open': isOpen }"
-      @click="togglePanel"
-    >
-      <svg width="32" height="37" viewBox="0 0 28 32" fill="none">
-        <defs>
-          <linearGradient id="fab-grad" x1="0" y1="0" x2="28" y2="32">
-            <stop offset="0%" stop-color="#6BCB77" />
-            <stop offset="100%" stop-color="#4ECDC4" />
-          </linearGradient>
-          <!-- 六边形边缘发光滤镜：基于形状实际轮廓扩散，而非矩形边界框 -->
-          <filter id="fab-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <path d="M14 0L27 8V24L14 32L1 24V8L14 0Z" fill="url(#fab-grad)" filter="url(#fab-glow)" />
-        <path d="M14 8L20 12V20L14 24L8 20V12L14 8Z" fill="rgba(255,255,255,0.25)" />
-      </svg>
-      <span class="ai-assistant__fab-icon">
-        <svg v-if="!isOpen" width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2L14.5 8.5L21 9.5L16.5 14L17.5 21L12 17.5L6.5 21L7.5 14L3 9.5L9.5 8.5L12 2Z" fill="white"/>
-        </svg>
-        <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-      </span>
-    </button>
-
     <!-- 聊天面板 -->
-    <Transition name="panel-slide">
-      <div v-if="isOpen" class="ai-assistant__panel">
+    <Transition name="panel-slide" appear>
+      <div v-show="visible" class="ai-assistant__panel">
         <!-- 面板头部 -->
         <div class="ai-assistant__panel-header">
           <div class="ai-assistant__panel-title">
             <svg width="18" height="20" viewBox="0 0 28 32" fill="none">
               <path d="M14 0L27 8V24L14 32L1 24V8L14 0Z" fill="url(#panel-grad)" />
               <defs>
-                <linearGradient id="panel-grad" x1="0" y1="0" x2="28" y2="32">
+                <linearGradient id="panel-grad" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stop-color="#6BCB77" />
                   <stop offset="100%" stop-color="#4ECDC4" />
                 </linearGradient>
@@ -51,9 +17,9 @@
             </svg>
             <span>MintHive AI</span>
           </div>
-          <button class="ai-assistant__close" @click="togglePanel">
+          <button class="ai-assistant__close" @click="handleClose">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-cap="round"/>
             </svg>
           </button>
         </div>
@@ -115,15 +81,16 @@
 
 <script setup lang="ts">
 /**
- * AiAssistant AI悬浮客服组件
- * @description 固定右下角蜂巢悬浮按钮，点击展开毛玻璃聊天面板，支持AI对话和加载动画
+ * AiAssistant AI助手聊天面板组件
+ * @description 纯面板组件，由父组件控制显隐，点击关闭按钮通知父组件关闭
+ * @emits close - 用户点击关闭按钮时触发，通知父组件隐藏此组件
  */
 
 import { ref, nextTick } from 'vue'
 import { aiChatStream } from '@/api/ai'
 
-/** 面板是否展开 */
-const isOpen = ref(false)
+/** 面板是否可见（用于 v-show + Transition 动画） */
+const visible = ref(true)
 
 /** 输入框文本 */
 const inputText = ref('')
@@ -143,20 +110,27 @@ const messages = ref<Array<{ role: 'user' | 'ai'; content: string }>>([
 const messagesRef = ref<HTMLElement | null>(null)
 
 /**
- * 流式输出中的文本（独立于 messages 数组，避免出现空气泡）
+ * 流式输出中的文本（独立于 messages 数组）
  * @description 流式接收期间实时追加内容，结束后推入 messages 并清空
  */
 const streamingText = ref('')
 
-/**
- * 流式文本缓冲区（非响应式，避免 Vue 重渲染/HMR 导致数据丢失）
- * @description 所有 chunk 先拼接到此变量，再同步到 streamingText ref 用于渲染
- */
+/** 流式文本缓冲区 */
 let streamBuffer = ''
 
-/** 切换面板展开/收起 */
-function togglePanel(): void {
-  isOpen.value = !isOpen.value
+const emit = defineEmits<{
+  (e: 'close'): void
+}>()
+
+/**
+ * 关闭面板（先播放退出动画，动画结束后通知父组件销毁）
+ * @description 设置 visible=false 触发 v-show 隐藏 + Transition 退出动画，300ms 后通知父组件
+ */
+function handleClose(): void {
+  visible.value = false
+  setTimeout(() => {
+    emit('close')
+  }, 300)
 }
 
 /**
@@ -167,7 +141,7 @@ async function sendMessage(): Promise<void> {
   const text = inputText.value.trim()
   if (!text || isLoading.value) return
 
-  // 如果有正在进行的流式请求，先中断它（避免并发写入导致数据混乱）
+  // 如果有正在进行的流式请求，先中断它
   if (abortController) {
     abortController.abort()
     abortController = null
@@ -176,20 +150,20 @@ async function sendMessage(): Promise<void> {
   messages.value.push({ role: 'user', content: text })
   inputText.value = ''
   isLoading.value = true
-  streamingText.value = '' // 重置流式文本显示
-  streamBuffer = ''         // 重置缓冲区（数据真相源）
+  streamingText.value = ''
+  streamBuffer = ''
 
   await scrollToBottom()
 
   abortController = aiChatStream(
     text,
-    // onChunk：每收到一段文本就追加到缓冲区（纯字符串拼接），再同步到响应式变量
+    // onChunk：每收到一段文本就追加到缓冲区
     (chunk) => {
       streamBuffer = streamBuffer + chunk
-      streamingText.value = streamBuffer  // 同步到模板渲染
+      streamingText.value = streamBuffer
       autoScroll()
     },
-    // onDone：流结束，将完整内容推入消息列表
+    // onDone：流结束
     () => {
       abortController = null
       if (streamBuffer) {
@@ -225,8 +199,7 @@ async function scrollToBottom(): Promise<void> {
 }
 
 /**
- * 流式输出时自动滚动（节流，避免频繁滚动）
- * @description 每 100ms 最多滚动一次，流式输出期间保持消息可见
+ * 流式输出时自动滚动（节流，每 100ms 最多滚动一次）
  */
 let lastScrollTime = 0
 function autoScroll(): void {
@@ -247,46 +220,12 @@ function autoScroll(): void {
 .ai-assistant {
   position: fixed;
   bottom: 80px;
-  right: 84px;  /* 避免与发帖 FAB（right:20px, width:56px）重叠 */
+  right: 84px; /* 避免与发帖 FAB 重叠 */
   z-index: 200;
-
-  // ---------- 悬浮按钮 ----------
-  &__fab {
-    position: relative;
-    width: 56px;
-    height: 65px;
-    border: none;
-    background: none;
-    cursor: pointer;
-    animation: hex-breathe 3s ease-in-out infinite;
-    transition: transform $dur-base $ease-spring;
-
-    &:hover {
-      transform: scale(1.08);
-    }
-
-    &:active {
-      transform: scale(0.95);
-    }
-
-    &.is-open {
-      animation: none;
-    }
-  }
-
-  &__fab-icon {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    @include center;
-  }
 
   // ---------- 聊天面板 ----------
   &__panel {
-    position: absolute;
-    bottom: 72px;
-    right: 0;
+    position: relative;
     width: 340px;
     height: 480px;
     @include glass(24px, rgba(255, 255, 255, 0.92));
@@ -379,14 +318,6 @@ function autoScroll(): void {
     word-break: break-word;
   }
 
-  // ---------- 加载状态 ----------
-  &__loading {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: $space-2 $space-3;
-  }
-
   /** 流式输出时的闪烁光标 */
   &__cursor {
     display: inline-block;
@@ -401,22 +332,6 @@ function autoScroll(): void {
   @keyframes cursor-blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
-  }
-
-  &__loading-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: $mint-500;
-    animation: ai-pulse 1.4s ease-in-out infinite;
-
-    &:nth-child(2) {
-      animation-delay: 0.2s;
-    }
-
-    &:nth-child(3) {
-      animation-delay: 0.4s;
-    }
   }
 
   // ---------- 输入区域 ----------
@@ -477,37 +392,37 @@ function autoScroll(): void {
   }
 }
 
-// ---------- 面板过渡动画（从FAB按钮向上弹出） ----------
+// ---------- 面板过渡动画 ----------
 .panel-slide-enter-active {
-  animation: fab-pop-in 0.35s $ease-spring both;
+  animation: panel-pop-in 0.4s $ease-spring both;
 }
 .panel-slide-leave-active {
-  animation: fab-pop-out 0.2s ease both;
+  animation: panel-pop-out 0.25s ease both;
 }
 
-@keyframes fab-pop-in {
-  from {
+@keyframes panel-pop-in {
+  0% {
     opacity: 0;
-    transform: translateY(16px) scale(0.92);
-    transform-origin: bottom right;
+    transform: translateY(20px) scale(0.85) translateX(20px);
   }
-  to {
+  60% {
     opacity: 1;
-    transform: translateY(0) scale(1);
-    transform-origin: bottom right;
+    transform: translateY(-4px) scale(1.02) translateX(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) translateX(0);
   }
 }
 
-@keyframes fab-pop-out {
+@keyframes panel-pop-out {
   from {
     opacity: 1;
     transform: translateY(0) scale(1);
-    transform-origin: bottom right;
   }
   to {
     opacity: 0;
-    transform: translateY(12px) scale(0.95);
-    transform-origin: bottom right;
+    transform: translateY(16px) scale(0.92) translateX(16px);
   }
 }
 
@@ -518,9 +433,7 @@ function autoScroll(): void {
     right: 16px;
 
     &__panel {
-      // 竖屏下面板居中显示，避免被边缘裁剪
       width: calc(100vw - 32px);
-      right: -40px;
       max-width: 360px;
     }
   }

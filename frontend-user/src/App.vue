@@ -142,7 +142,7 @@
     </button>
 
     <!-- AI 助手聊天面板 -->
-    <AiAssistant v-if="appStore.showAiAssistant" />
+    <AiAssistant v-if="appStore.showAiAssistant" @close="appStore.toggleAiAssistant()" />
   </div>
 </template>
 
@@ -354,12 +354,60 @@ onUnmounted(() => {
 }
 
 // ---------- 页面切换动画 ----------
+
+/** 默认淡入上滑 */
 .fade-slide-enter-active {
   animation: fade-up 0.35s $ease-out;
 }
 
 .fade-slide-leave-active {
   animation: fade-up 0.25s $ease-out reverse;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/** 发帖页面 - 从按钮位置弹性缩放弹出 */
+.scale-in-enter-active {
+  animation: scale-pop-in 0.4s $ease-spring both;
+}
+
+.scale-in-leave-active {
+  animation: scale-pop-out 0.2s ease both;
+}
+
+@keyframes scale-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02) translateY(-3px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes scale-pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
 }
 
 // ---------- 移动端底部 TabBar ----------

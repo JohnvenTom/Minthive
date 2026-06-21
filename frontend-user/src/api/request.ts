@@ -15,12 +15,18 @@ const service: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
-// ---------- 请求拦截器：注入 Token ----------
+// ---------- 请求拦截器：注入 Token + 处理 FormData ----------
 service.interceptors.request.use(
   (config) => {
     const token = getToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    // FormData 请求必须删除 Content-Type，让浏览器自动设置含 boundary 的 multipart 头
+    // 手动设置 Content-Type: multipart/form-data 会缺少 boundary，导致后端无法解析
+    // Axios 1.x 使用 AxiosHeaders 类，需用 delete() 方法而非 JS delete 操作符
+    if (config.data instanceof FormData) {
+      config.headers.delete('Content-Type')
     }
     return config
   },

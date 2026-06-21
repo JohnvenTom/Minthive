@@ -46,9 +46,9 @@ public class AdminCircleController {
             @RequestParam(defaultValue = "10") long pageSize,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer status,
-            @RequestParam(required = false) String category) {
+            @RequestParam(required = false) Long categoryId) {
         IPage<Map<String, Object>> p = adminCircleMapper.selectCircleListWithOwner(
-                new Page<>(page, pageSize), keyword, status, category);
+                new Page<>(page, pageSize), keyword, status, categoryId);
         Map<String, Object> data = new HashMap<>(4);
         data.put("list", p.getRecords());
         data.put("total", p.getTotal());
@@ -139,8 +139,15 @@ public class AdminCircleController {
         if (params.containsKey("name")) {
             update.setName((String) params.get("name"));
         }
-        if (params.containsKey("category")) {
-            update.setCategory((String) params.get("category"));
+        if (params.containsKey("categoryId")) {
+            update.setCategoryId(Long.valueOf(params.get("categoryId").toString()));
+        } else if (params.containsKey("categoryName")) {
+            // 管理员编辑时支持按名称自动匹配/创建分类
+            String name = (String) params.get("categoryName");
+            if (name != null && !name.isBlank()) {
+                Long newCategoryId = circleService.createCategory(name.trim());
+                update.setCategoryId(newCategoryId);
+            }
         }
         if (params.containsKey("intro")) {
             update.setIntro((String) params.get("intro"));

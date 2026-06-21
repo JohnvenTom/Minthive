@@ -4,22 +4,22 @@
  */
 
 import { request } from './request'
-import type { Circle, Post, PageResult } from '@/types'
+import type { Circle, CircleCategory, Post, PageResult } from '@/types'
 
 /**
  * 圈子广场列表
- * @param {object} params - keyword, category, page, pageSize
+ * @param {object} params - keyword, categoryId, page, pageSize
  */
 export function getCircles(params: {
   keyword?: string
-  category?: string
+  categoryId?: number
   page?: number
   pageSize?: number
 }) {
   return request<PageResult<Circle>>({
     url: '/circle/page',
     method: 'get',
-    params: { current: params.page, size: params.pageSize, category: params.category, keyword: params.keyword }
+    params: { current: params.page, size: params.pageSize, categoryId: params.categoryId, keyword: params.keyword }
   })
 }
 
@@ -63,11 +63,12 @@ export function leaveCircle(id: number) {
 
 /**
  * 申请创建圈子
- * @param {object} data
+ * @param {object} data - categoryId(预设分类ID) 或 categoryName(自定义分类名称)
  */
 export function createCircle(data: {
   name: string
-  category: string
+  categoryId?: number
+  categoryName?: string
   intro: string
   avatar?: string
   banner?: string
@@ -77,10 +78,10 @@ export function createCircle(data: {
 }
 
 /**
- * 获取圈子分类
+ * 获取圈子分类列表（含ID和名称）
  */
 export function getCategories() {
-  return request<string[]>({ url: '/circle/categories', method: 'get' })
+  return request<CircleCategory[]>({ url: '/circle/categories', method: 'get' })
 }
 
 /**

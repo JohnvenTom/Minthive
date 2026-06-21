@@ -27,7 +27,7 @@ public interface AdminCircleMapper {
             Page<Map<String, Object>> page,
             @Param("keyword") String keyword,
             @Param("status") Integer status,
-            @Param("category") String category);
+            @Param("categoryId") Long categoryId);
 
     /**
      * 分页查询圈子加入申请列表（关联用户昵称）

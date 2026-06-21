@@ -81,13 +81,22 @@ export interface Comment {
   children?: Comment[]
 }
 
+// ---------- 圈子分类 ----------
+export interface CircleCategory {
+  id: number
+  name: string
+  sort: number
+  status: number
+}
+
 // ---------- 圈子 ----------
 export interface Circle {
   id: number
   ownerId: number
   ownerName: string
   name: string
-  category: string
+  categoryId: number
+  categoryName?: string
   intro: string
   avatar: string
   banner: string

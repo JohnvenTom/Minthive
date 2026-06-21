@@ -11,11 +11,21 @@ public interface SystemMsgService {
     /**
      * 推送系统消息
      *
-     * @param userId  接收用户ID
-     * @param msgType 消息类型
-     * @param content 消息内容
+     * @param userId   接收用户ID
+     * @param msgType  消息类型
+     * @param content  消息内容
      */
     void push(Long userId, Integer msgType, String content);
+
+    /**
+     * 推送系统消息（带目标ID）
+     *
+     * @param userId   接收用户ID
+     * @param msgType  消息类型
+     * @param content  消息内容
+     * @param targetId 关联目标ID
+     */
+    void push(Long userId, Integer msgType, String content, Long targetId);
 
     /**
      * 分页查询用户系统消息

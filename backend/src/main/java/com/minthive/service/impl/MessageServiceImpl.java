@@ -192,8 +192,8 @@ public class MessageServiceImpl implements MessageService {
             allNotifications.addAll(buildLikeNotifications(userId));
         }
 
-        // ---------- 2. 评论通知：别人评论了我的帖子 ----------
-        if (type == null || type.isEmpty() || "comment".equals(type)) {
+        // ---------- 2. 评论通知：别人评论了我的帖子 + 回复了我的评论 ----------
+        if (type == null || type.isEmpty() || "comment".equals(type) || "reply".equals(type)) {
             allNotifications.addAll(buildCommentNotifications(userId));
         }
 
@@ -271,16 +271,20 @@ public class MessageServiceImpl implements MessageService {
             unreadMap.put("like", 0);
         }
 
-        // 3. 评论未读：别人评论了我帖子的事件数
+        // 3. 评论未读：别人评论了我帖子的事件数 + 别人回复了我评论的通知数
+        long commentUnreadCount = 0;
         if (!myPostIds.isEmpty()) {
-            long commentUnread = commentMapper.selectCount(
+            commentUnreadCount += commentMapper.selectCount(
                     new LambdaQueryWrapper<Comment>()
                             .in(Comment::getPostId, myPostIds)
                             .ne(Comment::getUserId, userId));
-            unreadMap.put("comment", (int) commentUnread);
-        } else {
-            unreadMap.put("comment", 0);
         }
+        commentUnreadCount += systemMsgMapper.selectCount(
+                new LambdaQueryWrapper<SystemMsg>()
+                        .eq(SystemMsg::getUserId, userId)
+                        .eq(SystemMsg::getMsgType, Constants.SYS_MSG_TYPE_REPLY)
+                        .eq(SystemMsg::getIsRead, Constants.READ_STATUS_UNREAD));
+        unreadMap.put("comment", (int) commentUnreadCount);
 
         // 4. 关注未读：关注我的人数
         long followUnread = followMapper.selectCount(
@@ -363,44 +367,61 @@ public class MessageServiceImpl implements MessageService {
      */
     private List<Map<String, Object>> buildCommentNotifications(Long userId) {
         List<Long> myPostIds = getMyPostIds(userId);
-        if (myPostIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // 查询别人对我帖子的评论记录
-        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
-                .in(Comment::getPostId, myPostIds)
-                .ne(Comment::getUserId, userId)  // 排除自己的评论
-                .orderByDesc(Comment::getCreateTime)
-                .last("LIMIT 100");
-        List<Comment> comments = commentMapper.selectList(wrapper);
-
-        if (comments.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // 批量获取评论者信息
-        Set<Long> commenterIds = comments.stream().map(Comment::getUserId).collect(Collectors.toSet());
-        Map<Long, User> userMap = batchGetUsers(commenterIds);
-
         List<Map<String, Object>> notifications = new ArrayList<>();
-        for (Comment c : comments) {
-            User commenter = userMap.get(c.getUserId());
+
+        // 1) 别人对我帖子的评论
+        if (!myPostIds.isEmpty()) {
+            LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
+                    .in(Comment::getPostId, myPostIds)
+                    .ne(Comment::getUserId, userId)
+                    .orderByDesc(Comment::getCreateTime)
+                    .last("LIMIT 100");
+            List<Comment> comments = commentMapper.selectList(wrapper);
+
+            if (!comments.isEmpty()) {
+                Set<Long> commenterIds = comments.stream().map(Comment::getUserId).collect(Collectors.toSet());
+                Map<Long, User> userMap = batchGetUsers(commenterIds);
+
+                for (Comment c : comments) {
+                    User commenter = userMap.get(c.getUserId());
+                    Map<String, Object> notice = new HashMap<>();
+                    notice.put("id", c.getId());
+                    notice.put("type", "comment");
+                    notice.put("fromUserId", c.getUserId());
+                    notice.put("fromNickname", commenter != null ? commenter.getNickname() : "未知用户");
+                    notice.put("fromAvatar", commenter != null ? commenter.getAvatar() : "");
+                    notice.put("targetId", c.getPostId());
+                    String preview = c.getContent() != null && c.getContent().length() > 50
+                            ? c.getContent().substring(0, 50) + "..." : c.getContent();
+                    notice.put("content", preview != null ? preview : "评论了你的动态");
+                    notice.put("read", false);
+                    notice.put("createTime", c.getCreateTime());
+                    notifications.add(notice);
+                }
+            }
+        }
+
+        // 2) 别人回复了我评论的通知（来自 system_msg, msgType=6）
+        List<SystemMsg> replyMsgs = systemMsgMapper.selectList(
+                new LambdaQueryWrapper<SystemMsg>()
+                        .eq(SystemMsg::getUserId, userId)
+                        .eq(SystemMsg::getMsgType, Constants.SYS_MSG_TYPE_REPLY)
+                        .orderByDesc(SystemMsg::getCreateTime)
+                        .last("LIMIT 50"));
+        for (SystemMsg msg : replyMsgs) {
             Map<String, Object> notice = new HashMap<>();
-            notice.put("id", c.getId());
-            notice.put("type", "comment");
-            notice.put("fromUserId", c.getUserId());
-            notice.put("fromNickname", commenter != null ? commenter.getNickname() : "未知用户");
-            notice.put("fromAvatar", commenter != null ? commenter.getAvatar() : "");
-            notice.put("targetId", c.getPostId());
-            // 截取评论内容作为预览，过长则截断
-            String preview = c.getContent() != null && c.getContent().length() > 50
-                    ? c.getContent().substring(0, 50) + "..." : c.getContent();
-            notice.put("content", preview != null ? preview : "评论了你的动态");
-            notice.put("read", false);
-            notice.put("createTime", c.getCreateTime());
+            notice.put("id", msg.getId());
+            notice.put("type", "reply");
+            notice.put("fromUserId", 0L);
+            notice.put("fromNickname", "");
+            notice.put("fromAvatar", "");
+            notice.put("targetId", msg.getTargetId() != null ? msg.getTargetId() : 0L);
+            notice.put("content", msg.getContent() != null ? msg.getContent() : "回复了你");
+            notice.put("read", msg.getIsRead() == Constants.READ_STATUS_READ);
+            notice.put("createTime", msg.getCreateTime());
             notifications.add(notice);
         }
+
         return notifications;
     }
 

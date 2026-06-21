@@ -215,8 +215,9 @@ DROP TABLE IF EXISTS `system_msg`;
 CREATE TABLE `system_msg` (
     `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '消息ID',
     `user_id`     BIGINT       NOT NULL COMMENT '接收用户ID',
-    `msg_type`    TINYINT      NOT NULL COMMENT '消息类型:1点赞 2评论 3私信 4圈子公告 5系统公告',
+    `msg_type`    TINYINT      NOT NULL COMMENT '消息类型:1点赞 2评论 3私信 4圈子公告 5系统公告 6回复',
     `content`     VARCHAR(500) NOT NULL COMMENT '消息内容',
+    `target_id`   BIGINT       DEFAULT NULL COMMENT '关联目标ID(如帖子ID)',
     `is_read`     TINYINT      NOT NULL DEFAULT 0 COMMENT '是否已读:0未读 1已读',
     `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '推送时间',
     PRIMARY KEY (`id`),

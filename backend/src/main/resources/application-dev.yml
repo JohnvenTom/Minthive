@@ -39,9 +39,9 @@ jwt:
 ai:
   mode: cloud  # cloud | local
   cloud:
-    base-url: https://apihub.agnes-ai.com
+    base-url: https://api.longcat.chat/openai
     api-key: ${AI_CLOUD_DEV_API_KEY:sk-your-openai-api-key}
-    model: agnes-2.0-flash
+    model: LongCat-2.0-Preview
     timeout: 30000
   local:
     base-url: http://localhost:11434

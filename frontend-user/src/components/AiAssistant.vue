@@ -515,11 +515,13 @@ function autoScroll(): void {
 @include mobile {
   .ai-assistant {
     bottom: 72px;
-    right: 76px;  /* 移动端发帖 FAB 在 right:16px width:50px，AI按钮左移避免重叠 */
+    right: 16px;
 
     &__panel {
-      width: calc(100vw - 24px);
-      right: -4px;
+      // 竖屏下面板居中显示，避免被边缘裁剪
+      width: calc(100vw - 32px);
+      right: -40px;
+      max-width: 360px;
     }
   }
 }

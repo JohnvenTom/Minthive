@@ -74,6 +74,7 @@
               <span class="section-hint">最多9张</span>
             </div>
             <ImageUploader
+              ref="imageUploaderRef"
               :max-count="9"
               @change="onImageChange"
             />
@@ -372,6 +373,7 @@ const canPublish = computed(() => form.value.content.trim().length > 0)
 // ---------- DOM引用 ----------
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const videoInputRef = ref<HTMLInputElement | null>(null)
+const imageUploaderRef = ref<InstanceType<typeof ImageUploader> | null>(null)
 
 // ---------- AI 文案生成 ----------
 const showAiPanel = ref(false)
@@ -433,7 +435,6 @@ function removeTopic(idx: number): void {
  * @description 用 ImageUploader 的 change 事件同步图片URL到表单
  */
 function onImageChange(urls: string[]): void {
-  console.log('[CreatePostPage] onImageChange, urls:', urls)
   form.value.images = urls
 }
 
@@ -646,24 +647,29 @@ async function onSaveDraft(): Promise<void> {
 /**
  * 发布帖子
  * @returns {Promise<void>}
- * @description 校验表单后调用创建帖子接口，成功后跳转首页
+ * @description 先上传图片到 MinIO，再调用创建帖子接口，成功后跳转首页
  */
 async function onPublish(): Promise<void> {
   if (!canPublish.value || publishing.value) return
 
   publishing.value = true
   try {
-    // DEBUG: 检查图片数据是否正确收集
-    console.log('[CreatePost] form.images =', form.value.images)
+    // 先上传图片到 MinIO
+    let imageUrls: string[] = form.value.images
+    if (imageUploaderRef.value) {
+      showToast({ message: '图片上传中...', duration: 0, forbidClick: true })
+      imageUrls = await imageUploaderRef.value.uploadAll()
+      form.value.images = imageUrls
+    }
+
     const postData = {
       content: form.value.content,
-      images: form.value.images.length > 0 ? JSON.stringify(form.value.images) : undefined,
+      images: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined,
       video: form.value.video || undefined,
       tags: form.value.topics.length > 0 ? form.value.topics.join(',') : undefined,
       visibility: { public: 0, fans: 1, self: 2 }[form.value.visibility] ?? 0,
       circleId: form.value.circleId
     }
-    console.log('[CreatePost] postData =', JSON.stringify(postData))
     await createPost(postData)
 
     showToast('发布成功')

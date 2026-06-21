@@ -12,7 +12,7 @@
         <!-- 上传进度 -->
         <div v-if="item.status === 'uploading'" class="image-uploader__progress">
           <div class="image-uploader__progress-bar" :style="{ width: item.progress + '%' }"></div>
-          <span class="image-uploader__progress-text">{{ item.progress }}%</span>
+          <span class="image-uploader__progress-text">{{ Math.round(item.progress) }}%</span>
         </div>
 
         <!-- 删除按钮 -->
@@ -51,9 +51,9 @@
 <script setup lang="ts">
 /**
  * ImageUploader 图片上传组件
- * @description 支持多图预览、压缩、上传进度、删除，最多9张图片
+ * @description 选图时仅做本地预览和压缩，不立即上传。父组件在发布时调用 uploadAll() 批量上传到 MinIO。
  * @param {number} maxCount - 最大上传数量，默认9
- * @emits change - 图片列表变化事件，参数为URL数组
+ * @emits change - 图片列表变化事件（本地预览阶段发出 File 对象数组，上传完成后发出 URL 数组）
  */
 
 import { ref } from 'vue'
@@ -69,6 +69,8 @@ interface UploadItem {
   status: 'pending' | 'uploading' | 'done' | 'error'
   /** 上传进度 */
   progress: number
+  /** 原始文件（压缩后） */
+  file?: File
   /** 服务端返回的URL */
   serverUrl?: string
 }
@@ -83,10 +85,6 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   /** 图片列表变化事件 */
   (e: 'change', urls: string[]): void
-  /** 单张图片上传成功事件 */
-  (e: 'upload', url: string): void
-  /** 图片删除事件 */
-  (e: 'delete', index: number): void
 }>()
 
 /** 文件列表 */
@@ -103,6 +101,7 @@ function triggerInput(): void {
 /**
  * 处理文件选择变化
  * @param {Event} event - 文件选择事件
+ * @description 选图后仅压缩并本地预览，不上传到服务器
  */
 async function handleFileChange(event: Event): Promise<void> {
   const target = event.target as HTMLInputElement
@@ -111,71 +110,82 @@ async function handleFileChange(event: Event): Promise<void> {
 
   const remaining = props.maxCount - fileList.value.length
   const toProcess = Array.from(files).slice(0, remaining)
-  console.log('[ImageUploader] 选择了', toProcess.length, '个文件')
 
   for (const file of toProcess) {
-    const localUrl = URL.createObjectURL(file)
-    const item: UploadItem = {
-      url: localUrl,
-      status: 'pending',
-      progress: 0
+    try {
+      // 压缩图片，保存压缩后的 File 用于后续上传
+      const compressed = await compressImage(file)
+      const localUrl = URL.createObjectURL(compressed)
+      const item: UploadItem = {
+        url: localUrl,
+        status: 'pending',
+        progress: 0,
+        file: compressed
+      }
+      fileList.value.push(item)
+    } catch {
+      showToast('图片压缩失败')
     }
-    fileList.value.push(item)
-
-    // 异步上传
-    await uploadSingleFile(file, item)
   }
 
   // 重置input
   target.value = ''
-  console.log('[ImageUploader] 上传完成，fileList状态:', fileList.value.map(f => ({ status: f.status, serverUrl: f.serverUrl })))
+  emitChange()
 }
 
 /**
- * 上传单个文件（含压缩）
- * @param {File} file - 原始文件
- * @param {UploadItem} item - 上传项引用
+ * 批量上传所有待上传的图片到 MinIO
+ * @returns {Promise<string[]>} 上传成功的图片 URL 数组
+ * @throws 上传全部失败时抛出异常
+ * @description 由父组件在发布时调用，逐张上传并更新进度
  */
-async function uploadSingleFile(file: File, item: UploadItem): Promise<void> {
-  try {
-    // 压缩图片
-    const compressed = await compressImage(file)
-    console.log('[ImageUploader] 压缩完成，原始:', file.size, '压缩后:', compressed.size)
-    item.status = 'uploading'
-    item.progress = 30
+async function uploadAll(): Promise<string[]> {
+  const pendingItems = fileList.value.filter(f => f.status === 'pending' || f.status === 'error')
+  const urls: string[] = []
 
-    // 模拟上传进度（实际项目中需配合XMLHttpRequest或axios onUploadProgress）
-    const progressTimer = setInterval(() => {
-      if (item.progress < 90) {
-        item.progress += Math.random() * 15
+  for (const item of pendingItems) {
+    if (!item.file) continue
+
+    try {
+      item.status = 'uploading'
+      item.progress = 30
+
+      // 模拟上传进度
+      const progressTimer = setInterval(() => {
+        if (item.progress < 90) {
+          item.progress += Math.random() * 15
+        }
+      }, 200)
+
+      const res = await uploadImage(item.file!)
+      clearInterval(progressTimer)
+
+      // 后端返回 data 直接是 URL 字符串
+      const url = typeof res.data === 'string' ? res.data : res.data?.url || ''
+      if (!url) {
+        throw new Error('上传成功但未返回URL')
       }
-    }, 200)
 
-    // 调用上传API
-    const res = await uploadImage(compressed)
-    clearInterval(progressTimer)
-    console.log('[ImageUploader] 上传响应:', res)
-
-    // 后端返回 data 直接是 URL 字符串，不是 { url: string } 对象
-    const url = typeof res.data === 'string' ? res.data : res.data?.url || ''
-    if (!url) {
-      throw new Error('上传成功但未返回URL')
+      item.progress = 100
+      item.status = 'done'
+      item.serverUrl = url
+      urls.push(url)
+    } catch (err) {
+      console.error('[ImageUploader] 上传失败:', err)
+      item.status = 'error'
+      item.progress = 0
     }
-
-    item.progress = 100
-    item.status = 'done'
-    item.serverUrl = url
-    emit('upload', url)
-    // 每次上传成功后立即通知父组件
-    emitChange()
-  } catch (err) {
-    console.error('[ImageUploader] 上传失败:', err)
-    item.status = 'error'
-    item.progress = 0
-    showToast('图片上传失败，请重试')
-    // 上传失败也要通知父组件（当前成功的URL列表）
-    emitChange()
   }
+
+  emitChange()
+
+  // 如果有失败的，提示用户
+  const failedCount = fileList.value.filter(f => f.status === 'error').length
+  if (failedCount > 0) {
+    showToast(`${failedCount}张图片上传失败`)
+  }
+
+  return urls
 }
 
 /**
@@ -187,19 +197,20 @@ function removeFile(idx: number): void {
   if (item) {
     URL.revokeObjectURL(item.url)
     fileList.value.splice(idx, 1)
-    emit('delete', idx)
     emitChange()
   }
 }
 
-/** 触发change事件 */
+/** 触发change事件，发出当前所有已上传成功的URL列表 */
 function emitChange(): void {
   const urls = fileList.value
     .filter(f => f.status === 'done' && f.serverUrl)
     .map(f => f.serverUrl!)
-  console.log('[ImageUploader] emitChange, urls:', urls)
   emit('change', urls)
 }
+
+/** 暴露方法给父组件调用 */
+defineExpose({ uploadAll })
 </script>
 
 <style lang="scss" scoped>

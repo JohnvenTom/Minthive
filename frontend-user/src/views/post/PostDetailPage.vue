@@ -648,8 +648,18 @@ async function onAiComment(): Promise<void> {
   aiGenerating.value = true
 
   try {
-    const res = await aiGenerateComment(postId.value)
-    aiSuggestions.value = res.data || []
+    const res = await aiGenerateComment(post.value?.content || '')
+    // 后端返回的是字符串数组（每条评论一个字符串），需转换为 AiCommentSuggestion 对象格式
+    const raw = res.data
+    if (Array.isArray(raw) && typeof raw[0] === 'string') {
+      const tones = ['幽默', '共鸣', '提问']
+      aiSuggestions.value = (raw as string[]).map((text, idx) => ({
+        content: text.trim(),
+        tone: tones[idx] || `建议${idx + 1}`
+      }))
+    } else {
+      aiSuggestions.value = raw || []
+    }
     showAiPanel.value = true
   } catch {
     showToast('AI 生成失败，请重试')

@@ -343,23 +343,20 @@ function stopBannerAutoPlay(): void {
 }
 
 /**
- * 处理滚动事件，实现下拉刷新和上拉加载
+ * 处理页面滚动事件，实现上拉加载更多
  * @param {Event} e - 滚动事件
+ * @description 仅处理窗口级垂直滚动（忽略分类标签等子元素的横向/局部滚动）
  */
 function handleScroll(e: Event): void {
-  const el = e.target as HTMLElement
-  if (!el) return
-  const scrollTop = el.scrollTop
-  const scrollHeight = el.scrollHeight
-  const clientHeight = el.clientHeight
+  // 忽略非 window 目标的滚动事件（如分类标签的横向滚动、输入框内部滚动等）
+  if (e.target !== document && e.target !== document.documentElement && e.target !== document.body) return
 
-  // 下拉刷新检测
-  if (scrollTop <= 0 && !refreshing.value) {
-    onRefresh()
-  }
+  const scrollTop = window.scrollY || document.documentElement.scrollTop
+  const windowHeight = window.innerHeight
+  const docHeight = document.documentElement.scrollHeight
 
   // 上拉加载检测
-  if (scrollHeight - scrollTop - clientHeight < 100 && hasMore.value && !loadingMore.value && !loading.value) {
+  if (scrollTop + windowHeight >= docHeight - 100 && hasMore.value && !loadingMore.value && !loading.value) {
     onLoadMore()
   }
 }
@@ -369,12 +366,12 @@ onMounted(() => {
   loadCategories()
   loadRecommend()
   loadCircles()
-  window.addEventListener('scroll', handleScroll, true)
+  window.addEventListener('scroll', handleScroll, { passive: true })
 })
 
 onUnmounted(() => {
   stopBannerAutoPlay()
-  window.removeEventListener('scroll', handleScroll, true)
+  window.removeEventListener('scroll', handleScroll)
 })
 </script>
 

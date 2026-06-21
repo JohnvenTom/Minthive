@@ -73,15 +73,15 @@
         </div>
 
         <!-- 图片展示（大图模式） -->
-        <div v-if="post.images?.length" class="post-images">
+        <div v-if="imageList.length" class="post-images">
           <div
             :class="[
               'image-grid',
-              `grid-${Math.min(post.images.length, 9)}`
+              `grid-${Math.min(imageList.length, 9)}`
             ]"
           >
             <div
-              v-for="(img, idx) in post.images"
+              v-for="(img, idx) in imageList"
               :key="idx"
               class="image-item"
               @click="previewImage(idx)"
@@ -344,6 +344,17 @@ const reportTargetId = ref(0)
 const showPreview = ref(false)
 const previewImages = ref<string[]>([])
 const previewIndex = ref(0)
+
+/**
+ * 解析图片列表（后端 images 字段为 JSON 字符串，需解析为数组）
+ * @returns {string[]} 图片 URL 数组
+ */
+const imageList = computed<string[]>(() => {
+  const raw = post.value?.images
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw
+  try { return JSON.parse(raw) } catch { return [] }
+})
 
 // ---------- 帖子操作 ----------
 const showPostActions = ref(false)
@@ -664,8 +675,8 @@ function selectAiSuggestion(suggestion: AiCommentSuggestion): void {
  * @param {number} index - 起始图片索引
  */
 function previewImage(index: number): void {
-  if (!post.value?.images) return
-  previewImages.value = post.value.images
+  if (!imageList.value.length) return
+  previewImages.value = imageList.value
   previewIndex.value = index
   showPreview.value = true
 }

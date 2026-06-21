@@ -74,10 +74,8 @@
               <span class="section-hint">最多9张</span>
             </div>
             <ImageUploader
-              v-model="imageList"
               :max-count="9"
-              @upload="onImageUpload"
-              @delete="onImageDelete"
+              @change="onImageChange"
             />
           </div>
         </div>
@@ -350,7 +348,6 @@ const form = ref({
   circleId: undefined as number | undefined
 })
 
-const imageList = ref<string[]>([])
 const videoUrl = ref('')
 const topicInput = ref('')
 const publishing = ref(false)
@@ -431,20 +428,13 @@ function removeTopic(idx: number): void {
 // ---------- 图片上传 ----------
 
 /**
- * 图片上传回调
- * @param {string} url - 上传成功后的图片URL
- * @description 将上传成功的图片URL添加到表单
+ * 图片列表变化回调
+ * @param {string[]} urls - 当前所有已上传成功的图片URL列表
+ * @description 用 ImageUploader 的 change 事件同步图片URL到表单
  */
-function onImageUpload(url: string): void {
-  form.value.images.push(url)
-}
-
-/**
- * 图片删除回调
- * @param {number} idx - 被删除图片的索引
- */
-function onImageDelete(idx: number): void {
-  form.value.images.splice(idx, 1)
+function onImageChange(urls: string[]): void {
+  console.log('[CreatePostPage] onImageChange, urls:', urls)
+  form.value.images = urls
 }
 
 // ---------- 视频上传 ----------
@@ -477,7 +467,8 @@ async function onVideoChange(event: Event): Promise<void> {
   try {
     showToast({ message: '视频上传中...', duration: 0, forbidClick: true })
     const res = await uploadVideo(file)
-    videoUrl.value = res.data?.url || ''
+    const url = typeof res.data === 'string' ? res.data : res.data?.url || ''
+    videoUrl.value = url
     form.value.video = videoUrl.value
     showToast('上传成功')
   } catch {
@@ -638,10 +629,10 @@ async function onSaveDraft(): Promise<void> {
   try {
     await saveDraft({
       content: form.value.content,
-      images: form.value.images,
+      images: form.value.images.length > 0 ? JSON.stringify(form.value.images) : undefined,
       video: form.value.video || undefined,
-      topics: form.value.topics,
-      visibility: form.value.visibility,
+      tags: form.value.topics.length > 0 ? form.value.topics.join(',') : undefined,
+      visibility: { public: 0, fans: 1, self: 2 }[form.value.visibility] ?? 0,
       circleId: form.value.circleId
     })
     showToast('草稿已保存')
@@ -662,14 +653,18 @@ async function onPublish(): Promise<void> {
 
   publishing.value = true
   try {
-    await createPost({
+    // DEBUG: 检查图片数据是否正确收集
+    console.log('[CreatePost] form.images =', form.value.images)
+    const postData = {
       content: form.value.content,
-      images: form.value.images.length > 0 ? form.value.images : undefined,
+      images: form.value.images.length > 0 ? JSON.stringify(form.value.images) : undefined,
       video: form.value.video || undefined,
-      topics: form.value.topics.length > 0 ? form.value.topics : undefined,
-      visibility: form.value.visibility,
+      tags: form.value.topics.length > 0 ? form.value.topics.join(',') : undefined,
+      visibility: { public: 0, fans: 1, self: 2 }[form.value.visibility] ?? 0,
       circleId: form.value.circleId
-    })
+    }
+    console.log('[CreatePost] postData =', JSON.stringify(postData))
+    await createPost(postData)
 
     showToast('发布成功')
     router.replace('/')

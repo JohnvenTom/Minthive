@@ -57,6 +57,7 @@
  */
 
 import { ref } from 'vue'
+import { showToast } from 'vant'
 import { compressImage } from '@/utils/compress'
 import { uploadImage } from '@/api/file'
 
@@ -82,6 +83,10 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   /** 图片列表变化事件 */
   (e: 'change', urls: string[]): void
+  /** 单张图片上传成功事件 */
+  (e: 'upload', url: string): void
+  /** 图片删除事件 */
+  (e: 'delete', index: number): void
 }>()
 
 /** 文件列表 */
@@ -106,6 +111,7 @@ async function handleFileChange(event: Event): Promise<void> {
 
   const remaining = props.maxCount - fileList.value.length
   const toProcess = Array.from(files).slice(0, remaining)
+  console.log('[ImageUploader] 选择了', toProcess.length, '个文件')
 
   for (const file of toProcess) {
     const localUrl = URL.createObjectURL(file)
@@ -122,7 +128,7 @@ async function handleFileChange(event: Event): Promise<void> {
 
   // 重置input
   target.value = ''
-  emitChange()
+  console.log('[ImageUploader] 上传完成，fileList状态:', fileList.value.map(f => ({ status: f.status, serverUrl: f.serverUrl })))
 }
 
 /**
@@ -134,6 +140,7 @@ async function uploadSingleFile(file: File, item: UploadItem): Promise<void> {
   try {
     // 压缩图片
     const compressed = await compressImage(file)
+    console.log('[ImageUploader] 压缩完成，原始:', file.size, '压缩后:', compressed.size)
     item.status = 'uploading'
     item.progress = 30
 
@@ -147,13 +154,27 @@ async function uploadSingleFile(file: File, item: UploadItem): Promise<void> {
     // 调用上传API
     const res = await uploadImage(compressed)
     clearInterval(progressTimer)
+    console.log('[ImageUploader] 上传响应:', res)
+
+    // 后端返回 data 直接是 URL 字符串，不是 { url: string } 对象
+    const url = typeof res.data === 'string' ? res.data : res.data?.url || ''
+    if (!url) {
+      throw new Error('上传成功但未返回URL')
+    }
 
     item.progress = 100
     item.status = 'done'
-    item.serverUrl = res.data.url
-  } catch {
+    item.serverUrl = url
+    emit('upload', url)
+    // 每次上传成功后立即通知父组件
+    emitChange()
+  } catch (err) {
+    console.error('[ImageUploader] 上传失败:', err)
     item.status = 'error'
     item.progress = 0
+    showToast('图片上传失败，请重试')
+    // 上传失败也要通知父组件（当前成功的URL列表）
+    emitChange()
   }
 }
 
@@ -166,6 +187,7 @@ function removeFile(idx: number): void {
   if (item) {
     URL.revokeObjectURL(item.url)
     fileList.value.splice(idx, 1)
+    emit('delete', idx)
     emitChange()
   }
 }
@@ -175,6 +197,7 @@ function emitChange(): void {
   const urls = fileList.value
     .filter(f => f.status === 'done' && f.serverUrl)
     .map(f => f.serverUrl!)
+  console.log('[ImageUploader] emitChange, urls:', urls)
   emit('change', urls)
 }
 </script>

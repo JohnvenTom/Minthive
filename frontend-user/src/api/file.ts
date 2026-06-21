@@ -7,32 +7,33 @@ import { request } from './request'
 
 /**
  * 上传图片
- * @param {File} file
- * @returns {Promise<{url: string}>} 图片访问 URL
+ * @param {File} file - 图片文件
+ * @returns {Promise<string>} 图片访问 URL（后端 data 直接返回 URL 字符串）
+ * @note 不手动设置 Content-Type，由浏览器自动生成含 boundary 的 multipart 头
  */
 export function uploadImage(file: File) {
   const formData = new FormData()
   formData.append('file', file)
-  return request<{ url: string }>({
+  return request<string>({
     url: '/file/upload',
     method: 'post',
-    data: formData,
-    headers: { 'Content-Type': 'multipart/form-data' }
+    data: formData
   })
 }
 
 /**
  * 上传视频
- * @param {File} file
+ * @param {File} file - 视频文件
+ * @returns {Promise<string>} 视频访问 URL（后端 data 直接返回 URL 字符串）
+ * @note 不手动设置 Content-Type，由浏览器自动生成含 boundary 的 multipart 头
  */
 export function uploadVideo(file: File) {
   const formData = new FormData()
   formData.append('file', file)
-  return request<{ url: string }>({
+  return request<string>({
     url: '/file/upload',
     method: 'post',
     data: formData,
-    headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 60000
   })
 }

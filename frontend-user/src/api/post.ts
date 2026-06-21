@@ -31,13 +31,20 @@ export function getPostDetail(id: number) {
 /**
  * 发布帖子
  * @param {object} data
+ * @param {string} data.content - 文案内容
+ * @param {string} [data.images] - 图片地址(JSON数组字符串)
+ * @param {string} [data.video] - 视频地址
+ * @param {string} [data.tags] - 话题标签(逗号分隔字符串，对应后端 tags 字段)
+ * @param {number} [data.visibility] - 可见范围:0公开 1仅粉丝 2仅自己
+ * @param {number} [data.circleId] - 圈子ID
+ * @param {boolean} [data.aiGenerated] - 是否AI生成
  */
 export function createPost(data: {
   content: string
-  images?: string[]
+  images?: string
   video?: string
-  topics?: string[]
-  visibility?: 'public' | 'fans' | 'self'
+  tags?: string
+  visibility?: number
   circleId?: number
   aiGenerated?: boolean
 }) {

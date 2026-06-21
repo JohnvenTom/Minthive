@@ -93,7 +93,7 @@
     <!-- 功能区（仅自己的主页） -->
     <section v-if="isSelf" class="menu-section">
       <div class="menu-inner">
-        <!-- 内容切换（横向3个，始终可见） -->
+        <!-- 内容切换（横向5个，始终可见） -->
         <div class="tab-switch glass-card">
           <button
             v-for="tab in contentTabs"
@@ -107,8 +107,14 @@
             <svg v-else-if="tab.value === 'collects'" width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <svg v-else-if="tab.value === 'likes'" width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            <svg v-else-if="tab.value === 'following'" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             {{ tab.label }}
           </button>
@@ -196,10 +202,26 @@
               <div class="panel-placeholder" />
             </div>
 
-            <div v-if="contentLoading && posts.length === 0" class="loading-wrap">
+            <div v-if="contentLoading && posts.length === 0 && users.length === 0" class="loading-wrap">
               <LoadingSpinner />
             </div>
 
+            <!-- 关注/粉丝用户列表 -->
+            <div v-else-if="(activeTab === 'following' || activeTab === 'followers') && users.length > 0" class="users-list">
+              <TransitionGroup name="card-anim">
+                <UserCard
+                  v-for="user in users"
+                  :key="user.id"
+                  :user="user"
+                  :show-follow="isSelf"
+                  class="stagger-item"
+                  @click="router.push(`/profile/${user.id}`)"
+                  @follow="onUserFollow"
+                />
+              </TransitionGroup>
+            </div>
+
+            <!-- 帖子列表 -->
             <div v-else-if="posts.length > 0" class="posts-grid">
               <TransitionGroup name="card-anim">
                 <PostCard
@@ -227,7 +249,12 @@
               :icon="emptyIcon"
             />
 
-            <div v-if="posts.length > 0" class="load-more-area">
+            <div v-if="(activeTab === 'following' || activeTab === 'followers') && users.length > 0" class="load-more-area">
+              <LoadingSpinner v-if="loadingMore" />
+              <p v-else-if="!hasMore" class="no-more-text">已经到底啦 ~</p>
+            </div>
+
+            <div v-if="posts.length > 0 && (activeTab !== 'following' && activeTab !== 'followers')" class="load-more-area">
               <LoadingSpinner v-if="loadingMore" />
               <p v-else-if="!hasMore" class="no-more-text">已经到底啦 ~</p>
             </div>
@@ -239,13 +266,38 @@
     <template v-if="!isSelf">
     <nav class="content-tabs">
       <div class="tabs-inner">
-        <span class="current-tab-label">{{ currentTabLabel }}</span>
+        <!-- 添加Tab切换按钮 -->
+        <div class="tab-switch-inline">
+          <button
+            v-for="tab in contentTabs"
+            :key="tab.value"
+            :class="['tab-chip-inline', { active: activeTab === tab.value }]"
+            @click="switchTab(tab.value)"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
       </div>
     </nav>
 
     <div class="content-area">
-      <div v-if="contentLoading && posts.length === 0" class="loading-wrap">
+      <div v-if="contentLoading && posts.length === 0 && users.length === 0" class="loading-wrap">
         <LoadingSpinner />
+      </div>
+
+      <!-- 关注/粉丝用户列表 -->
+      <div v-else-if="(activeTab === 'following' || activeTab === 'followers') && users.length > 0" class="users-list">
+        <TransitionGroup name="card-anim">
+          <UserCard
+            v-for="user in users"
+            :key="user.id"
+            :user="user"
+            :show-follow="true"
+            class="stagger-item"
+            @click="router.push(`/profile/${user.id}`)"
+            @follow="onUserFollow"
+          />
+        </TransitionGroup>
       </div>
 
       <div v-else-if="posts.length > 0" class="posts-grid">
@@ -272,7 +324,12 @@
         :icon="emptyIcon"
       />
 
-      <div v-if="posts.length > 0" class="load-more-area">
+      <div v-if="(activeTab === 'following' || activeTab === 'followers') && users.length > 0" class="load-more-area">
+        <LoadingSpinner v-if="loadingMore" />
+        <p v-else-if="!hasMore" class="no-more-text">已经到底啦 ~</p>
+      </div>
+
+      <div v-if="posts.length > 0 && (activeTab !== 'following' && activeTab !== 'followers')" class="load-more-area">
         <LoadingSpinner v-if="loadingMore" />
         <p v-else-if="!hasMore" class="no-more-text">已经到底啦 ~</p>
       </div>
@@ -327,6 +384,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 import PostCard from '@/components/PostCard.vue'
+import UserCard from '@/components/UserCard.vue'
 import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
@@ -334,7 +392,7 @@ import ShareSheet from '@/components/ShareSheet.vue'
 import ShareChainDialog from '@/components/ShareChainDialog.vue'
 import { useUserStore } from '@/stores/user'
 import { getUserProfile, getUserPosts, getUserCollects, getUserLikes } from '@/api/user'
-import { toggleFollow, checkFollowStatus } from '@/api/follow'
+import { toggleFollow, checkFollowStatus, getFollowing, getFollowers } from '@/api/follow'
 import { deletePost, togglePostVisibility } from '@/api/post'
 import type { User, Post } from '@/types'
 
@@ -347,15 +405,23 @@ const userStore = useUserStore()
 const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect fill="#4ECDC4" width="40" height="40"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16">U</text></svg>')
 
 // ---------- Tab 配置 ----------
+/**
+ * 内容Tab项配置
+ * @interface ContentTab
+ * @property {string} label - 显示标签名称
+ * @property {('posts' | 'collects' | 'likes' | 'following' | 'followers')} value - Tab值
+ */
 interface ContentTab {
   label: string
-  value: 'posts' | 'collects' | 'likes'
+  value: 'posts' | 'collects' | 'likes' | 'following' | 'followers'
 }
 
 const contentTabs: ContentTab[] = [
   { label: '动态', value: 'posts' },
   { label: '收藏', value: 'collects' },
-  { label: '点赞', value: 'likes' }
+  { label: '点赞', value: 'likes' },
+  { label: '关注', value: 'following' },
+  { label: '粉丝', value: 'followers' }
 ]
 
 // ---------- 响应式数据 ----------
@@ -368,8 +434,10 @@ const userInfo = ref<Partial<User>>({
   followCount: 0,
   fanCount: 0
 })
-const activeTab = ref<'posts' | 'collects' | 'likes'>('posts')
+const activeTab = ref<'posts' | 'collects' | 'likes' | 'following' | 'followers'>('posts')
 const posts = ref<Post[]>([])
+/** 关注/粉丝用户列表 */
+const users = ref<User[]>([])
 const contentLoading = ref(false)
 const loadingMore = ref(false)
 const hasMore = ref(true)
@@ -408,25 +476,38 @@ const currentTabLabel = computed(() => {
   return tab?.label || '动态'
 })
 
-/** 空状态文案 */
+/** 空状态标题 */
 const emptyTitle = computed(() => {
   const map: Record<string, string> = {
     posts: '还没有发布动态',
     collects: '还没有收藏内容',
-    likes: '还没有点赞内容'
+    likes: '还没有点赞内容',
+    following: '还没有关注任何人',
+    followers: '还没有粉丝'
   }
-  return isSelf.value ? map[activeTab.value] : '对方还没有相关内容'
+  return isSelf.value ? map[activeTab.value] : `对方${map[activeTab.value] || '还没有相关内容'}`
 })
 
+/** 空状态描述 */
 const emptyDesc = computed(() => {
-  return isSelf.value ? '快去分享你的想法吧' : ''
+  const descMap: Record<string, string> = {
+    posts: '快去分享你的想法吧',
+    collects: '浏览动态时点击收藏按钮即可',
+    likes: '点赞感兴趣的动态后会在这里显示',
+    following: '关注感兴趣的用户，获取他们的最新动态',
+    followers: '分享优质内容，吸引更多粉丝关注'
+  }
+  return descMap[activeTab.value] || ''
 })
 
+/** 空状态图标 */
 const emptyIcon = computed(() => {
   const map: Record<string, string> = {
     posts: 'notes-o',
     collects: 'star-o',
-    likes: 'like-o'
+    likes: 'like-o',
+    following: 'friends-o',
+    followers: 'users-o'
   }
   return map[activeTab.value] || 'notes-o'
 })
@@ -459,7 +540,7 @@ async function fetchUserProfile(): Promise<void> {
  * 加载内容列表
  * @param {boolean} isRefresh - 是否为刷新操作
  * @returns {Promise<void>}
- * @description 根据当前Tab加载动态/收藏/点赞列表
+ * @description 根据当前Tab加载动态/收藏/点赞/关注/粉丝列表
  */
 async function fetchContent(isRefresh = false): Promise<void> {
   if (isRefresh) {
@@ -468,6 +549,27 @@ async function fetchContent(isRefresh = false): Promise<void> {
   }
   contentLoading.value = true
   try {
+    // 关注/粉丝列表：加载用户数据
+    if (activeTab.value === 'following' || activeTab.value === 'followers') {
+      let res: any
+      if (activeTab.value === 'following') {
+        res = await getFollowing(profileUserId.value, currentPage.value, 20)
+      } else {
+        res = await getFollowers(profileUserId.value, currentPage.value, 20)
+      }
+
+      const list = res.data?.list || []
+
+      if (isRefresh || currentPage.value === 1) {
+        users.value = list
+      } else {
+        users.value.push(...list)
+      }
+      hasMore.value = res.data?.hasMore ?? false
+      return
+    }
+
+    // 帖子相关列表：加载帖子数据
     let res: any
     if (activeTab.value === 'posts') {
       res = await getUserPosts(profileUserId.value, currentPage.value, 10)
@@ -503,11 +605,11 @@ async function fetchContent(isRefresh = false): Promise<void> {
 
 /**
  * 切换内容面板展开/收起
- * @param {'posts' | 'collects' | 'likes'} tab - 目标Tab
+ * @param {'posts' | 'collects' | 'likes' | 'following' | 'followers'} tab - 目标Tab
  * @returns {void}
  * @description 点击tab按钮：如果已展开且是同一个tab则收起，否则展开并加载数据
  */
-function toggleContent(tab: 'posts' | 'collects' | 'likes'): void {
+function toggleContent(tab: 'posts' | 'collects' | 'likes' | 'following' | 'followers'): void {
   // 已展开且点击同一个 → 收起，回到菜单
   if (showContent.value && activeTab.value === tab) {
     showContent.value = false
@@ -516,8 +618,43 @@ function toggleContent(tab: 'posts' | 'collects' | 'likes'): void {
   // 切换到新tab并展开
   activeTab.value = tab
   posts.value = []
+  users.value = []
   showContent.value = true
   fetchContent(true)
+}
+
+/**
+ * 非自己主页的Tab切换
+ * @param {'posts' | 'collects' | 'likes' | 'following' | 'followers'} tab - 目标Tab
+ * @returns {void}
+ * @description 在他人主页切换不同内容标签
+ */
+function switchTab(tab: 'posts' | 'collects' | 'likes' | 'following' | 'followers'): void {
+  if (activeTab.value === tab) return
+  activeTab.value = tab
+  posts.value = []
+  users.value = []
+  fetchContent(true)
+}
+
+/**
+ * 关注/取消关注用户（从 UserCard emit）
+ * @param {{ userId: number, follow: boolean }} payload - 用户ID和关注状态
+ * @returns {Promise<void>}
+ * @description 在关注/粉丝列表中切换对某用户的关注状态
+ */
+async function onUserFollow({ userId, follow }: { userId: number; follow: boolean }): Promise<void> {
+  try {
+    await toggleFollow(userId, follow)
+    // 更新本地用户列表中的关注状态
+    const user = users.value.find(u => u.id === userId)
+    if (user) {
+      user.isFollowed = follow
+    }
+    showToast(follow ? '关注成功' : '已取消关注')
+  } catch {
+    showToast('操作失败')
+  }
 }
 
 /**
@@ -670,12 +807,22 @@ function goChat(): void {
 }
 
 /**
- * 跳转统计详情
+ * 跳转统计详情（帖子/关注/粉丝）
  * @param {'posts' | 'following' | 'followers'} type - 统计类型
  * @returns {void}
+ * @description 点击统计数字时，展开对应的内容面板并加载数据
  */
-function goStat(type: string): void {
-  // 可扩展为跳转关注列表等
+function goStat(type: 'posts' | 'following' | 'followers'): void {
+  // 如果是自己的主页，使用内容面板切换
+  if (isSelf.value) {
+    toggleContent(type)
+  } else {
+    // 他人主页：直接切换tab并加载
+    activeTab.value = type
+    posts.value = []
+    users.value = []
+    fetchContent(true)
+  }
 }
 
 /**
@@ -732,6 +879,10 @@ async function onLogout(): Promise<void> {
 // ---------- 生命周期 ----------
 onMounted(() => {
   fetchUserProfile()
+  // 默认展开动态内容（帖子）
+  if (isSelf.value) {
+    showContent.value = true
+  }
   fetchContent(true)
 })
 
@@ -1034,6 +1185,38 @@ watch(() => route.params.id, (newId) => {
   color: $ink-900;
 }
 
+// ---------- 非自己主页的Tab切换 ----------
+.tab-switch-inline {
+  display: flex;
+  gap: $space-2;
+  flex-wrap: wrap;
+}
+
+.tab-chip-inline {
+  padding: $space-1 $space-3;
+  border-radius: $radius-pill;
+  border: 1px solid $ink-100;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: $ink-500;
+  cursor: pointer;
+  transition: all $dur-fast $ease-out;
+
+  &:hover {
+    background: rgba(78, 205, 196, 0.06);
+    color: $ink-700;
+    border-color: $mint-300;
+  }
+
+  &.active {
+    background: $mint-50;
+    color: $mint-700;
+    font-weight: 600;
+    border-color: $mint-300;
+  }
+}
+
 // ---------- 内容区域 ----------
 .content-area {
   position: relative;
@@ -1052,6 +1235,12 @@ watch(() => route.params.id, (newId) => {
   display: flex;
   flex-direction: column;
   gap: $space-3;
+}
+
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
 }
 
 .stagger-item {

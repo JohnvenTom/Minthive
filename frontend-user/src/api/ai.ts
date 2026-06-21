@@ -12,10 +12,10 @@ import type { AiPostDraft, AiCommentSuggestion } from '@/types'
  * AI 生成帖子文案（3版风格）
  * @param {string} keyword - 关键词
  * @param {string} circleCategory - 圈子分类
- * @returns {Promise<string[]>} 三版文案（纯文本数组）
+ * @returns {Promise<AiPostDraft[]>} 三版文案（含风格、内容、话题）
  */
 export function aiGeneratePost(keyword: string, circleCategory?: string) {
-  return request<string[]>({
+  return request<AiPostDraft[]>({
     url: '/ai/post-content',
     method: 'post',
     data: { keywords: keyword, category: circleCategory }

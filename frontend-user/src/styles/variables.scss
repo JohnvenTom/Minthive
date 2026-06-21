@@ -80,6 +80,13 @@ $space-8: 32px;
 $space-10: 40px;
 $space-12: 48px;
 
+// ---------- 背景色 ----------
+$text-primary: $ink-700;    // 主文字颜色
+$bg-card: #fff;             // 卡片背景
+$bg-warm: #FFF9F2;          // 暖色调背景（AI面板卡片等）
+$border-subtle: rgba(26, 29, 46, 0.06);  // 微弱边框
+$radius-card: $radius-md;   // 卡片圆角
+
 // ---------- 动效 ----------
 $ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 $ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);

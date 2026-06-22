@@ -193,16 +193,48 @@
           </div>
           <div class="section-body">
             <span class="section-label">选择圈子</span>
-            <div class="circle-select-wrap">
-              <select v-model="form.circleId" class="circle-select">
-                <option :value="undefined">不选择圈子</option>
-                <option v-for="circle in circleList" :key="circle.id" :value="circle.id">
-                  {{ circle.name }}
-                </option>
-              </select>
-              <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+            <div class="circle-select-wrap" ref="circleSelectRef">
+              <div
+                :class="['circle-select-trigger', { 'is-open': circleDropdownOpen }]"
+                @click="toggleCircleDropdown"
+              >
+                <span :class="['trigger-text', { placeholder: !form.circleId }]">
+                  {{ selectedCircleName || '不选择圈子' }}
+                </span>
+                <svg
+                  :class="['select-arrow', { 'arrow-rotate': circleDropdownOpen }]"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <Transition name="dropdown">
+                <div v-if="circleDropdownOpen" class="circle-dropdown">
+                  <div
+                    :class="['circle-option', { 'is-selected': !form.circleId }]"
+                    @click="selectCircle(undefined)"
+                  >
+                    <span class="option-label">不选择圈子</span>
+                    <svg v-if="!form.circleId" class="option-check" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <div
+                    v-for="circle in circleList"
+                    :key="circle.id"
+                    :class="['circle-option', { 'is-selected': form.circleId === circle.id }]"
+                    @click="selectCircle(circle.id)"
+                  >
+                    <span class="option-label">{{ circle.name }}</span>
+                    <svg v-if="form.circleId === circle.id" class="option-check" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                </div>
+              </Transition>
             </div>
           </div>
         </div>
@@ -323,7 +355,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 import ImageUploader from '@/components/ImageUploader.vue'
@@ -355,6 +387,15 @@ const publishing = ref(false)
 
 // ---------- 圈子列表 ----------
 const circleList = ref<Circle[]>([])
+const circleDropdownOpen = ref(false)
+const circleSelectRef = ref<HTMLElement | null>(null)
+
+/** 当前选中的圈子名称 */
+const selectedCircleName = computed(() => {
+  if (!form.value.circleId) return ''
+  const found = circleList.value.find((c) => c.id === form.value.circleId)
+  return found?.name || ''
+})
 
 // ---------- 可见范围选项 ----------
 const visibilityOptions = [
@@ -692,6 +733,34 @@ async function onPublish(): Promise<void> {
   }
 }
 
+// ---------- 圈子下拉选择 ----------
+
+/**
+ * 切换圈子下拉框展开/收起状态
+ */
+function toggleCircleDropdown(): void {
+  circleDropdownOpen.value = !circleDropdownOpen.value
+}
+
+/**
+ * 选择圈子
+ * @param {number | undefined} circleId - 选中的圈子ID，undefined表示不选
+ */
+function selectCircle(circleId: number | undefined): void {
+  form.value.circleId = circleId
+  circleDropdownOpen.value = false
+}
+
+/**
+ * 点击外部关闭圈子下拉框
+ * @param {MouseEvent} event - 鼠标点击事件
+ */
+function handleClickOutside(event: MouseEvent): void {
+  if (circleSelectRef.value && !circleSelectRef.value.contains(event.target as Node)) {
+    circleDropdownOpen.value = false
+  }
+}
+
 // ---------- 圈子列表 ----------
 
 /**
@@ -736,6 +805,14 @@ function goBack(): void {
 // ---------- 生命周期 ----------
 onMounted(() => {
   fetchCircles()
+  document.addEventListener('click', handleClickOutside)
+})
+
+/**
+ * 组件卸载时移除全局事件监听
+ */
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -914,7 +991,6 @@ $radius-btn: 10px;
   background: $bg-card;
   border-radius: $radius-card;
   border: 1px solid $border-subtle;
-  overflow: hidden;
   transition: border-color 0.2s ease;
 
   &:hover {
@@ -1137,32 +1213,138 @@ $radius-btn: 10px;
   margin-top: 4px;
 }
 
-.circle-select {
+.circle-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
-  padding: 10px 40px 10px 14px;
+  min-height: 42px;
+  padding: 0 14px;
   font-size: 14px;
   color: $text-primary;
   background: $bg-warm;
   border-radius: $radius-btn;
-  border: 1px solid $border-subtle;
-  appearance: none;
+  border: 1.5px solid $border-subtle;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 
-  &:focus {
+  &:hover {
+    border-color: $border-hover;
+    background: lighten($bg-warm, 1%);
+  }
+
+  &.is-open {
     border-color: $accent-mint;
-    box-shadow: 0 0 0 3px $accent-mint-light;
+    box-shadow: 0 0 0 3px $accent-mint-light, 0 4px 12px rgba(78, 205, 196, 0.1);
+  }
+}
+
+.trigger-text {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &.placeholder {
+    color: $text-tertiary;
   }
 }
 
 .select-arrow {
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
+  margin-left: 8px;
   color: $text-tertiary;
-  pointer-events: none;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &.arrow-rotate {
+    transform: translateY(-50%) rotate(180deg);
+  }
+}
+
+/* 下拉面板 - 向上展开 */
+.circle-dropdown {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: $bg-card;
+  border-radius: $radius-btn;
+  border: 1.5px solid $border-subtle;
+  box-shadow: 0 -8px 32px rgba(26, 29, 46, 0.12), 0 -2px 8px rgba(26, 29, 46, 0.06);
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+  @include custom-scrollbar(4px);
+}
+
+.circle-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: $accent-mint-light;
+  }
+
+  &.is-selected {
+    .option-label {
+      color: $mint-600;
+      font-weight: 600;
+    }
+
+    .option-check {
+      color: $accent-mint;
+    }
+  }
+}
+
+.option-label {
+  font-size: 14px;
+  color: $text-primary;
+  transition: all 0.15s ease;
+}
+
+.option-check {
+  flex-shrink: 0;
+  color: transparent;
+  transition: color 0.2s ease;
+}
+
+/* 下拉展开/收起动画 */
+.dropdown-enter-active {
+  animation: dropdown-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.dropdown-leave-active {
+  animation: dropdown-out 0.18s cubic-bezier(0.55, 0, 1, 0.45) both;
+}
+
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dropdown-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
 }
 
 // ---------- Footer ----------

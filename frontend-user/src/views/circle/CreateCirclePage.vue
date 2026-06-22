@@ -122,7 +122,7 @@
           <span class="section-required">*</span>
           <span class="section-hint">圆形头像</span>
         </div>
-        <div class="avatar-upload-wrap">
+        <div class="avatar-upload-wrap" :class="{ 'has-avatar': !!form.avatar }">
           <div
             :class="['avatar-preview', { uploading: avatarUploading, uploaded: !!form.avatar }]"
             @click="triggerAvatarInput"
@@ -140,12 +140,13 @@
                 <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               </svg>
             </div>
-            <button v-if="form.avatar && !avatarUploading" class="remove-avatar-btn" @click.stop="removeAvatar">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-              </svg>
-            </button>
           </div>
+          <!-- remove 按钮放在外层容器，避免被圆形 overflow:hidden 裁剪 -->
+          <button v-if="form.avatar && !avatarUploading" class="remove-avatar-btn" @click.stop="removeAvatar">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </button>
           <div v-if="errors.avatar" class="input-error">{{ errors.avatar }}</div>
         </div>
         <input
@@ -1348,6 +1349,8 @@ $radius-btn: 10px;
 // ---------- Avatar Upload（头像上传 - 圆形） ----------
 .avatar-upload-wrap {
   margin-top: 4px;
+  position: relative;
+  display: inline-block;
 }
 
 .avatar-preview {
@@ -1444,7 +1447,28 @@ $radius-btn: 10px;
   to { transform: rotate(360deg); }
 }
 
-.remove-avatar-btn,
+.remove-avatar-btn {
+  /* 相对于 .avatar-upload-wrap 定位，避免被圆形 overflow:hidden 裁剪 */
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  @include center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(26, 29, 46, 0.55);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  cursor: pointer;
+  transition: all $dur-fast ease;
+  z-index: 10;
+
+  &:hover {
+    background: $coral-500;
+    transform: scale(1.1);
+  }
+}
+
 .remove-banner-btn {
   position: absolute;
   top: 4px;

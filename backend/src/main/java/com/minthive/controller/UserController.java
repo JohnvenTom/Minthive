@@ -215,9 +215,14 @@ public class UserController {
      */
     @Operation(summary = "当前用户收藏列表")
     @GetMapping("/collects")
-    public Result<Page<Post>> getCollects(@RequestParam(defaultValue = "1") long current,
+    public Result<Page<Post>> getCollects(HttpServletRequest request,
+                                          @RequestParam(defaultValue = "1") long current,
                                           @RequestParam(defaultValue = "10") long size) {
-        return Result.success(userService.getCollects(UserContext.getUserId(), current, size));
+        Long currentUserId = resolveUserId(request);
+        if (currentUserId == null) {
+            return Result.error(401, "请先登录");
+        }
+        return Result.success(userService.getCollects(currentUserId, current, size));
     }
 
     /**
@@ -225,15 +230,45 @@ public class UserController {
      *
      * <p>功能描述：通过 like_collect 表关联 post 表，获取当前登录用户点赞的帖子列表</p>
      *
+     * @param request HTTP 请求对象（用于从请求头解析 Token）
      * @param current 当前页码（默认1）
      * @param size    每页条数（默认10）
      * @return 分页点赞帖子列表
      */
     @Operation(summary = "当前用户点赞列表")
     @GetMapping("/likes")
-    public Result<Page<Post>> getLikes(@RequestParam(defaultValue = "1") long current,
+    public Result<Page<Post>> getLikes(HttpServletRequest request,
+                                       @RequestParam(defaultValue = "1") long current,
                                        @RequestParam(defaultValue = "10") long size) {
-        return Result.success(userService.getLikes(UserContext.getUserId(), current, size));
+        Long currentUserId = resolveUserId(request);
+        if (currentUserId == null) {
+            return Result.error(401, "请先登录");
+        }
+        return Result.success(userService.getLikes(currentUserId, current, size));
+    }
+
+    /**
+     * 双通道获取当前登录用户ID
+     *
+     * <p>优先从 UserContext 获取（正常认证接口），失败则手动从请求头解析 Token（公开接口）</p>
+     *
+     * @param request HTTP 请求对象
+     * @return 当前登录用户ID，未登录时返回 null
+     */
+    private Long resolveUserId(HttpServletRequest request) {
+        try {
+            return UserContext.getUserId();
+        } catch (Exception e) {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                try {
+                    return jwtUtil.getUserIdFromToken(authHeader.substring(7));
+                } catch (Exception ignored) {
+                    // Token 无效或过期
+                }
+            }
+            return null;
+        }
     }
 
     /**

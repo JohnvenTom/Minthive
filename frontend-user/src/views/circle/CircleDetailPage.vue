@@ -57,7 +57,7 @@
           </div>
         </div>
 
-        <!-- 加入/退出/圈主管理 按钮 -->
+        <!-- 加入/退出 按钮 -->
         <div class="action-row">
           <!-- 未加入：显示加入/申请按钮 -->
           <button
@@ -80,35 +80,54 @@
             已加入 · 退出
           </button>
 
-          <!-- 圈主：显示管理操作按钮组 -->
-          <div v-else class="owner-actions">
-            <button
-              class="owner-action-btn transfer"
-              :disabled="memberList.length === 0"
-              :title="memberList.length === 0 ? '暂无可转让的成员' : ''"
-              @click="memberList.length > 0 && (showTransferModal = true)"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-                <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-              </svg>
-              转让圈主
-            </button>
-            <button class="owner-action-btn edit" @click="goEditCircle">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-              修改圈子
-            </button>
-            <button class="owner-action-btn dissolve" @click="showDissolveConfirm = true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-              </svg>
-              解散圈子
-            </button>
+          <!-- 圈主：显示简洁状态提示 -->
+          <div v-else class="owner-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="currentColor"/>
+            </svg>
+            圈主
           </div>
+        </div>
+
+        <!-- 圈主管理操作（与上方按钮风格统一） -->
+        <div v-if="isOwner" class="admin-actions">
+          <button class="admin-action-btn members" @click="goManageMembers">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            管理成员
+          </button>
+          <button
+            class="admin-action-btn transfer"
+            :disabled="memberList.length === 0"
+            :title="memberList.length === 0 ? '暂无可转让的成员' : ''"
+            @click="memberList.length > 0 && (showTransferModal = true)"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="8.5" cy="7" r="4"/>
+              <line x1="20" y1="8" x2="20" y2="14"/>
+              <line x1="23" y1="11" x2="17" y2="11"/>
+            </svg>
+            转让圈主
+          </button>
+          <button class="admin-action-btn edit" @click="goEditCircle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            修改圈子
+          </button>
+          <button class="admin-action-btn dissolve" @click="showDissolveConfirm = true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M15 9l-6 6M9 9l6 6"/>
+            </svg>
+            解散圈子
+          </button>
         </div>
       </section>
 
@@ -131,40 +150,6 @@
         </div>
         <div class="notice-content">
           {{ circle.notice }}
-        </div>
-      </section>
-
-      <!-- 管理员操作区 -->
-      <section v-if="isOwner" class="admin-section">
-        <h3 class="section-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
-          </svg>
-          管理操作
-        </h3>
-        <div class="admin-actions">
-          <button class="admin-action-btn" @click="goManageMembers">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            管理成员
-          </button>
-          <button class="admin-action-btn" @click="showNoticeEditor = true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-              <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0" />
-            </svg>
-            发布公告
-          </button>
-          <button class="admin-action-btn" @click="handlePinPost">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-              <path d="m15 4.5-3 3L7.5 6l-3 3L9 12l-1.5 4.5L12 15l4.5 3-1.5-4.5L21 9l-3-3L12 7.5l3-3z" />
-            </svg>
-            置顶帖子
-          </button>
         </div>
       </section>
 
@@ -408,10 +393,10 @@ const dissolving = ref(false)
 /** 圈子ID */
 const circleId = computed(() => Number(route.params.id))
 
-/** 当前用户是否为圈主 */
+/** 当前用户是否为圈主（使用 == 宽松比较避免 number/string 类型不匹配） */
 const isOwner = computed(() => {
-  if (!circle.value || !userStore.user) return false
-  return circle.value.ownerId === userStore.user.id
+  if (!circle.value || !userStore.userInfo) return false
+  return String(circle.value.ownerId) === String(userStore.userInfo.id)
 })
 
 // ---------- 方法 ----------
@@ -566,13 +551,6 @@ async function saveNotice(): Promise<void> {
   // TODO: 调用更新公告API
   circle.value.notice = editNoticeText.value
   showNoticeEditor.value = false
-}
-
-/**
- * 置顶帖子操作
- */
-function handlePinPost(): void {
-  // TODO: 实现置顶帖子选择弹窗
 }
 
 /**
@@ -951,61 +929,99 @@ onUnmounted(() => {
   }
 }
 
-// ---------- 圈主操作按钮组 ----------
-.owner-actions {
-  display: flex;
-  gap: $space-2;
+// ---------- 圈主状态徽章 ----------
+.owner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: $radius-pill;
+  font-size: 12px;
+  font-weight: 600;
+  color: $amber-600;
+  background: linear-gradient(135deg, rgba(255, 182, 39, 0.1), rgba(255, 193, 7, 0.08));
+  border: 1px solid rgba(255, 182, 39, 0.25);
+  animation: badge-glow 2s ease-in-out infinite alternate;
+
+  svg { color: $amber-500; }
 }
 
-.owner-action-btn {
+@keyframes badge-glow {
+  from { box-shadow: 0 0 0 rgba(255, 182, 39, 0); }
+  to   { box-shadow: 0 0 8px rgba(255, 182, 39, 0.2); }
+}
+
+// ---------- 圈主管理操作（与操作按钮风格统一） ----------
+.admin-actions {
+  display: flex;
+  gap: $space-2;
+  margin-top: $space-2;
+}
+
+.admin-action-btn {
   flex: 1;
-  height: 44px;
+  height: 40px;
   border-radius: $radius-md;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   @include center;
-  gap: $space-1;
+  gap: 5px;
   transition: all $dur-fast $ease-out;
 
+  // 管理成员 — 紫罗兰（多用户图标）
+  &.members {
+    color: #8b5cf6;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1.5px solid rgba(139, 92, 246, 0.22);
+
+    &:hover {
+      background: rgba(139, 92, 246, 0.16);
+      border-color: rgba(139, 92, 246, 0.38);
+    }
+  }
+
+  // 转让圈主 — 靛蓝（用户+加号图标）
   &.transfer {
     color: #6366f1;
     background: rgba(99, 102, 241, 0.08);
-    border: 1.5px solid rgba(99, 102, 241, 0.25);
+    border: 1.5px solid rgba(99, 102, 241, 0.22);
 
     &:hover {
       background: rgba(99, 102, 241, 0.15);
-      border-color: rgba(99, 102, 241, 0.4);
+      border-color: rgba(99, 102, 241, 0.38);
     }
   }
 
+  // 修改圈子 — 薄荷绿（画笔图标）
   &.edit {
-    color: $mint-600;
+    color: $mint-700;
     background: rgba(78, 205, 196, 0.08);
-    border: 1.5px solid rgba(78, 205, 196, 0.25);
+    border: 1.5px solid rgba(78, 205, 196, 0.22);
 
     &:hover {
-      background: rgba(78, 205, 196, 0.15);
-      border-color: rgba(78, 205, 196, 0.4);
+      background: rgba(78, 205, 196, 0.16);
+      border-color: rgba(78, 205, 196, 0.38);
     }
   }
 
+  // 解散圈子 — 珊瑚红（禁止圆圈图标）
   &.dissolve {
     color: $coral-500;
-    background: rgba(255, 107, 107, 0.06);
-    border: 1.5px solid rgba(255, 107, 107, 0.25);
+    background: rgba(239, 68, 68, 0.06);
+    border: 1.5px solid rgba(239, 68, 68, 0.2);
 
     &:hover {
-      background: rgba(255, 107, 107, 0.12);
-      border-color: rgba(255, 107, 107, 0.4);
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.35);
     }
 
     &:disabled {
-      opacity: 0.4;
+      opacity: 0.35;
       cursor: not-allowed;
 
       &:hover {
-        background: rgba(255, 107, 107, 0.06);
-        border-color: rgba(255, 107, 107, 0.25);
+        background: rgba(239, 68, 68, 0.06);
+        border-color: rgba(239, 68, 68, 0.2);
       }
     }
   }

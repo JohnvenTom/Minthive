@@ -2,7 +2,9 @@ package com.minthive.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.minthive.common.BusinessException;
 import com.minthive.common.Result;
+import com.minthive.common.ResultCode;
 import com.minthive.entity.Circle;
 import com.minthive.entity.CircleCategory;
 import com.minthive.entity.CircleUser;
@@ -228,6 +230,51 @@ public class CircleController {
     public Result<Void> join(@PathVariable Long circleId) {
         circleService.join(circleId, UserContext.getUserId());
         return Result.success();
+    }
+
+    /**
+     * 更新圈子信息（仅圈主可操作）
+     *
+     * @param id     圈子ID
+     * @param params 圈子更新参数（name, categoryId/categoryName, intro, avatar, banner, type）
+     * @return 更新后的圈子
+     */
+    @Operation(summary = "更新圈子信息")
+    @PutMapping("/{id}")
+    public Result<Circle> update(@PathVariable Long id, @RequestBody Map<String, Object> params) {
+        Circle existing = circleService.getById(id);
+        if (existing == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "圈子不存在");
+        }
+        // 校验操作者是否为圈主
+        Long currentUserId = UserContext.getUserId();
+        if (!existing.getOwnerId().equals(currentUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "只有圈主才能修改圈子信息");
+        }
+        // 构建更新对象
+        Circle circle = new Circle();
+        circle.setId(id);
+        if (params.containsKey("name")) circle.setName((String) params.get("name"));
+        if (params.containsKey("intro")) circle.setIntro((String) params.get("intro"));
+        if (params.containsKey("avatar")) circle.setAvatar((String) params.get("avatar"));
+        if (params.containsKey("banner")) circle.setBanner((String) params.get("banner"));
+        // 处理分类
+        Object categoryIdObj = params.get("categoryId");
+        if (categoryIdObj != null) {
+            circle.setCategoryId(Long.valueOf(categoryIdObj.toString()));
+        } else if (params.containsKey("categoryName")) {
+            String categoryName = ((String) params.get("categoryName")).trim();
+            if (!categoryName.isEmpty()) {
+                circle.setCategoryId(circleService.createCategory(categoryName));
+            }
+        }
+        // 处理类型
+        Object typeObj = params.get("type");
+        if (typeObj != null) {
+            circle.setType("private".equals(typeObj.toString()) ? 1 : 0);
+        }
+        Circle updated = circleService.update(circle);
+        return Result.success(updated);
     }
 
     /**

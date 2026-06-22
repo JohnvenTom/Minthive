@@ -47,6 +47,10 @@ public class JwtInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // CORS 预检请求（OPTIONS）直接放行，由 CorsConfig 处理跨域响应头
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
         // 从请求头获取 Token
         String header = request.getHeader(jwtConfig.getHeader());
         if (!StringUtils.hasText(header) || !header.startsWith(jwtConfig.getPrefix())) {

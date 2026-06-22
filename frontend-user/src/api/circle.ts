@@ -78,6 +78,23 @@ export function createCircle(data: {
 }
 
 /**
+ * 更新圈子信息（仅圈主可操作）
+ * @param {number} id - 圈子ID
+ * @param {object} data - 可更新的字段（name, categoryId, intro, avatar, banner, type）
+ */
+export function updateCircle(id: number, data: {
+  name?: string
+  categoryId?: number
+  categoryName?: string
+  intro?: string
+  avatar?: string
+  banner?: string
+  type?: 'public' | 'private'
+}) {
+  return request<Circle>({ url: `/circle/${id}`, method: 'put', data })
+}
+
+/**
  * 获取圈子分类列表（含ID和名称）
  */
 export function getCategories() {

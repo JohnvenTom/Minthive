@@ -66,4 +66,8 @@ public class Circle implements Serializable {
     @TableLogic
     @TableField("deleted")
     private Integer deleted;
+
+    /** 当前用户是否已加入（非持久化字段，由后端查询 circle_member 表后填充） */
+    @TableField(exist = false)
+    private Boolean joined;
 }

@@ -4,12 +4,12 @@
     <div class="circle-card__banner" :style="bannerStyle">
       <div class="circle-card__banner-overlay"></div>
       <!-- 公开/私密标记 -->
-      <span class="circle-card__type-badge" :class="circle.type">
-        <svg v-if="circle.type === 'private'" width="10" height="10" viewBox="0 0 24 24" fill="none">
+      <span class="circle-card__type-badge" :class="isPrivate ? 'private' : 'public'">
+        <svg v-if="isPrivate" width="10" height="10" viewBox="0 0 24 24" fill="none">
           <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="2"/>
           <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        {{ circle.type === 'public' ? '公开' : '私密' }}
+        {{ isPrivate ? '私密' : '公开' }}
       </span>
     </div>
 
@@ -103,6 +103,12 @@ const bannerStyle = computed(() => ({
     ? `url(${props.circle.banner})`
     : $gradMint
 }))
+
+/** 判断圈子是否为私密（兼容后端返回的字符串"private"/整数1两种格式） */
+const isPrivate = computed(() => {
+  const t = props.circle.type
+  return t === 'private' || t === 1
+})
 
 /** 获取SCSS变量值（用于JS中） */
 const $gradMint = 'linear-gradient(135deg, #6BCB77 0%, #4ECDC4 100%)'

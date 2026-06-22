@@ -2,7 +2,9 @@ package com.minthive.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.minthive.common.BusinessException;
 import com.minthive.common.Result;
+import com.minthive.common.ResultCode;
 import com.minthive.entity.Circle;
 import com.minthive.entity.CircleCategory;
 import com.minthive.entity.CircleUser;
@@ -13,8 +15,10 @@ import com.minthive.mapper.PostMapper;
 import com.minthive.mapper.UserMapper;
 import com.minthive.security.UserContext;
 import com.minthive.service.CircleService;
+import com.minthive.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +38,7 @@ public class CircleController {
     private final CircleUserMapper circleUserMapper;
     private final PostMapper postMapper;
     private final UserMapper userMapper;
+    private final JwtUtil jwtUtil;
 
     /**
      * 构造器注入
@@ -42,12 +47,15 @@ public class CircleController {
      * @param circleUserMapper  圈子成员 Mapper（用于查询当前用户是否已加入）
      * @param postMapper        帖子 Mapper（用于查询圈内帖子数）
      * @param userMapper        用户 Mapper（用于查询圈主信息）
+     * @param jwtUtil           JWT 工具（用于从请求头手动解析 Token 获取用户ID）
      */
-    public CircleController(CircleService circleService, CircleUserMapper circleUserMapper, PostMapper postMapper, UserMapper userMapper) {
+    public CircleController(CircleService circleService, CircleUserMapper circleUserMapper,
+                            PostMapper postMapper, UserMapper userMapper, JwtUtil jwtUtil) {
         this.circleService = circleService;
         this.circleUserMapper = circleUserMapper;
         this.postMapper = postMapper;
         this.userMapper = userMapper;
+        this.jwtUtil = jwtUtil;
     }
 
     /**
@@ -93,23 +101,19 @@ public class CircleController {
      */
     @Operation(summary = "查询圈子详情")
     @GetMapping("/{id}")
-    public Result<Map<String, Object>> get(@PathVariable Long id) {
+    public Result<Map<String, Object>> get(@PathVariable Long id, HttpServletRequest request) {
         Circle circle = circleService.getById(id);
+        // 双通道获取当前登录用户ID（/api/circle/{id} 在排除列表中，UserContext 可能未设置）
+        Long currentUserId = resolveUserId(request);
         // 查询当前登录用户是否已加入该圈子
         boolean joined = false;
-        try {
-            Long userId = UserContext.getUserId();
-            if (userId != null) {
-                long count = circleUserMapper.selectCount(
-                    new LambdaQueryWrapper<CircleUser>()
-                        .eq(CircleUser::getCircleId, id)
-                        .eq(CircleUser::getUserId, userId)
-                );
-                joined = count > 0;
-            }
-        } catch (Exception e) {
-            // 未登录或异常时 joined 保持 false，记录日志便于排查
-            log.warn("查询圈子[{}]加入状态异常: {}", id, e.getMessage());
+        if (currentUserId != null) {
+            long count = circleUserMapper.selectCount(
+                new LambdaQueryWrapper<CircleUser>()
+                    .eq(CircleUser::getCircleId, id)
+                    .eq(CircleUser::getUserId, currentUserId)
+            );
+            joined = count > 0;
         }
         // 查询圈内帖子数量
         long postCount = 0;
@@ -167,8 +171,52 @@ public class CircleController {
     public Result<Page<Circle>> page(@RequestParam(defaultValue = "1") long current,
                                      @RequestParam(defaultValue = "10") long size,
                                      @RequestParam(required = false) Long categoryId,
-                                     @RequestParam(required = false) String keyword) {
-        return Result.success(circleService.page(current, size, categoryId, keyword));
+                                     @RequestParam(required = false) String keyword,
+                                     HttpServletRequest request) {
+        Page<Circle> result = circleService.page(current, size, categoryId, keyword);
+        // 双通道获取当前登录用户ID（/api/circle/page 在排除列表中，UserContext 可能未设置）
+        Long currentUserId = resolveUserId(request);
+        // 为每个圈子填充当前用户的加入状态
+        if (currentUserId != null && !result.getRecords().isEmpty()) {
+            for (Circle circle : result.getRecords()) {
+                long count = circleUserMapper.selectCount(
+                    new LambdaQueryWrapper<CircleUser>()
+                        .eq(CircleUser::getCircleId, circle.getId())
+                        .eq(CircleUser::getUserId, currentUserId)
+                );
+                circle.setJoined(count > 0);
+            }
+        } else {
+            for (Circle circle : result.getRecords()) {
+                circle.setJoined(false);
+            }
+        }
+        return Result.success(result);
+    }
+
+    /**
+     * 双通道解析当前登录用户ID
+     *
+     * <p>优先从 UserContext 获取（正常认证接口），失败则从请求头手动解析 Token（公开接口）</p>
+     *
+     * @param request HTTP 请求对象
+     * @return 当前用户ID，未登录返回 null
+     */
+    private Long resolveUserId(HttpServletRequest request) {
+        try {
+            return UserContext.getUserId();
+        } catch (Exception e) {
+            // 公开接口 JWT 拦截器跳过，尝试从请求头手动解析 Token
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                try {
+                    return jwtUtil.getUserIdFromToken(authHeader.substring(7));
+                } catch (Exception ignored) {
+                    return null;
+                }
+            }
+            return null;
+        }
     }
 
     /**
@@ -182,6 +230,51 @@ public class CircleController {
     public Result<Void> join(@PathVariable Long circleId) {
         circleService.join(circleId, UserContext.getUserId());
         return Result.success();
+    }
+
+    /**
+     * 更新圈子信息（仅圈主可操作）
+     *
+     * @param id     圈子ID
+     * @param params 圈子更新参数（name, categoryId/categoryName, intro, avatar, banner, type）
+     * @return 更新后的圈子
+     */
+    @Operation(summary = "更新圈子信息")
+    @PutMapping("/{id}")
+    public Result<Circle> update(@PathVariable Long id, @RequestBody Map<String, Object> params) {
+        Circle existing = circleService.getById(id);
+        if (existing == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "圈子不存在");
+        }
+        // 校验操作者是否为圈主
+        Long currentUserId = UserContext.getUserId();
+        if (!existing.getOwnerId().equals(currentUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "只有圈主才能修改圈子信息");
+        }
+        // 构建更新对象
+        Circle circle = new Circle();
+        circle.setId(id);
+        if (params.containsKey("name")) circle.setName((String) params.get("name"));
+        if (params.containsKey("intro")) circle.setIntro((String) params.get("intro"));
+        if (params.containsKey("avatar")) circle.setAvatar((String) params.get("avatar"));
+        if (params.containsKey("banner")) circle.setBanner((String) params.get("banner"));
+        // 处理分类
+        Object categoryIdObj = params.get("categoryId");
+        if (categoryIdObj != null) {
+            circle.setCategoryId(Long.valueOf(categoryIdObj.toString()));
+        } else if (params.containsKey("categoryName")) {
+            String categoryName = ((String) params.get("categoryName")).trim();
+            if (!categoryName.isEmpty()) {
+                circle.setCategoryId(circleService.createCategory(categoryName));
+            }
+        }
+        // 处理类型
+        Object typeObj = params.get("type");
+        if (typeObj != null) {
+            circle.setType("private".equals(typeObj.toString()) ? 1 : 0);
+        }
+        Circle updated = circleService.update(circle);
+        return Result.success(updated);
     }
 
     /**

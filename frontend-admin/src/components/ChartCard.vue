@@ -52,7 +52,7 @@ watch(
   () => props.loading,
   (val) => {
     if (chartInstance) {
-      val ? chartInstance.showLoading('default', { color: '#4ECDC4', textColor: '#B5BDD4' }) : chartInstance.hideLoading()
+      val ? chartInstance.showLoading('default', { color: '#E879A9', textColor: '#D4D4D8' }) : chartInstance.hideLoading()
     }
   }
 )

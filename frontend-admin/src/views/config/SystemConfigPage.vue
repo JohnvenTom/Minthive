@@ -678,8 +678,8 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 20px;
-  background: linear-gradient(135deg, rgba(78, 205, 196, 0.08), rgba(255, 182, 39, 0.05));
-  border: 1px solid rgba(78, 205, 196, 0.3);
+  background: linear-gradient(135deg, rgba(232, 121, 169, 0.08), rgba(245, 158, 11, 0.05));
+  border: 1px solid rgba(232, 121, 169, 0.3);
   border-radius: $radius-md;
 }
 .master-title {

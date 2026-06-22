@@ -44,6 +44,9 @@
       </div>
     </Transition>
 
+    <!-- 首页轮播 -->
+    <BannerSwiper />
+
     <!-- 下拉刷新 -->
     <van-pull-refresh
       v-model="refreshing"
@@ -158,6 +161,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ShareSheet from '@/components/ShareSheet.vue'
 import ShareChainDialog from '@/components/ShareChainDialog.vue'
+import BannerSwiper from '@/components/BannerSwiper.vue'
 import { useUserStore } from '@/stores/user'
 import { useChatStore } from '@/stores/chat'
 import { getFeed, toggleLike, toggleCollect, deletePost, togglePostVisibility } from '@/api/post'

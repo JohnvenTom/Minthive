@@ -61,12 +61,12 @@ const registerChartOption = computed<echarts.EChartsOption>(() => ({
       type: 'line',
       smooth: true,
       data: statsStore.registerTrend.map((p) => p.value),
-      lineStyle: { color: '#4ECDC4', width: 2 },
-      itemStyle: { color: '#4ECDC4' },
+      lineStyle: { color: '#E879A9', width: 2 },
+      itemStyle: { color: '#E879A9' },
       areaStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(78, 205, 196, 0.4)' },
-          { offset: 1, color: 'rgba(78, 205, 196, 0)' }
+          { offset: 0, color: 'rgba(232, 121, 169, 0.4)' },
+          { offset: 1, color: 'rgba(232, 121, 169, 0)' }
         ])
       }
     }
@@ -93,13 +93,13 @@ const activeChartOption = computed<echarts.EChartsOption>(() => ({
       name: 'DAU',
       type: 'bar',
       data: statsStore.activeTrend?.series[0]?.data || [],
-      itemStyle: { color: '#4ECDC4', borderRadius: [4, 4, 0, 0] }
+      itemStyle: { color: '#E879A9', borderRadius: [4, 4, 0, 0] }
     },
     {
       name: 'MAU',
       type: 'bar',
       data: statsStore.activeTrend?.series[1]?.data || [],
-      itemStyle: { color: '#FFB627', borderRadius: [4, 4, 0, 0] }
+      itemStyle: { color: '#F59E0B', borderRadius: [4, 4, 0, 0] }
     }
   ]
 }))
@@ -124,8 +124,8 @@ const postChartOption = computed<echarts.EChartsOption>(() => ({
       type: 'line',
       smooth: true,
       data: statsStore.postTrend.map((p) => p.value),
-      lineStyle: { color: '#FFB627', width: 2 },
-      itemStyle: { color: '#FFB627' },
+      lineStyle: { color: '#F59E0B', width: 2 },
+      itemStyle: { color: '#F59E0B' },
       areaStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: 'rgba(255, 182, 39, 0.4)' },
@@ -157,7 +157,7 @@ const interactionChartOption = computed<echarts.EChartsOption>(() => ({
     smooth: true,
     data: s.data,
     lineStyle: { width: 2 },
-    itemStyle: { color: i === 0 ? '#4ECDC4' : '#FFB627' }
+    itemStyle: { color: i === 0 ? '#E879A9' : '#F59E0B' }
   }))
 }))
 
@@ -178,7 +178,7 @@ const circleRankChartOption = computed<echarts.EChartsOption>(() => ({
       radius: ['32%', '55%'],
       center: ['35%', '50%'],
       avoidLabelOverlap: false,
-      itemStyle: { borderColor: '#1A1D2E', borderWidth: 2 },
+      itemStyle: { borderColor: '#27272a', borderWidth: 2 },
       label: {
         show: true,
         position: 'outside',
@@ -218,7 +218,7 @@ const reportChartOption = computed<echarts.EChartsOption>(() => ({
     type: 'bar',
     stack: 'total',
     data: s.data,
-    itemStyle: { color: i === 0 ? '#FF5C6C' : i === 1 ? '#FFB627' : '#4ECDC4', borderRadius: i === 2 ? [4, 4, 0, 0] : 0 }
+    itemStyle: { color: i === 0 ? '#EF4444' : i === 1 ? '#F59E0B' : '#E879A9', borderRadius: i === 2 ? [4, 4, 0, 0] : 0 }
   }))
 }))
 
@@ -384,26 +384,26 @@ onMounted(() => {
     content: '';
     display: block;
     width: 100%; height: 100%;
-    background: radial-gradient(circle, rgba(78, 205, 196, 0.08), transparent 70%);
+    background: radial-gradient(circle, rgba(232, 121, 169, 0.08), transparent 70%);
   }
 }
 .hex-1 {
   width: 300px; height: 300px;
   top: 40px; right: -80px;
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  background: rgba(78, 205, 196, 0.04);
+  background: rgba(232, 121, 169, 0.04);
 }
 .hex-2 {
   width: 200px; height: 200px;
   bottom: 100px; left: -60px;
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  background: rgba(255, 182, 39, 0.04);
+  background: rgba(245, 158, 11, 0.04);
 }
 .hex-3 {
   width: 150px; height: 150px;
   top: 50%; left: 30%;
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  background: rgba(78, 205, 196, 0.03);
+  background: rgba(232, 121, 169, 0.03);
 }
 
 .screen-content {
@@ -443,8 +443,8 @@ onMounted(() => {
 }
 .header-badge {
   padding: 2px 8px;
-  background: rgba(78, 205, 196, 0.15);
-  border: 1px solid rgba(78, 205, 196, 0.4);
+  background: rgba(232, 121, 169, 0.15);
+  border: 1px solid rgba(232, 121, 169, 0.4);
   border-radius: 4px;
   color: $color-primary;
   font-size: 11px;

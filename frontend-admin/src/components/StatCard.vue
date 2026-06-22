@@ -108,7 +108,7 @@ function formatNumber(num: number): string {
   &.accent-primary {
     .stat-icon { color: $color-primary; }
     .stat-value { color: $color-primary; text-shadow: $shadow-glow-primary; }
-    .stat-hex-deco { color: rgba(78, 205, 196, 0.12); }
+    .stat-hex-deco { color: rgba(232, 121, 169, 0.12); }
   }
   &.accent-warning {
     .stat-icon { color: $color-warning; }

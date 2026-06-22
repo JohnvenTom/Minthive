@@ -35,15 +35,15 @@ const query = reactive<ReportQuery>({
 
 /** 表格列配置 - 风险等级列在前 */
 const columns = [
-  { prop: 'riskLevel', label: '风险等级', width: 120, align: 'center' as const, slot: 'riskLevel' },
-  { prop: 'workOrderId', label: '工单ID', width: 90 },
-  { prop: 'type', label: '举报类型', width: 120 },
-  { prop: 'reporterName', label: '举报人', width: 120 },
-  { prop: 'accusedName', label: '被举报人', width: 120 },
-  { prop: 'targetContent', label: '举报内容', minWidth: 220, slot: 'targetContent' },
-  { prop: 'status', label: '状态', width: 100, align: 'center' as const, slot: 'status' },
-  { prop: 'createTime', label: '举报时间', width: 170 },
-  { prop: 'actions', label: '操作', width: 240, fixed: 'right' as const, slot: 'actions' }
+  { prop: 'riskLevel', label: '风险等级', width: 110, align: 'center' as const, slot: 'riskLevel' },
+  { prop: 'workOrderId', label: '工单ID', width: 80 },
+  { prop: 'type', label: '举报类型', width: 110 },
+  { prop: 'reporterName', label: '举报人', width: 100 },
+  { prop: 'accusedName', label: '被举报人', width: 100 },
+  { prop: 'targetContent', label: '举报内容', minWidth: 180, slot: 'targetContent' },
+  { prop: 'status', label: '状态', width: 90, align: 'center' as const, slot: 'status' },
+  { prop: 'createTime', label: '举报时间', width: 160 },
+  { prop: 'actions', label: '操作', width: 240, fixed: 'right' as const, align: 'center' as const, slot: 'actions' }
 ]
 
 /** 详情弹窗 */
@@ -240,12 +240,14 @@ onMounted(() => {
           <StatusTag :status="row.status" type="workorder" />
         </template>
         <template #actions="{ row }">
-          <el-button text type="primary" size="small" @click="handleDetail(row)">详情</el-button>
-          <template v-if="row.status === 'PENDING'">
-            <el-button text type="info" size="small" @click="handleReject(row)">驳回</el-button>
-            <el-button text type="warning" size="small" @click="handleDeleteContent(row)">删除内容</el-button>
-            <el-button text type="danger" size="small" @click="handlePunish(row)">处罚</el-button>
-          </template>
+          <div class="action-btns">
+            <el-button text type="primary" size="small" @click="handleDetail(row)">详情</el-button>
+            <template v-if="row.status === 'PENDING'">
+              <el-button text type="info" size="small" @click="handleReject(row)">驳回</el-button>
+              <el-button text type="warning" size="small" @click="handleDeleteContent(row)">删除内容</el-button>
+              <el-button text type="danger" size="small" @click="handlePunish(row)">处罚</el-button>
+            </template>
+          </div>
         </template>
       </DataTable>
     </div>
@@ -320,6 +322,7 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
 .header-tip {
   display: flex;
   align-items: center;
@@ -341,6 +344,18 @@ onMounted(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: $text-regular;
+}
+.action-btns {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  .el-button--text,
+  .el-button.is-text {
+    padding: 4px 12px;
+    margin: 0;
+  }
 }
 .report-detail {
   padding: 0 8px;
@@ -366,8 +381,8 @@ onMounted(() => {
   line-height: 1.6;
 }
 .ai-analysis {
-  background: rgba(78, 205, 196, 0.08);
-  border: 1px solid rgba(78, 205, 196, 0.3);
+  background: rgba(232, 121, 169, 0.08);
+  border: 1px solid rgba(232, 121, 169, 0.3);
   padding: 10px;
   border-radius: $radius-md;
   color: $color-primary;

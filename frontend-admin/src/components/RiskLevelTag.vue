@@ -59,8 +59,8 @@ const config = computed(() => {
 }
 .risk-low {
   color: $color-primary;
-  background: rgba(78, 205, 196, 0.12);
-  border-color: rgba(78, 205, 196, 0.4);
+  background: rgba(232, 121, 169, 0.12);
+  border-color: rgba(232, 121, 169, 0.4);
   box-shadow: $shadow-glow-primary;
 }
 .risk-medium {

@@ -1,13 +1,18 @@
 package com.minthive.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
 import com.minthive.entity.Post;
 import com.minthive.entity.User;
+import com.minthive.mapper.FollowMapper;
+import com.minthive.entity.Follow;
 import com.minthive.security.UserContext;
 import com.minthive.service.UserService;
+import com.minthive.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,14 +26,20 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final FollowMapper followMapper;
+    private final JwtUtil jwtUtil;
 
     /**
      * 构造器注入
      *
      * @param userService 用户服务
+     * @param followMapper 关注关系 Mapper（用于查询关注状态）
+     * @param jwtUtil      JWT 工具（用于从请求头手动解析 Token 获取用户ID）
      */
-    public UserController(UserService userService) {
+    public UserController(UserService userService, FollowMapper followMapper, JwtUtil jwtUtil) {
         this.userService = userService;
+        this.followMapper = followMapper;
+        this.jwtUtil = jwtUtil;
     }
 
     /**
@@ -48,13 +59,38 @@ public class UserController {
      * 根据ID查询用户信息
      *
      * @param id 用户ID
-     * @return 用户信息（含帖子数/关注数/粉丝数）
+     * @return 用户信息（含帖子数/关注数/粉丝数/关注状态）
      */
     @Operation(summary = "根据ID查询用户")
     @GetMapping("/{id}")
-    public Result<User> getById(@PathVariable Long id) {
+    public Result<User> getById(@PathVariable Long id, HttpServletRequest request) {
         User user = userService.getById(id);
         enrichUserStats(user);
+        // /api/user/{id} 为公开接口（excludePathPatterns），JWT 拦截器跳过该路径
+        // 需要双通道识别当前登录用户：优先 UserContext，失败则手动从请求头解析 Token
+        Long currentUserId = null;
+        try {
+            currentUserId = UserContext.getUserId();
+        } catch (Exception e) {
+            // 未登录或公开接口未设置 UserContext，尝试从请求头手动解析 Token
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                try {
+                    currentUserId = jwtUtil.getUserIdFromToken(authHeader.substring(7));
+                } catch (Exception ignored) {
+                    // Token 无效或过期，currentUserId 保持 null
+                }
+            }
+        }
+        // 查询当前登录用户是否已关注该用户，附加 isFollowing 字段
+        if (currentUserId != null && !currentUserId.equals(id)) {
+            long count = followMapper.selectCount(new LambdaQueryWrapper<Follow>()
+                    .eq(Follow::getUserId, currentUserId)
+                    .eq(Follow::getFollowUserId, id));
+            user.setIsFollowing(count > 0);
+        } else {
+            user.setIsFollowing(false);
+        }
         return Result.success(user);
     }
 

@@ -51,7 +51,8 @@
           </div>
           <div class="stat-divider" />
           <div class="stat-item" @click="showOwnerInfo">
-            <span class="stat-value owner-name">{{ circle.ownerName }}</span>
+            <img v-if="circle.ownerAvatar" :src="circle.ownerAvatar" class="owner-avatar" />
+            <span class="stat-value owner-name">{{ circle.ownerName || '圈主' }}</span>
             <span class="stat-label">圈主</span>
           </div>
         </div>
@@ -646,7 +647,7 @@ async function confirmDissolve(): Promise<void> {
  */
 function showOwnerInfo(): void {
   if (!circle.value) return
-  router.push(`/user/${circle.value.ownerId}`)
+  router.push(`/profile/${circle.value.ownerId}`)
 }
 
 /**
@@ -863,6 +864,14 @@ onUnmounted(() => {
   @include center(column);
   gap: 2px;
   cursor: default;
+
+  .owner-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid $mint-300;
+  }
 }
 
 .stat-value {

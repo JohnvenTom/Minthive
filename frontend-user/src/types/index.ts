@@ -111,6 +111,20 @@ export interface Circle {
   status: number
 }
 
+// ---------- 圈子成员 ----------
+export interface CircleMember {
+  /** 用户ID */
+  userId: number
+  /** 昵称 */
+  nickname: string
+  /** 头像URL */
+  avatar: string
+  /** 角色:0普通成员 1圈主 */
+  role: 0 | 1
+  /** 入圈时间 */
+  joinTime: string
+}
+
 // ---------- 消息 ----------
 export interface Message {
   id: number

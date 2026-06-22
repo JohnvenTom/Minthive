@@ -1,6 +1,7 @@
 package com.minthive.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.BusinessException;
 import com.minthive.common.Constants;
@@ -11,6 +12,7 @@ import com.minthive.entity.CircleUser;
 import com.minthive.entity.Post;
 import com.minthive.mapper.CircleCategoryMapper;
 import com.minthive.mapper.CircleMapper;
+import com.minthive.mapper.CircleMemberMapper;
 import com.minthive.mapper.CircleUserMapper;
 import com.minthive.mapper.PostMapper;
 import com.minthive.service.CircleService;
@@ -35,6 +37,8 @@ public class CircleServiceImpl implements CircleService {
     private final CircleMapper circleMapper;
 
     private final CircleUserMapper circleUserMapper;
+
+    private final CircleMemberMapper circleMemberMapper;
 
     private final PostMapper postMapper;
 
@@ -275,5 +279,92 @@ public class CircleServiceImpl implements CircleService {
         List<Circle> list = circleMapper.selectList(wrapper);
         fillCategoryName(list);
         return list;
+    }
+
+    /**
+     * 分页查询圈子正式成员
+     */
+    @Override
+    public IPage<Map<String, Object>> listMembers(Long circleId, long current, long size, String keyword) {
+        // 校验圈子存在
+        getById(circleId);
+        return circleMemberMapper.selectMembers(new Page<>(current, size), circleId, keyword);
+    }
+
+    /**
+     * 圈主移出成员
+     */
+    @Override
+    @Transactional
+    public void removeMember(Long circleId, Long operatorId, Long userId) {
+        // 操作者必须是该圈圈主
+        Circle circle = assertOwner(circleId, operatorId);
+        // 不能移除圈主（自己或任何圈主）
+        if (userId.equals(circle.getOwnerId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "不能移除圈主");
+        }
+        // 校验目标是否为该圈成员
+        CircleUser target = circleUserMapper.selectOne(new LambdaQueryWrapper<CircleUser>()
+                .eq(CircleUser::getCircleId, circleId)
+                .eq(CircleUser::getUserId, userId));
+        if (target == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "该用户不在圈子中");
+        }
+        if (target.getRole() != null && target.getRole() == Constants.CIRCLE_MEMBER_OWNER) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "不能移除圈主");
+        }
+        // 复用退出逻辑：删除成员记录 + 成员数-1
+        leave(circleId, userId);
+    }
+
+    /**
+     * 圈主转让身份
+     */
+    @Override
+    @Transactional
+    public void transferOwner(Long circleId, Long operatorId, Long newOwnerId) {
+        Circle circle = assertOwner(circleId, operatorId);
+        if (newOwnerId.equals(operatorId)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "不能转让给自己");
+        }
+        // 新圈主必须是该圈正式成员
+        CircleUser newOwner = circleUserMapper.selectOne(new LambdaQueryWrapper<CircleUser>()
+                .eq(CircleUser::getCircleId, circleId)
+                .eq(CircleUser::getUserId, newOwnerId));
+        if (newOwner == null || newOwner.getAuditStatus() == null
+                || newOwner.getAuditStatus() != 1) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "新圈主必须是该圈正式成员");
+        }
+        // 新圈主 role 置 1
+        newOwner.setRole(Constants.CIRCLE_MEMBER_OWNER);
+        circleUserMapper.updateById(newOwner);
+        // 原圈主 role 置 0
+        CircleUser oldOwner = circleUserMapper.selectOne(new LambdaQueryWrapper<CircleUser>()
+                .eq(CircleUser::getCircleId, circleId)
+                .eq(CircleUser::getUserId, operatorId));
+        if (oldOwner != null) {
+            oldOwner.setRole(Constants.CIRCLE_MEMBER_NORMAL);
+            circleUserMapper.updateById(oldOwner);
+        }
+        // 更新圈子 owner_id
+        Circle update = new Circle();
+        update.setId(circleId);
+        update.setOwnerId(newOwnerId);
+        circleMapper.updateById(update);
+    }
+
+    /**
+     * 校验操作者是否为指定圈子的圈主，返回圈子实体
+     *
+     * @param circleId   圈子ID
+     * @param operatorId 操作者用户ID
+     * @return 圈子实体
+     */
+    private Circle assertOwner(Long circleId, Long operatorId) {
+        Circle circle = getById(circleId);
+        if (circle.getOwnerId() == null || !circle.getOwnerId().equals(operatorId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "只有圈主才能执行此操作");
+        }
+        return circle;
     }
 }

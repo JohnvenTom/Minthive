@@ -161,7 +161,7 @@
       <section class="form-section" :style="{ animationDelay: '320ms' }">
         <div class="section-label-row">
           <span class="section-label">封面图片</span>
-          <span class="section-hint">建议尺寸 1200×400</span>
+          <span class="section-hint">建议尺寸 1600×900</span>
         </div>
         <div class="banner-upload-wrap">
           <div
@@ -250,9 +250,9 @@
                 :info="true"
                 :full="false"
                 :can-move="true"
-                :can-scale="true"
+                :can-scale="false"
                 :fixed="cropType === 'avatar'"
-                :fixed-number="cropType === 'avatar' ? [1, 1] : [3, 1]"
+                :fixed-number="cropType === 'avatar' ? [1, 1] : [16, 9]"
                 :fixed-box="false"
                 :original="false"
                 :auto-crop="true"
@@ -273,7 +273,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
@@ -555,6 +555,20 @@ function removeBanner(): void {
 
 // ========== 裁剪弹窗逻辑（vue-cropper） ==========
 
+/** ESC 键关闭裁剪弹窗 */
+function onCropKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape' && cropVisible.value) cancelCrop()
+}
+
+/** 监听裁剪弹窗的开关，管理 ESC 键监听 */
+watch(cropVisible, (val) => {
+  if (val) {
+    window.addEventListener('keydown', onCropKeydown)
+  } else {
+    window.removeEventListener('keydown', onCropKeydown)
+  }
+})
+
 /** 取消裁剪 */
 function cancelCrop(): void {
   closeCropModal()
@@ -603,6 +617,7 @@ async function confirmCrop(): Promise<void> {
 
 /**
  * 关闭裁剪弹窗并释放资源
+ * @description 确保关闭后页面可正常滚动（清除所有可能的滚动锁定）
  */
 function closeCropModal(): void {
   if (cropImageUrl.value) {
@@ -611,6 +626,9 @@ function closeCropModal(): void {
   }
   cropVisible.value = false
   pendingFile.value = null
+  // 强制恢复页面滚动（防止任何残留的锁定状态）
+  document.body.style.overflow = ''
+  document.documentElement.style.overflow = ''
 }
 
 // ---------- 表单校验 ----------
@@ -845,6 +863,15 @@ function getHexParticleStyle(index: number): Record<string, string> {
 onMounted(async () => {
   await fetchCategories()
 })
+
+/** 组件卸载时强制清理所有残留状态（防止 vue-cropper 事件泄漏） */
+onUnmounted(() => {
+  // 清理裁剪弹窗资源
+  if (cropImageUrl.value) URL.revokeObjectURL(cropImageUrl.value)
+  // 强制恢复滚动（vue-cropper 可能残留 wheel 监听器）
+  document.body.style.overflow = ''
+  document.documentElement.style.overflow = ''
+})
 </script>
 
 <style lang="scss" scoped>
@@ -871,6 +898,8 @@ $radius-btn: 10px;
   background: $bg-warm;
   padding-bottom: 88px;
   -webkit-font-smoothing: antialiased;
+  /* 确保页面自身可滚动，不依赖 body 层 */
+  overflow-y: auto;
 }
 
 // ---------- Header ----------
@@ -894,6 +923,7 @@ $radius-btn: 10px;
   color: $text-primary;
   letter-spacing: -0.01em;
   font-family: $font-heading;
+  margin: 0; /* 消除 h2 默认边距，与导航栏对齐 */
 }
 
 .back-btn {
@@ -1153,10 +1183,14 @@ $radius-btn: 10px;
 
 .category-tags {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   position: relative;
   padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox 隐藏滚动条 */
+  -ms-overflow-style: none; /* IE/Edge 隐藏滚动条 */
+  &::-webkit-scrollbar { display: none; } /* Chrome/Safari 隐藏滚动条 */
 }
 
 .category-indicator {
@@ -1438,8 +1472,9 @@ $radius-btn: 10px;
 
 .banner-preview {
   width: 100%;
-  aspect-ratio: 3 / 1;
-  max-height: 180px;
+  max-width: 480px;
+  aspect-ratio: 16 / 9;
+  max-height: 240px;
   border-radius: $radius-md;
   overflow: hidden;
   cursor: pointer;
@@ -1709,6 +1744,7 @@ $radius-btn: 10px;
 }
 
 // ========== 裁剪弹窗样式（vue-cropper） ==========
+// 与 EditProfilePage 保持一致的写法
 .crop-modal {
   position: fixed;
   inset: 0;

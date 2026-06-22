@@ -145,6 +145,7 @@ CREATE TABLE `circle` (
     `category_id`  BIGINT       NOT NULL COMMENT '分类ID(关联circle_category)',
     `intro`        VARCHAR(500) DEFAULT NULL COMMENT '圈子简介',
     `avatar`       VARCHAR(255) DEFAULT NULL COMMENT '圈子头像',
+    `banner`       VARCHAR(500) DEFAULT NULL COMMENT '圈子封面图',
     `type`         TINYINT      NOT NULL DEFAULT 0 COMMENT '圈子类型:0公开 1私密',
     `member_count` INT          NOT NULL DEFAULT 0 COMMENT '成员数量',
     `status`       TINYINT      NOT NULL DEFAULT 1 COMMENT '圈子状态:0下架 1正常',
@@ -260,44 +261,6 @@ CREATE TABLE `ai_user_log` (
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
--- 初始数据
+-- 初始数据已拆分到 init_data.sql
+-- 执行顺序: 1. init.sql(本文件) → 2. init_data.sql
 -- ============================================================
-
--- 管理员账号 (密码: admin123, Bcrypt加密, strength=10)
-INSERT INTO `user` (`account`, `password`, `phone`, `nickname`, `bio`, `role`, `status`)
-VALUES ('admin', '$2b$10$sO9SaS7A8UOiOpPFojpBzOgQkstUlUbkY08rZsG83otSfNwrtIAxS', '13800000000', '平台管理员', 'MintHive平台超级管理员', 2, 1);
-
--- 圈子分类初始数据
-INSERT INTO `circle_category` (`name`, `sort`, `status`)
-VALUES
-('技术',   1, 1),
-('生活',   2, 1),
-('娱乐',   3, 1),
-('学习',   4, 1),
-('运动',   5, 1),
-('美食',   6, 1),
-('旅行',   7, 1),
-('游戏',   8, 1),
-('音乐',   9, 1),
-('其他',  10, 1);
-
--- 默认圈子数据 (category_id 对应上面的分类ID)
-INSERT INTO `circle` (`owner_id`, `name`, `category_id`, `intro`, `type`, `member_count`, `status`, `notice`)
-VALUES
-(1, '游戏玩家联盟', 8, '聚集各类游戏爱好者，分享游戏心得与攻略', 0, 1, 1, '欢迎来到游戏玩家联盟！'),
-(1, '影视爱好者', 3, '电影、电视剧、动漫讨论交流圈', 0, 1, 1, '欢迎来到影视爱好者圈子！'),
-(1, '户外露营圈', 7, '露营、徒步、骑行等户外活动分享', 0, 1, 1, '欢迎来到户外露营圈！'),
-(1, '读书分享会', 4, '读书笔记、好书推荐、文学讨论', 0, 1, 1, '欢迎来到读书分享会！'),
-(1, '摄影作品交流', 10, '摄影作品分享、技巧交流、器材讨论', 0, 1, 1, '欢迎来到摄影作品交流圈！');
-
--- 圈主默认加入自己的圈子
-INSERT INTO `circle_user` (`circle_id`, `user_id`, `role`, `audit_status`)
-VALUES
-(1, 1, 1, 1),
-(2, 1, 1, 1),
-(3, 1, 1, 1),
-(4, 1, 1, 1),
-(5, 1, 1, 1);
-
--- 敏感词初始数据(示例)
--- 完整敏感词库由 sensitive-words.txt 文件加载，此处仅作示例

@@ -24,6 +24,7 @@
             CASE c.status WHEN 1 THEN 'ONLINE' ELSE 'OFFLINE' END AS status,
             CASE WHEN c.recommend = 1 THEN true ELSE false END AS recommended,
             COALESCE(c.avatar, '') AS icon,
+            COALESCE(c.banner, '') AS banner,
             c.create_time AS createTime
         FROM circle c
         LEFT JOIN `user` o ON c.owner_id = o.id AND o.deleted = 0

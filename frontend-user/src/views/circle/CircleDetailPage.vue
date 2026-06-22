@@ -6,7 +6,8 @@
     <template v-else-if="circle">
       <!-- Banner大图 + 渐变遮罩 -->
       <section class="banner-hero">
-        <img :src="circle.banner" :alt="circle.name" class="banner-img" />
+        <!-- 有 banner 显示图片，无 banner 用渐变背景兜底 -->
+        <img v-if="circle.banner" :src="circle.banner" :alt="circle.name" class="banner-img" />
         <div class="banner-gradient" />
 
         <!-- 返回按钮 -->
@@ -55,8 +56,9 @@
           </div>
         </div>
 
-        <!-- 加入/退出按钮 -->
+        <!-- 加入/退出/圈主管理 按钮 -->
         <div class="action-row">
+          <!-- 未加入：显示加入/申请按钮 -->
           <button
             v-if="!circle.joined"
             :class="['join-btn', { 'join-public': circle.type === 'public' }]"
@@ -67,13 +69,45 @@
             </svg>
             {{ circle.type === 'public' ? '加入圈子' : '申请加入' }}
           </button>
+
+          <!-- 已加入 + 普通成员：显示退出按钮 -->
           <button
-            v-else
+            v-else-if="!isOwner"
             class="leave-btn"
             @click="handleLeave"
           >
             已加入 · 退出
           </button>
+
+          <!-- 圈主：显示管理操作按钮组 -->
+          <div v-else class="owner-actions">
+            <button
+              class="owner-action-btn transfer"
+              :disabled="memberList.length === 0"
+              :title="memberList.length === 0 ? '暂无可转让的成员' : ''"
+              @click="memberList.length > 0 && (showTransferModal = true)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+              </svg>
+              转让圈主
+            </button>
+            <button class="owner-action-btn edit" @click="goEditCircle">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              修改圈子
+            </button>
+            <button class="owner-action-btn dissolve" @click="showDissolveConfirm = true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              解散圈子
+            </button>
+          </div>
         </div>
       </section>
 
@@ -249,6 +283,58 @@
         </div>
       </div>
     </transition>
+
+    <!-- 转让圈主弹窗 -->
+    <transition name="modal-fade">
+      <div v-if="showTransferModal" class="modal-mask" @click.self="showTransferModal = false">
+        <div class="modal-box">
+          <h3 class="modal-title">转让圈主</h3>
+          <p class="modal-desc">选择一位成员转让圈主身份，转让后你将变为普通成员</p>
+          <select v-model="transferUserId" class="modal-select">
+            <option value="" disabled>请选择要转让的成员</option>
+            <option v-for="m in memberList" :key="m.userId" :value="m.userId">
+              {{ m.nickname }}
+            </option>
+          </select>
+          <div class="modal-footer">
+            <button class="modal-cancel" @click="showTransferModal = false">取消</button>
+            <button
+              :class="['modal-confirm', { disabled: !transferUserId }]"
+              :disabled="!transferUserId || transferring"
+              @click="confirmTransfer"
+            >
+              {{ transferring ? '转让中...' : '确认转让' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- 解散圈子确认弹窗 -->
+    <transition name="modal-fade">
+      <div v-if="showDissolveConfirm" class="modal-mask" @click.self="showDissolveConfirm = false">
+        <div class="modal-box modal-danger">
+          <h3 class="modal-title">解散圈子</h3>
+          <p class="modal-desc warning-text">此操作不可恢复！解散后圈内所有内容将被永久删除，所有成员自动移除。</p>
+          <input
+            v-model="dissolveConfirmText"
+            type="text"
+            class="modal-input"
+            placeholder='请输入 "解散" 确认操作'
+          />
+          <div class="modal-footer">
+            <button class="modal-cancel" @click="showDissolveConfirm = false">取消</button>
+            <button
+              :class="['modal-confirm danger', { disabled: dissolveConfirmText !== '解散' }]"
+              :disabled="dissolveConfirmText !== '解散' || dissolving"
+              @click="confirmDissolve"
+            >
+              {{ dissolving ? '解散中...' : '确认解散' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -302,6 +388,20 @@ const showLeaveConfirm = ref(false)
 const showNoticeEditor = ref(false)
 /** 编辑公告文本 */
 const editNoticeText = ref('')
+/** 是否显示转让圈主弹窗 */
+const showTransferModal = ref(false)
+/** 转让目标用户ID */
+const transferUserId = ref<number | string>('')
+/** 转让提交中 */
+const transferring = ref(false)
+/** 圈子成员列表（用于转让选择） */
+const memberList = ref<{ userId: number; nickname: string }[]>([])
+/** 是否显示解散确认弹窗 */
+const showDissolveConfirm = ref(false)
+/** 解散确认文字输入 */
+const dissolveConfirmText = ref('')
+/** 解散提交中 */
+const dissolving = ref(false)
 
 // ---------- 计算属性 ----------
 /** 圈子ID */
@@ -482,6 +582,66 @@ function goManageMembers(): void {
 }
 
 /**
+ * 跳转修改圈子页面
+ */
+function goEditCircle(): void {
+  router.push(`/circle/${circleId.value}/edit`)
+}
+
+/**
+ * 加载圈子成员列表（用于转让选择）
+ * @returns {Promise<void>}
+ */
+async function loadMemberList(): Promise<void> {
+  try {
+    // TODO: 替换为实际成员列表 API
+    // const res = await getCircleMembers(circleId.value)
+    // memberList.value = res.data
+    memberList.value = []
+  } catch {
+    memberList.value = []
+  }
+}
+
+/**
+ * 确认转让圈主
+ * @returns {Promise<void>}
+ */
+async function confirmTransfer(): Promise<void> {
+  if (!transferUserId.value || transferring.value || !circle.value) return
+  transferring.value = true
+  try {
+    // TODO: 调用转让圈主 API
+    // await transferOwner(circleId.value, Number(transferUserId.value))
+    showTransferModal.value = false
+    circle.value.ownerId = Number(transferUserId.value)
+  } catch {
+    // 错误由全局拦截器处理
+  } finally {
+    transferring.value = false
+  }
+}
+
+/**
+ * 确认解散圈子
+ * @returns {Promise<void>}
+ */
+async function confirmDissolve(): Promise<void> {
+  if (dissolveConfirmText.value !== '解散' || dissolving.value || !circle.value) return
+  dissolving.value = true
+  try {
+    // TODO: 调用解散圈子 API
+    // await dissolveCircle(circleId.value)
+    showDissolveConfirm.value = false
+    router.push('/circle')
+  } catch {
+    // 错误由全局拦截器处理
+  } finally {
+    dissolving.value = false
+  }
+}
+
+/**
  * 显示圈主信息
  */
 function showOwnerInfo(): void {
@@ -526,6 +686,10 @@ onMounted(async () => {
   if (circle.value) {
     loadPosts()
     loadPinnedPost()
+    // 圈主预加载成员列表（用于转让）
+    if (isOwner.value) {
+      loadMemberList()
+    }
   }
   window.addEventListener('scroll', handleScroll)
 })
@@ -552,7 +716,8 @@ onUnmounted(() => {
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: $ink-800;
+  /* 无 banner 时使用默认渐变背景 */
+  background: linear-gradient(135deg, #6BCB77 0%, #4ECDC4 100%);
 }
 
 .banner-img {
@@ -777,6 +942,66 @@ onUnmounted(() => {
   }
 }
 
+// ---------- 圈主操作按钮组 ----------
+.owner-actions {
+  display: flex;
+  gap: $space-2;
+}
+
+.owner-action-btn {
+  flex: 1;
+  height: 44px;
+  border-radius: $radius-md;
+  font-size: 13px;
+  font-weight: 600;
+  @include center;
+  gap: $space-1;
+  transition: all $dur-fast $ease-out;
+
+  &.transfer {
+    color: #6366f1;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1.5px solid rgba(99, 102, 241, 0.25);
+
+    &:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.4);
+    }
+  }
+
+  &.edit {
+    color: $mint-600;
+    background: rgba(78, 205, 196, 0.08);
+    border: 1.5px solid rgba(78, 205, 196, 0.25);
+
+    &:hover {
+      background: rgba(78, 205, 196, 0.15);
+      border-color: rgba(78, 205, 196, 0.4);
+    }
+  }
+
+  &.dissolve {
+    color: $coral-500;
+    background: rgba(255, 107, 107, 0.06);
+    border: 1.5px solid rgba(255, 107, 107, 0.25);
+
+    &:hover {
+      background: rgba(255, 107, 107, 0.12);
+      border-color: rgba(255, 107, 107, 0.4);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+
+      &:hover {
+        background: rgba(255, 107, 107, 0.06);
+        border-color: rgba(255, 107, 107, 0.25);
+      }
+    }
+  }
+}
+
 // ---------- 公告区域 ----------
 .notice-section {
   margin: $space-4;
@@ -942,6 +1167,10 @@ onUnmounted(() => {
   padding: $space-6;
   box-shadow: $shadow-lg;
   animation: scale-in 0.3s $ease-spring both;
+
+  &.modal-danger {
+    border-top: 4px solid $coral-500;
+  }
 }
 
 .modal-title {
@@ -978,6 +1207,50 @@ onUnmounted(() => {
   &::placeholder {
     color: $ink-300;
   }
+}
+
+.modal-select {
+  width: 100%;
+  height: 44px;
+  padding: 0 $space-3;
+  border-radius: $radius-sm;
+  border: 1.5px solid $ink-100;
+  font-size: 14px;
+  color: $ink-700;
+  background: #fff;
+  transition: border-color $dur-fast $ease-out;
+
+  &:focus {
+    border-color: $mint-500;
+    box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.1);
+    outline: none;
+  }
+}
+
+.modal-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 $space-3;
+  border-radius: $radius-sm;
+  border: 1.5px solid $ink-100;
+  font-size: 14px;
+  color: $ink-700;
+  transition: border-color $dur-fast $ease-out;
+
+  &:focus {
+    border-color: $coral-400;
+    box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+    outline: none;
+  }
+
+  &::placeholder {
+    color: $ink-300;
+  }
+}
+
+.warning-text {
+  color: $coral-600;
+  font-weight: 500;
 }
 
 .modal-footer {
@@ -1075,7 +1348,12 @@ onUnmounted(() => {
     flex-direction: column;
   }
 
-  .admin-action-btn {
+  .owner-actions {
+    flex-direction: column;
+  }
+
+  .admin-action-btn,
+  .owner-action-btn {
     min-width: unset;
   }
 }

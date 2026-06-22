@@ -4,7 +4,7 @@
  */
 
 import { request } from './request'
-import type { Circle, CircleCategory, Post, PageResult } from '@/types'
+import type { Circle, CircleCategory, CircleMember, Post, PageResult } from '@/types'
 
 /**
  * 圈子广场列表
@@ -106,4 +106,47 @@ export function getCategories() {
  */
 export function getRecommendCircles() {
   return request<Circle[]>({ url: '/circle/recommend', method: 'get' })
+}
+
+/**
+ * 圈子正式成员列表（分页，圈主权限）
+ * @param {number} circleId - 圈子ID
+ * @param {object} params - page, pageSize, keyword
+ */
+export function getCircleMembers(circleId: number, params: {
+  page?: number
+  pageSize?: number
+  keyword?: string
+}) {
+  return request<{ list: CircleMember[]; total: number; page: number; pageSize: number }>({
+    url: '/circle-admin/members',
+    method: 'get',
+    params: { circleId, current: params.page, size: params.pageSize, keyword: params.keyword }
+  })
+}
+
+/**
+ * 移出圈子成员（圈主权限，不能移除圈主）
+ * @param {number} circleId - 圈子ID
+ * @param {number} userId - 被移除的用户ID
+ */
+export function removeCircleMember(circleId: number, userId: number) {
+  return request({
+    url: '/circle-admin/member',
+    method: 'delete',
+    params: { circleId, userId }
+  })
+}
+
+/**
+ * 转让圈主（圈主权限）
+ * @param {number} circleId - 圈子ID
+ * @param {number} newOwnerId - 新圈主用户ID
+ */
+export function transferCircleOwner(circleId: number, newOwnerId: number) {
+  return request({
+    url: '/circle-admin/transfer',
+    method: 'post',
+    data: { circleId, newOwnerId }
+  })
 }

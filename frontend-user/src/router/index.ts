@@ -58,6 +58,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, transition: 'fade-slide', title: '圈子详情' }
   },
   {
+    path: '/circle/:id/members',
+    name: 'CircleMembers',
+    component: () => import('@/views/circle/CircleMembersPage.vue'),
+    meta: { requiresAuth: true, transition: 'slide-in-right', title: '成员管理' }
+  },
+  {
     path: '/circle/:id/edit',
     name: 'EditCircle',
     component: () => import('@/views/circle/EditCirclePage.vue'),

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.minthive.mapper.CircleMemberMapper">
+
+    <!--
+        圈子正式成员列表（关联 user 表）
+        字段: userId, nickname, avatar, role(0普通/1圈主), joinTime
+        过滤: audit_status=1（仅展示已通过的正式成员），user 未被逻辑删除
+        排序: 圈主(role=1)置顶，其余按入圈时间倒序
+    -->
+    <select id="selectMembers" resultType="java.util.Map">
+        SELECT
+            cu.user_id AS userId,
+            u.nickname AS nickname,
+            COALESCE(u.avatar, '') AS avatar,
+            cu.role AS role,
+            cu.join_time AS joinTime
+        FROM circle_user cu
+        INNER JOIN `user` u ON cu.user_id = u.id AND u.deleted = 0
+        WHERE cu.circle_id = #{circleId}
+          AND cu.audit_status = 1
+        <if test="keyword != null and keyword != ''">
+            AND u.nickname LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        ORDER BY cu.role DESC, cu.join_time DESC
+    </select>
+
+</mapper>

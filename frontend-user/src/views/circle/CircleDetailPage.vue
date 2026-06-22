@@ -331,7 +331,7 @@
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getCircleDetail, getCirclePosts, joinCircle, leaveCircle } from '@/api/circle'
+import { getCircleDetail, getCirclePosts, joinCircle, leaveCircle, getCircleMembers, transferCircleOwner } from '@/api/circle'
 import { getPostDetail } from '@/api/post'
 import { useUserStore } from '@/stores/user'
 import type { Circle, Post } from '@/types'
@@ -568,15 +568,17 @@ function goEditCircle(): void {
 }
 
 /**
- * 加载圈子成员列表（用于转让选择）
+ * 加载圈子成员列表（用于转让选择，仅取第一页足够）
  * @returns {Promise<void>}
  */
 async function loadMemberList(): Promise<void> {
   try {
-    // TODO: 替换为实际成员列表 API
-    // const res = await getCircleMembers(circleId.value)
-    // memberList.value = res.data
-    memberList.value = []
+    const res = await getCircleMembers(circleId.value, { page: 1, pageSize: 100 })
+    // 排除当前圈主自己，转让候选只保留普通成员
+    const currentUserId = userStore.userInfo?.id
+    memberList.value = res.data.list
+      .filter(m => String(m.userId) !== String(currentUserId))
+      .map(m => ({ userId: m.userId, nickname: m.nickname }))
   } catch {
     memberList.value = []
   }
@@ -590,10 +592,12 @@ async function confirmTransfer(): Promise<void> {
   if (!transferUserId.value || transferring.value || !circle.value) return
   transferring.value = true
   try {
-    // TODO: 调用转让圈主 API
-    // await transferOwner(circleId.value, Number(transferUserId.value))
+    await transferCircleOwner(circleId.value, Number(transferUserId.value))
     showTransferModal.value = false
-    circle.value.ownerId = Number(transferUserId.value)
+    // 转让成功后自己变为普通成员，刷新详情以更新 isOwner 与各项管理按钮
+    await loadCircleDetail()
+    // 重新拉取成员列表（转让候选已变化）
+    loadMemberList()
   } catch {
     // 错误由全局拦截器处理
   } finally {

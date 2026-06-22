@@ -331,7 +331,7 @@
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getCircleDetail, getCirclePosts, joinCircle, leaveCircle, getCircleMembers, transferCircleOwner } from '@/api/circle'
+import { getCircleDetail, getCirclePosts, joinCircle, leaveCircle, getCircleMembers, transferCircleOwner, updateCircleNotice } from '@/api/circle'
 import { getPostDetail } from '@/api/post'
 import { useUserStore } from '@/stores/user'
 import type { Circle, Post } from '@/types'
@@ -548,9 +548,13 @@ async function loadMorePosts(): Promise<void> {
  */
 async function saveNotice(): Promise<void> {
   if (!circle.value) return
-  // TODO: 调用更新公告API
-  circle.value.notice = editNoticeText.value
-  showNoticeEditor.value = false
+  try {
+    await updateCircleNotice(circleId.value, editNoticeText.value)
+    circle.value.notice = editNoticeText.value
+    showNoticeEditor.value = false
+  } catch {
+    // 请求失败时不关闭弹窗，用户可重试
+  }
 }
 
 /**

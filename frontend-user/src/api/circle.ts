@@ -150,3 +150,16 @@ export function transferCircleOwner(circleId: number, newOwnerId: number) {
     data: { circleId, newOwnerId }
   })
 }
+
+/**
+ * 发布/更新圈子公告（圈主权限）
+ * @param {number} circleId - 圈子ID
+ * @param {string} notice - 公告内容
+ */
+export function updateCircleNotice(circleId: number, notice: string) {
+  return request({
+    url: '/circle-admin/notice',
+    method: 'put',
+    params: { circleId, notice }
+  })
+}

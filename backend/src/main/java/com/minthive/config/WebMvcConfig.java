@@ -39,11 +39,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/post/search",         // 帖子搜索
                         "/api/post/page",           // 帖子分页列表
                         "/api/search/**",           // 搜索接口
-                        "/api/circle/**",           // 圈子浏览（广场、详情、帖子列表）
-                        "/api/user/profile/*",      // 用户主页查看
-                        "/api/comment/list",        // 评论列表查看
-                        // AI 助手放行（允许未登录使用）
-                        "/api/ai/**",
+                        "/api/circle/page",           // 圈子分页列表（公开浏览）
+                        "/api/circle/categories",      // 圈子分类列表（公开）
+                        "/api/circle/recommend",       // 推荐圈子（公开）
+                        "/api/circle/*/posts",         // 圈内动态列表（公开浏览）
+                        // 用户主页公开浏览（Spring AntPathMatcher 支持 {id} 通配匹配 /api/user/123）
+                        "/api/user/{id}",
+                        "/api/user/{id}/posts",
+                        "/api/comment/page",           // 评论分页列表（公开浏览）
                         // 文档放行
                         "/doc.html",
                         "/swagger-ui.html",

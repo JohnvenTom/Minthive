@@ -41,6 +41,9 @@ public class Circle implements Serializable {
     /** 圈子头像 */
     private String avatar;
 
+    /** 圈子封面图 */
+    private String banner;
+
     /** 圈子类型:0公开 1私密 */
     private Integer type;
 

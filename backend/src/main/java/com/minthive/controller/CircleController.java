@@ -1,14 +1,19 @@
 package com.minthive.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
 import com.minthive.entity.Circle;
 import com.minthive.entity.CircleCategory;
+import com.minthive.entity.CircleUser;
 import com.minthive.entity.Post;
+import com.minthive.mapper.CircleUserMapper;
+import com.minthive.mapper.PostMapper;
 import com.minthive.security.UserContext;
 import com.minthive.service.CircleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,19 +23,26 @@ import java.util.Map;
  * 圈子控制器
  */
 @Tag(name = "圈子接口")
+@Slf4j
 @RestController
 @RequestMapping("/api/circle")
 public class CircleController {
 
     private final CircleService circleService;
+    private final CircleUserMapper circleUserMapper;
+    private final PostMapper postMapper;
 
     /**
-     * 构造器注入 CircleService
+     * 构造器注入
      *
-     * @param circleService 圈子服务
+     * @param circleService     圈子服务
+     * @param circleUserMapper  圈子成员 Mapper（用于查询当前用户是否已加入）
+     * @param postMapper        帖子 Mapper（用于查询圈内帖子数）
      */
-    public CircleController(CircleService circleService) {
+    public CircleController(CircleService circleService, CircleUserMapper circleUserMapper, PostMapper postMapper) {
         this.circleService = circleService;
+        this.circleUserMapper = circleUserMapper;
+        this.postMapper = postMapper;
     }
 
     /**
@@ -61,6 +73,7 @@ public class CircleController {
         circle.setCategoryId(categoryId);
         circle.setIntro((String) params.get("intro"));
         circle.setAvatar((String) params.get("avatar"));
+        circle.setBanner((String) params.get("banner"));
         Object typeObj = params.get("type");
         circle.setType(typeObj != null && "private".equals(typeObj.toString()) ? 1 : 0);
         circle.setOwnerId(UserContext.getUserId());
@@ -68,15 +81,62 @@ public class CircleController {
     }
 
     /**
-     * 查询圈子详情
+     * 查询圈子详情（含当前用户是否已加入状态）
      *
      * @param id 圈子ID
-     * @return 圈子详情
+     * @return 圈子详情（含 joined 字段）
      */
     @Operation(summary = "查询圈子详情")
     @GetMapping("/{id}")
-    public Result<Circle> get(@PathVariable Long id) {
-        return Result.success(circleService.getById(id));
+    public Result<Map<String, Object>> get(@PathVariable Long id) {
+        Circle circle = circleService.getById(id);
+        // 查询当前登录用户是否已加入该圈子
+        boolean joined = false;
+        try {
+            Long userId = UserContext.getUserId();
+            if (userId != null) {
+                long count = circleUserMapper.selectCount(
+                    new LambdaQueryWrapper<CircleUser>()
+                        .eq(CircleUser::getCircleId, id)
+                        .eq(CircleUser::getUserId, userId)
+                );
+                joined = count > 0;
+            }
+        } catch (Exception e) {
+            // 未登录或异常时 joined 保持 false，记录日志便于排查
+            log.warn("查询圈子[{}]加入状态异常: {}", id, e.getMessage());
+        }
+        // 查询圈内帖子数量
+        long postCount = 0;
+        try {
+            postCount = postMapper.selectCount(
+                new LambdaQueryWrapper<Post>()
+                    .eq(Post::getCircleId, id)
+                    .eq(Post::getStatus, 1)
+            );
+        } catch (Exception e) {
+            log.warn("查询圈子[{}]帖子数异常: {}", id, e.getMessage());
+        }
+        // 返回 Map 以便附加非实体字段
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("id", circle.getId());
+        result.put("ownerId", circle.getOwnerId());
+        result.put("name", circle.getName());
+        result.put("categoryId", circle.getCategoryId());
+        result.put("categoryName", circle.getCategoryName());
+        result.put("intro", circle.getIntro());
+        result.put("avatar", circle.getAvatar());
+        result.put("banner", circle.getBanner());
+        result.put("type", circle.getType() == 0 ? "public" : "private");
+        result.put("memberCount", circle.getMemberCount());
+        result.put("postCount", postCount);
+        result.put("status", circle.getStatus());
+        result.put("recommend", circle.getRecommend());
+        result.put("notice", circle.getNotice());
+        result.put("createTime", circle.getCreateTime());
+        result.put("deleted", circle.getDeleted());
+        result.put("joined", joined);
+        return Result.success(result);
     }
 
     /**

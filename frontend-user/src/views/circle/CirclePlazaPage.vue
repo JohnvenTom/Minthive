@@ -52,7 +52,8 @@
           :class="['banner-slide', { active: currentBanner === idx }]"
           @click="goDetail(circle.id)"
         >
-          <img :src="circle.banner" :alt="circle.name" class="banner-img" />
+          <!-- 有 banner 显示图片，无 banner 用渐变背景兜底 -->
+          <img v-if="circle.banner" :src="circle.banner" :alt="circle.name" class="banner-img" />
           <div class="banner-overlay" />
           <div class="banner-info">
             <div class="banner-hex-avatar">
@@ -537,6 +538,8 @@ onUnmounted(() => {
   opacity: 0;
   transition: opacity $dur-slow $ease-out;
   cursor: pointer;
+  /* 无 banner 时使用默认渐变背景 */
+  background: linear-gradient(135deg, #6BCB77 0%, #4ECDC4 100%);
 
   &.active {
     opacity: 1;

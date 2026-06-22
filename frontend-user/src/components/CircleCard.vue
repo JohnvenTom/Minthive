@@ -186,13 +186,15 @@ function handleClick(): void {
     overflow: hidden;
     position: relative;
     z-index: 1;
-    border: 3px solid #fff;
-    box-shadow: $shadow-xs;
+    /* 使用 drop-shadow 替代 border，使阴影跟随六边形 clip-path 形状 */
+    filter: drop-shadow(0 0 0 3px #fff) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.12));
 
     img {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      /* 确保图片撑满整个六边形区域，不留白边 */
+      display: block;
     }
   }
 

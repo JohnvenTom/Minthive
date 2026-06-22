@@ -50,6 +50,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/comment/page",           // 评论分页列表（公开浏览）
                         // 帖子详情公开浏览
                         "/api/post/{id}",
+                        // 系统公告公开接口（首页横幅 + 消息中心公告列表）
+                        "/api/announcement/**",
                         // 文档放行
                         "/doc.html",
                         "/swagger-ui.html",

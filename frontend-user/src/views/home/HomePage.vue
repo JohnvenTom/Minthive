@@ -29,6 +29,21 @@
       </div>
     </nav>
 
+    <!-- 系统公告横幅 -->
+    <Transition name="slide-down">
+      <div
+        v-if="bannerVisible && latestAnnouncement"
+        class="announcement-banner glass-card"
+        @click="goAnnouncementList"
+      >
+        <svg class="announcement-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="announcement-title">{{ latestAnnouncement.title }}</span>
+        <van-icon name="cross" class="announcement-close" @click.stop="dismissAnnouncement" />
+      </div>
+    </Transition>
+
     <!-- 下拉刷新 -->
     <van-pull-refresh
       v-model="refreshing"
@@ -147,6 +162,8 @@ import { useUserStore } from '@/stores/user'
 import { useChatStore } from '@/stores/chat'
 import { getFeed, toggleLike, toggleCollect, deletePost, togglePostVisibility } from '@/api/post'
 import { wsClient } from '@/utils/websocket'
+import { getLatestAnnouncement } from '@/api/announcement'
+import type { Announcement } from '@/api/announcement'
 import type { Post } from '@/types'
 
 // ---------- 路由与Store ----------
@@ -176,6 +193,35 @@ const hasMore = ref(true)
 const currentPage = ref(1)
 const pageSize = 10
 const newCommentTip = ref('')
+
+// ---------- 系统公告横幅 ----------
+const latestAnnouncement = ref<Announcement | null>(null)
+const bannerVisible = ref(true)
+
+async function fetchLatestAnnouncement(): Promise<void> {
+  try {
+    const res = await getLatestAnnouncement()
+    const announcement: Announcement = res.data
+    const dismissedKey = `announcement_dismissed_${announcement.id}`
+    const isDismissed = localStorage.getItem(dismissedKey) === 'true'
+    if (announcement && !isDismissed) {
+      latestAnnouncement.value = announcement
+      bannerVisible.value = true
+    }
+  } catch {}
+}
+
+function dismissAnnouncement(): void {
+  if (latestAnnouncement.value) {
+    const dismissedKey = `announcement_dismissed_${latestAnnouncement.value.id}`
+    localStorage.setItem(dismissedKey, 'true')
+    bannerVisible.value = false
+  }
+}
+
+function goAnnouncementList(): void {
+  router.push('/chat?tab=announce')
+}
 
 // ---------- 分享面板 ----------
 /** 分享面板是否显示 */
@@ -466,6 +512,7 @@ function onScroll(): void {
 onMounted(() => {
   loading.value = true
   fetchFeed()
+  fetchLatestAnnouncement()
   wsClient.on('comment', onWsComment)
   window.addEventListener('scroll', onScroll, { passive: true })
 })
@@ -575,6 +622,27 @@ onUnmounted(() => {
   background: $grad-mint;
   animation: scale-in 0.3s $ease-spring both;
 }
+
+// ---------- 系统公告横幅 ----------
+.announcement-banner {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  height: 40px;
+  margin: $space-2 $space-4 0;
+  padding: 0 $space-3;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: transform $dur-fast $ease-out, box-shadow $dur-fast $ease-out;
+  @include glass(12px, rgba(78, 205, 196, 0.08));
+  &:hover { transform: translateY(-1px); box-shadow: $shadow-md; }
+  &:active { transform: scale(0.98); }
+  .announcement-icon { width: 18px; height: 18px; color: $mint-500; flex-shrink: 0; }
+  .announcement-title { flex: 1; font-size: 13px; font-weight: 500; color: $ink-700; @include ellipsis-1; }
+  .announcement-close { color: $ink-300; font-size: 14px; flex-shrink: 0; padding: $space-1; transition: color $dur-fast $ease-out; &:hover { color: $ink-500; } }
+}
+.slide-down-enter-active { animation: fade-up 0.4s $ease-spring both; }
+.slide-down-leave-active { animation: fade-up 0.3s $ease-out reverse both; }
 
 // ---------- 骨架屏 ----------
 .skeleton-grid {

@@ -41,6 +41,16 @@
           <span>通知</span>
           <span v-if="notifyUnread > 0" class="tab-dot" />
         </button>
+        <button
+          :class="['tab-btn', { active: activeTab === 'announce' }]"
+          @click="switchTab('announce')"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4.93 4.93l14.14 14.14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>公告</span>
+        </button>
       </div>
     </nav>
 
@@ -173,6 +183,47 @@
         icon="bell"
       />
     </div>
+
+    <!-- 公告列表 -->
+    <div v-show="activeTab === 'announce'" class="tab-content">
+      <!-- 加载中 -->
+      <div v-if="announceLoading && announcementList.length === 0" class="loading-wrap">
+        <LoadingSpinner />
+      </div>
+
+      <!-- 公告列表 -->
+      <div v-else-if="announcementList.length > 0" class="announce-list">
+        <TransitionGroup name="list-anim">
+          <div
+            v-for="(item, idx) in announcementList"
+            :key="item.id"
+            class="announce-item glass-card"
+            :style="{ animationDelay: `${idx * 0.05}s` }"
+          >
+            <!-- 公告图标 -->
+            <div class="announce-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <!-- 公告内容 -->
+            <div class="announce-body">
+              <p class="announce-title">{{ item.title }}</p>
+              <p class="announce-content">{{ item.content }}</p>
+              <span class="announce-time">{{ formatRelativeTime(item.publishTime) }}</span>
+            </div>
+          </div>
+        </TransitionGroup>
+      </div>
+
+      <!-- 空状态 -->
+      <EmptyState
+        v-else-if="!announceLoading"
+        title="暂无公告"
+        description="管理员发布的通知会在这里显示"
+        icon="bell"
+      />
+    </div>
   </div>
 </template>
 
@@ -190,6 +241,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { useChatStore } from '@/stores/chat'
 import { getNotifications, getUnreadCount } from '@/api/message'
+import { getAnnouncementList, type Announcement } from '@/api/announcement'
 import { wsClient } from '@/utils/websocket'
 import { formatRelativeTime } from '@/utils/format'
 import type { Notification } from '@/types'
@@ -203,11 +255,13 @@ const chatStore = useChatStore()
 const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect fill="#4ECDC4" width="40" height="40"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16">U</text></svg>')
 
 // ---------- 响应式数据 ----------
-const activeTab = ref<'chat' | 'notify'>('chat')
+const activeTab = ref<'chat' | 'notify' | 'announce'>('chat')
 const loading = ref(false)
 const notifyLoading = ref(false)
+const announceLoading = ref(false)
 const chatList = ref<ChatItem[]>([])
 const notifications = ref<Notification[]>([])
+const announcementList = ref<Announcement[]>([])
 const activeNotifyType = ref<string>('')
 const notifyPage = ref(1)
 const notifyHasMore = ref(true)
@@ -319,14 +373,31 @@ async function fetchUnreadCount(): Promise<void> {
   }
 }
 
+/**
+ * 加载公告列表
+ * @returns {Promise<void>}
+ * @description 从服务端获取所有启用的系统公告
+ */
+async function fetchAnnouncements(): Promise<void> {
+  announceLoading.value = true
+  try {
+    const res = await getAnnouncementList()
+    announcementList.value = res.data || []
+  } catch {
+    showToast('加载公告失败')
+  } finally {
+    announceLoading.value = false
+  }
+}
+
 // ---------- 交互操作 ----------
 
 /**
  * 切换Tab
- * @param {'chat' | 'notify'} tab - 目标Tab
+ * @param {'chat' | 'notify' | 'announce'} tab - 目标Tab
  * @returns {void}
  */
-function switchTab(tab: 'chat' | 'notify'): void {
+function switchTab(tab: 'chat' | 'notify' | 'announce'): void {
   if (activeTab.value === tab) return
   activeTab.value = tab
   if (tab === 'chat' && chatList.value.length === 0) {
@@ -334,6 +405,9 @@ function switchTab(tab: 'chat' | 'notify'): void {
   }
   if (tab === 'notify' && notifications.value.length === 0) {
     fetchNotifications(true)
+  }
+  if (tab === 'announce' && announcementList.value.length === 0) {
+    fetchAnnouncements()
   }
 }
 
@@ -429,7 +503,14 @@ function onWsNotify(data: any): void {
 
 // ---------- 生命周期 ----------
 onMounted(() => {
-  fetchChatList()
+  // 读取 URL 参数，支持从首页公告横幅跳转时自动切换到公告 Tab
+  const queryTab = router.currentRoute.value.query.tab as string
+  if (queryTab === 'announce') {
+    activeTab.value = 'announce'
+    fetchAnnouncements()
+  } else {
+    fetchChatList()
+  }
   fetchUnreadCount()
   chatStore.connectWs()
   wsClient.on('message', onWsMessage)
@@ -889,6 +970,77 @@ onUnmounted(() => {
   background: $coral-500;
   flex-shrink: 0;
   animation: hex-breathe 2s ease-in-out infinite;
+}
+
+// ---------- 公告列表 ----------
+.announce-list {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.announce-item {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  border-radius: $radius-md;
+  cursor: default;
+  transition: transform $dur-fast $ease-out, box-shadow $dur-base $ease-out;
+  animation: fade-up 0.5s $ease-out both;
+  background: linear-gradient(135deg, rgba(78, 205, 196, 0.04), rgba(255, 182, 39, 0.03));
+  border-left: 3px solid $mint-500;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: $shadow-sm;
+  }
+}
+
+.announce-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: $radius-sm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(78, 205, 196, 0.12);
+  color: $mint-500;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.announce-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.announce-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: $ink-900;
+  margin-bottom: 4px;
+}
+
+.announce-content {
+  font-size: 13px;
+  color: $ink-500;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.announce-time {
+  font-size: 11px;
+  color: $ink-300;
+  margin-top: 4px;
+  display: block;
 }
 
 // ---------- 列表动画 ----------

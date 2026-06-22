@@ -1,6 +1,8 @@
 package com.minthive.controller.admin;
 
 import com.minthive.common.Result;
+import com.minthive.entity.Announcement;
+import com.minthive.service.AnnouncementService;
 import com.minthive.service.SensitiveWordService;
 import com.minthive.service.SystemMsgService;
 import com.minthive.websocket.WebSocketServer;
@@ -24,10 +26,10 @@ public class AdminConfigController {
 
     private final SensitiveWordService sensitiveWordService;
     private final SystemMsgService systemMsgService;
+    private final AnnouncementService announcementService;
     private final WebSocketServer webSocketServer;
 
-    /** 内存存储公告/Banner/规则（生产环境应使用数据库） */
-    private static final List<Map<String, Object>> ANNOUNCEMENTS = Collections.synchronizedList(new ArrayList<>());
+    /** 内存存储Banner/规则/运营人员/AI开关（公告已迁移至数据库） */
     private static final List<Map<String, Object>> BANNERS = Collections.synchronizedList(new ArrayList<>());
     private static Map<String, Object> PLATFORM_RULES = Collections.synchronizedMap(new LinkedHashMap<>());
     private static final List<Map<String, Object>> OPERATORS = Collections.synchronizedList(new ArrayList<>());
@@ -44,41 +46,36 @@ public class AdminConfigController {
         AI_SWITCH.put("riskThreshold", "MEDIUM");
     }
 
-    // ==================== 公告管理 ====================
+    // ==================== 公告管理（持久化至数据库）====================
 
     /**
      * 公告列表
      *
-     * @return 公告数组
+     * @param current 当前页码，默认1
+     * @param size    每页大小，默认20
+     * @return 公告分页数据
      */
     @Operation(summary = "公告列表")
     @GetMapping("/announcements")
-    public Result<List<Map<String, Object>>> getAnnouncements() {
-        return Result.success(ANNOUNCEMENTS);
+    public Result<com.baomidou.mybatisplus.extension.plugins.pagination.Page<Announcement>> getAnnouncements(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "20") long size) {
+        return Result.success(announcementService.page(current, size));
     }
 
     /**
      * 创建/更新公告
      *
-     * @param data 公告数据（id可选，有则更新）
+     * @param announcement 公告实体（id可选，有则更新）
      * @return 操作结果
      */
     @Operation(summary = "保存公告")
     @PostMapping("/announcement")
-    public Result<Map<String, Object>> saveAnnouncement(@RequestBody Map<String, Object> data) {
-        if (data.containsKey("id")) {
-            for (int i = 0; i < ANNOUNCEMENTS.size(); i++) {
-                if (Objects.equals(ANNOUNCEMENTS.get(i).get("id"), data.get("id"))) {
-                    ANNOUNCEMENTS.set(i, data);
-                    return Result.success(data);
-                }
-            }
-        } else {
-            data.put("id", System.currentTimeMillis());
-            data.put("createTime", new Date());
-            ANNOUNCEMENTS.add(0, data);
+    public Result<Announcement> saveAnnouncement(@RequestBody Announcement announcement) {
+        if (announcement.getId() != null) {
+            return Result.success(announcementService.update(announcement));
         }
-        return Result.success(data);
+        return Result.success(announcementService.add(announcement));
     }
 
     /**
@@ -90,7 +87,7 @@ public class AdminConfigController {
     @Operation(summary = "删除公告")
     @DeleteMapping("/announcement")
     public Result<Void> deleteAnnouncement(@RequestParam Long id) {
-        ANNOUNCEMENTS.removeIf(a -> Objects.equals(a.get("id"), id));
+        announcementService.deleteById(id);
         return Result.success();
     }
 
@@ -285,15 +282,25 @@ public class AdminConfigController {
     }
 
     /**
-     * 发布系统公告
+     * 发布系统公告（同时持久化到数据库 + WebSocket推送）
      *
+     * @param title   公告标题
      * @param content 公告内容
      * @return 操作结果
      */
     @Operation(summary = "发布系统公告")
     @PostMapping("/notice")
-    public Result<Void> publishNotice(@RequestParam String content) {
-        systemMsgService.pushSystemNotice(content);
-        return Result.success();
+    public Result<Announcement> publishNotice(
+            @RequestParam String title,
+            @RequestParam String content) {
+        // 持久化到数据库
+        Announcement announcement = new Announcement();
+        announcement.setTitle(title);
+        announcement.setContent(content);
+        announcement.setStatus(1);
+        Announcement saved = announcementService.add(announcement);
+        // 通过 WebSocket 实时推送给在线用户
+        systemMsgService.pushSystemNotice("【系统公告】" + title + ": " + content);
+        return Result.success(saved);
     }
 }

@@ -35,7 +35,7 @@ const activeTab = ref<'announce' | 'banner' | 'rule' | 'operator' | 'ai'>('annou
 const announcements = ref<Announcement[]>([])
 const announceLoading = ref(false)
 const announceVisible = ref(false)
-const announceForm = reactive<Partial<Announcement>>({ title: '', content: '', status: 'ACTIVE' })
+const announceForm = reactive<Partial<Announcement>>({ title: '', content: '', status: 1 })
 
 // 轮播图
 const banners = ref<Banner[]>([])
@@ -90,13 +90,13 @@ const aiSwitchItems = [
 ] as const
 
 /**
- * 加载公告
+ * 加载公告（后端返回分页数据）
  */
 async function loadAnnouncements() {
   announceLoading.value = true
   try {
     const res = await getAnnouncements()
-    announcements.value = res
+    announcements.value = res.records || []
   } catch (e) {
     // ignore
   } finally {
@@ -113,12 +113,12 @@ function handleAnnounceEdit(row?: any) {
     announceForm.id = row.id
     announceForm.title = row.title
     announceForm.content = row.content
-    announceForm.status = row.status
+    announceForm.status = 1
   } else {
     announceForm.id = undefined
     announceForm.title = ''
     announceForm.content = ''
-    announceForm.status = 'ACTIVE'
+    announceForm.status = 1
   }
   announceVisible.value = true
 }
@@ -414,8 +414,8 @@ onMounted(() => {
         <el-table-column prop="content" label="内容" min-width="300" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'ACTIVE' ? 'primary' : 'info'" size="small" effect="dark">
-              {{ row.status === 'ACTIVE' ? '启用' : '禁用' }}
+            <el-tag :type="row.status === 1 ? 'primary' : 'info'" size="small" effect="dark">
+              {{ row.status === 1 ? '启用' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -563,8 +563,8 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="announceForm.status">
-            <el-radio value="ACTIVE">启用</el-radio>
-            <el-radio value="INACTIVE">禁用</el-radio>
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>

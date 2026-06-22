@@ -86,6 +86,13 @@ public class User implements Serializable {
     @TableField(exist = false)
     private Integer fanCount;
 
+    /**
+     * 当前登录用户是否已关注该用户（非持久化字段）
+     * @description 不对应数据库列，由后端从 follow 表查询后填充返回给前端
+     */
+    @TableField(exist = false)
+    private Boolean isFollowing;
+
     /** 逻辑删除 */
     @TableLogic
     @TableField("deleted")

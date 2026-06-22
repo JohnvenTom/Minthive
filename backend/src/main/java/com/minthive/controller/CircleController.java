@@ -7,8 +7,10 @@ import com.minthive.entity.Circle;
 import com.minthive.entity.CircleCategory;
 import com.minthive.entity.CircleUser;
 import com.minthive.entity.Post;
+import com.minthive.entity.User;
 import com.minthive.mapper.CircleUserMapper;
 import com.minthive.mapper.PostMapper;
+import com.minthive.mapper.UserMapper;
 import com.minthive.security.UserContext;
 import com.minthive.service.CircleService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +33,7 @@ public class CircleController {
     private final CircleService circleService;
     private final CircleUserMapper circleUserMapper;
     private final PostMapper postMapper;
+    private final UserMapper userMapper;
 
     /**
      * 构造器注入
@@ -38,11 +41,13 @@ public class CircleController {
      * @param circleService     圈子服务
      * @param circleUserMapper  圈子成员 Mapper（用于查询当前用户是否已加入）
      * @param postMapper        帖子 Mapper（用于查询圈内帖子数）
+     * @param userMapper        用户 Mapper（用于查询圈主信息）
      */
-    public CircleController(CircleService circleService, CircleUserMapper circleUserMapper, PostMapper postMapper) {
+    public CircleController(CircleService circleService, CircleUserMapper circleUserMapper, PostMapper postMapper, UserMapper userMapper) {
         this.circleService = circleService;
         this.circleUserMapper = circleUserMapper;
         this.postMapper = postMapper;
+        this.userMapper = userMapper;
     }
 
     /**
@@ -112,7 +117,7 @@ public class CircleController {
             postCount = postMapper.selectCount(
                 new LambdaQueryWrapper<Post>()
                     .eq(Post::getCircleId, id)
-                    .eq(Post::getStatus, 1)
+                    .eq(Post::getAuditStatus, 1)
             );
         } catch (Exception e) {
             log.warn("查询圈子[{}]帖子数异常: {}", id, e.getMessage());
@@ -121,6 +126,15 @@ public class CircleController {
         Map<String, Object> result = new java.util.HashMap<>();
         result.put("id", circle.getId());
         result.put("ownerId", circle.getOwnerId());
+        // 查询圈主昵称和头像
+        if (circle.getOwnerId() != null) {
+            User owner = userMapper.selectById(circle.getOwnerId());
+            result.put("ownerName", owner != null ? owner.getNickname() : "未知用户");
+            result.put("ownerAvatar", owner != null ? owner.getAvatar() : "");
+        } else {
+            result.put("ownerName", "未知用户");
+            result.put("ownerAvatar", "");
+        }
         result.put("name", circle.getName());
         result.put("categoryId", circle.getCategoryId());
         result.put("categoryName", circle.getCategoryName());

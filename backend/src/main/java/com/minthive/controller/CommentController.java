@@ -60,7 +60,14 @@ public class CommentController {
     public Result<Page<Comment>> page(@RequestParam Long postId,
                                       @RequestParam(defaultValue = "1") long current,
                                       @RequestParam(defaultValue = "10") long size) {
-        return Result.success(commentService.pageByPost(current, size, postId, UserContext.getUserId()));
+        // /api/comment/page 为公开接口（excludePathPatterns），未登录时 UserContext 未设置
+        Long userId = null;
+        try {
+            userId = UserContext.getUserId();
+        } catch (Exception e) {
+            // 未登录时 userId 保持 null，不填充 liked 状态
+        }
+        return Result.success(commentService.pageByPost(current, size, postId, userId));
     }
 
     /**

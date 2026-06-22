@@ -33,6 +33,8 @@ export interface User {
   fanCount: number
   registerTime: string
   status: number
+  /** 当前登录用户是否已关注该用户（由后端填充） */
+  isFollowing?: boolean
 }
 
 // ---------- 帖子 ----------
@@ -94,6 +96,7 @@ export interface Circle {
   id: number
   ownerId: number
   ownerName: string
+  ownerAvatar: string
   name: string
   categoryId: number
   categoryName?: string

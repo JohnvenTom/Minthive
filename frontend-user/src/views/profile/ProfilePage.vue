@@ -392,7 +392,7 @@ import ShareSheet from '@/components/ShareSheet.vue'
 import ShareChainDialog from '@/components/ShareChainDialog.vue'
 import { useUserStore } from '@/stores/user'
 import { getUserProfile, getUserPosts, getUserCollects, getUserLikes } from '@/api/user'
-import { toggleFollow, checkFollowStatus, getFollowing, getFollowers } from '@/api/follow'
+import { toggleFollow, getFollowing, getFollowers } from '@/api/follow'
 import { deletePost, togglePostVisibility } from '@/api/post'
 import type { User, Post } from '@/types'
 
@@ -517,19 +517,15 @@ const emptyIcon = computed(() => {
 /**
  * 加载用户资料
  * @returns {Promise<void>}
- * @description 从服务端获取用户信息并更新本地状态
+ * @description 从服务端获取用户信息（含 isFollowing 关注状态）并更新本地状态
  */
 async function fetchUserProfile(): Promise<void> {
   try {
     const res = await getUserProfile(profileUserId.value)
     if (res.data) {
       userInfo.value = res.data
-    }
-    if (!isSelf.value && userStore.isLoggedIn) {
-      const followRes = await checkFollowStatus(profileUserId.value)
-      isFollowing.value = !!followRes.data
-    } else {
-      isFollowing.value = false
+      // 后端已在用户信息中附带 isFollowing 字段，直接使用
+      isFollowing.value = !!res.data.isFollowing
     }
   } catch {
     showToast('加载用户信息失败')

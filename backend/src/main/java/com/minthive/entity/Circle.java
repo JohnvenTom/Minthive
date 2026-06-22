@@ -70,4 +70,8 @@ public class Circle implements Serializable {
     /** 当前用户是否已加入（非持久化字段，由后端查询 circle_member 表后填充） */
     @TableField(exist = false)
     private Boolean joined;
+
+    /** 帖子数量（非持久化字段，由后端动态统计 post 表填充） */
+    @TableField(exist = false)
+    private Integer postCount;
 }

@@ -114,6 +114,7 @@ public class CircleServiceImpl implements CircleService {
                 .orderByDesc(Circle::getMemberCount);
         Page<Circle> result = circleMapper.selectPage(new Page<>(current, size), wrapper);
         fillCategoryName(result.getRecords());
+        fillPostCount(result.getRecords());
         return result;
     }
 
@@ -264,6 +265,28 @@ public class CircleServiceImpl implements CircleService {
     }
 
     /**
+     * 批量填充圈子的帖子数量
+     * <p>统计每个圈子下已审核通过的帖子总数</p>
+     *
+     * @param circles 圈子列表
+     */
+    private void fillPostCount(List<Circle> circles) {
+        if (circles == null || circles.isEmpty()) return;
+        for (Circle circle : circles) {
+            try {
+                long count = postMapper.selectCount(
+                        new LambdaQueryWrapper<Post>()
+                                .eq(Post::getCircleId, circle.getId())
+                                .eq(Post::getAuditStatus, 1)
+                );
+                circle.setPostCount((int) count);
+            } catch (Exception e) {
+                circle.setPostCount(0);
+            }
+        }
+    }
+
+    /**
      * 获取推荐圈子列表
      *
      * <p>功能描述：返回成员数最多的前10个推荐圈子，用于首页推荐展示</p>
@@ -278,6 +301,7 @@ public class CircleServiceImpl implements CircleService {
                 .last("LIMIT 10");
         List<Circle> list = circleMapper.selectList(wrapper);
         fillCategoryName(list);
+        fillPostCount(list);
         return list;
     }
 

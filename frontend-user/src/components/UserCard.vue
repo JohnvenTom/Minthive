@@ -44,7 +44,7 @@
  * @emits click - 卡片点击事件，参数为用户ID
  */
 
-import { ref } from 'vue'
+import { computed } from 'vue'
 import type { User } from '@/types'
 
 const props = withDefaults(defineProps<{
@@ -66,13 +66,20 @@ const emit = defineEmits<{
 /** 默认头像 */
 const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect fill="#4ECDC4" width="40" height="40"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16">U</text></svg>')
 
-/** 是否已关注（本地状态，实际应由父组件管理） */
-const isFollowed = ref(false)
+/**
+ * 是否已关注
+ * @description 从 user 对象的 isFollowing/isFollowed 字段读取初始状态，
+ *   确保关注列表中的用户默认显示为已关注状态
+ */
+const isFollowed = computed(() => !!(props.user as any).isFollowing || !!(props.user as any).isFollowed)
 
-/** 处理关注/取关 */
+/**
+ * 处理关注/取关
+ * @description 向父组件发送关注/取关事件，由父组件管理状态
+ */
 function handleFollow(): void {
-  isFollowed.value = !isFollowed.value
-  emit('follow', props.user.id)
+  const willFollow = !isFollowed.value
+  emit('follow', props.user.id, willFollow)
 }
 
 /** 处理卡片点击 */

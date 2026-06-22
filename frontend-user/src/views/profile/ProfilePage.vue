@@ -556,6 +556,11 @@ async function fetchContent(isRefresh = false): Promise<void> {
 
       const list = res.data?.list || []
 
+      // 关注列表中的用户全部标记为已关注
+      if (activeTab.value === 'following') {
+        list.forEach((u: any) => { u.isFollowing = true })
+      }
+
       if (isRefresh || currentPage.value === 1) {
         users.value = list
       } else {
@@ -635,17 +640,19 @@ function switchTab(tab: 'posts' | 'collects' | 'likes' | 'following' | 'follower
 
 /**
  * 关注/取消关注用户（从 UserCard emit）
- * @param {{ userId: number, follow: boolean }} payload - 用户ID和关注状态
+ * @param {number} userId - 用户ID
+ * @param {boolean} follow - 目标关注状态
  * @returns {Promise<void>}
  * @description 在关注/粉丝列表中切换对某用户的关注状态
  */
-async function onUserFollow({ userId, follow }: { userId: number; follow: boolean }): Promise<void> {
+async function onUserFollow(userId: number, follow: boolean): Promise<void> {
   try {
     await toggleFollow(userId, follow)
     // 更新本地用户列表中的关注状态
     const user = users.value.find(u => u.id === userId)
     if (user) {
-      user.isFollowed = follow
+      ;(user as any).isFollowing = follow
+      ;(user as any).isFollowed = follow
     }
     showToast(follow ? '关注成功' : '已取消关注')
   } catch {

@@ -165,15 +165,15 @@ async function handleLogin(formEl: FormInstance | undefined) {
   justify-content: center;
 }
 
-// 背景蜂巢网格
+// 背景蜂巢网格 — 暮光玫瑰色调
 .bg-hex-grid {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(30deg, rgba(78, 205, 196, 0.04) 12%, transparent 12.5%, transparent 87%, rgba(78, 205, 196, 0.04) 87.5%),
-    linear-gradient(150deg, rgba(78, 205, 196, 0.04) 12%, transparent 12.5%, transparent 87%, rgba(78, 205, 196, 0.04) 87.5%),
-    linear-gradient(30deg, rgba(78, 205, 196, 0.04) 12%, transparent 12.5%, transparent 87%, rgba(78, 205, 196, 0.04) 87.5%),
-    linear-gradient(150deg, rgba(78, 205, 196, 0.04) 12%, transparent 12.5%, transparent 87%, rgba(78, 205, 196, 0.04) 87.5%);
+    linear-gradient(30deg, rgba(232, 121, 169, 0.04) 12%, transparent 12.5%, transparent 87%, rgba(232, 121, 169, 0.04) 87.5%),
+    linear-gradient(150deg, rgba(232, 121, 169, 0.04) 12%, transparent 12.5%, transparent 87%, rgba(232, 121, 169, 0.04) 87.5%),
+    linear-gradient(30deg, rgba(245, 158, 11, 0.03) 12%, transparent 12.5%, transparent 87%, rgba(245, 158, 11, 0.03) 87.5%),
+    linear-gradient(150deg, rgba(245, 158, 11, 0.03) 12%, transparent 12.5%, transparent 87%, rgba(245, 158, 11, 0.03) 87.5%);
   background-size: 60px 105px;
   background-position: 0 0, 0 0, 30px 52px, 30px 52px;
   opacity: 0.6;
@@ -210,10 +210,10 @@ async function handleLogin(formEl: FormInstance | undefined) {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
-// 品牌区
+// 品牌区 — 暮光玫瑰深灰底座
 .brand-panel {
   width: 44%;
-  background: linear-gradient(160deg, #232842 0%, #1A1D2E 100%);
+  background: linear-gradient(160deg, $bg-elevated 0%, $bg-base 100%);
   padding: 48px 40px;
   display: flex;
   flex-direction: column;

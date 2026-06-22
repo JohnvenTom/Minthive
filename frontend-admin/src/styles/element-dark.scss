@@ -1,22 +1,23 @@
 @use 'variables.scss' as *;
 
 // ============================================================
-// Element Plus 暗色主题覆盖
+// Element Plus 暮光玫瑰暗色主题覆盖
+// 风格：Claude 圆润优雅 + 玫瑰→橙金渐变
 // ============================================================
 
-// 主色覆盖
+// 主色覆盖 — Element Plus CSS 变量映射
 :root {
   --el-color-primary: #{$color-primary};
-  --el-color-primary-light-3: #6FE0D7;
-  --el-color-primary-light-5: #8FE9E2;
-  --el-color-primary-light-7: #2A4A48;
-  --el-color-primary-light-8: #243A39;
-  --el-color-primary-light-9: #1F3332;
-  --el-color-primary-dark-2: #3FB8B0;
+  --el-color-primary-light-3: #F093BB;
+  --el-color-primary-light-5: #F5C0D8;
+  --el-color-primary-light-7: #4A2C3A;
+  --el-color-primary-light-8: #3A2230;
+  --el-color-primary-light-9: #2E1A26;
+  --el-color-primary-dark-2: #D56B9A;
 
   --el-color-warning: #{$color-warning};
   --el-color-danger: #{$color-danger};
-  --el-color-success: #{$color-primary};
+  --el-color-success: #{$color-success};
 
   --el-bg-color: #{$bg-elevated};
   --el-bg-color-page: #{$bg-base};
@@ -37,79 +38,206 @@
   --el-fill-color-lighter: #{$bg-input};
   --el-fill-color-blank: #{$bg-elevated};
 
-  --el-mask-color: rgba(26, 29, 46, 0.7);
+  --el-mask-color: rgba(24, 24, 27, 0.75);
 }
 
-// Card
+// Card — 暮光玫瑰卡片风格
 .el-card {
   background: $bg-elevated;
   border: 1px solid $border-base;
   border-radius: $radius-lg;
   box-shadow: $shadow-card;
+  transition: $transition-base;
 
   .el-card__header {
     border-bottom: 1px solid $border-divider;
-    padding: 16px 20px;
+    padding: 18px 24px;
   }
   .el-card__body {
-    padding: 20px;
+    padding: 24px;
   }
 }
 
-// Button
+// Button — 渐变主按钮 + Claude 圆润风格
+// 注意：使用 .el-button:hover 选择器配合 !important 强制覆盖
+//       Element Plus 内部 hover 会通过 CSS 变量把背景置为浅色/白色，
+//       必须用同优先级或更高的选择器 + !important 才能压住。
+
+// 全局 hover 覆盖 — 所有按钮类型 hover 时保持合理样式
+.el-button:hover {
+  background-color: $bg-surface !important;
+  border-color: $color-primary !important;
+  color: $color-primary !important;
+}
+
 .el-button {
   font-family: $font-body;
+  font-weight: 500;
   border-radius: $radius-md;
+  transition: $transition-base;
 
+  // 主按钮 — 玫瑰→橙金渐变
   &--primary {
-    background: $color-primary;
-    border-color: $color-primary;
-    color: $bg-base;
-    font-weight: 500;
-    &:hover {
-      background: $color-primary-hover;
-      border-color: $color-primary-hover;
+    background: $gradient-primary;
+    border-color: transparent;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    &:hover, &:focus {
+      background: $gradient-primary-hover !important;
+      border-color: transparent !important;
+      color: #fff !important;
       box-shadow: $shadow-glow-primary;
+      transform: translateY(-1px);
+    }
+    &:active {
+      background: $color-primary-active !important;
+      transform: translateY(0);
     }
   }
+
+  // 警告按钮 — 琥珀金
   &--warning {
-    background: $color-warning;
-    border-color: $color-warning;
-    color: $bg-base;
+    background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);
+    border-color: transparent;
+    color: #1a1a1a;
     &:hover {
+      background: linear-gradient(135deg, #FBBF24 0%, #FDE68A 100%) !important;
+      border-color: transparent !important;
+      color: #1a1a1a !important;
       box-shadow: $shadow-glow-warning;
+      transform: translateY(-1px);
     }
   }
+
+  // 危险按钮
   &--danger {
-    background: $color-danger;
-    border-color: $color-danger;
+    background: linear-gradient(135deg, #EF4444 0%, #F87171 100%);
+    border-color: transparent;
+    color: #fff;
     &:hover {
+      background: linear-gradient(135deg, #F87171 0%, #FCA5A5 100%) !important;
+      border-color: transparent !important;
+      color: #fff !important;
       box-shadow: $shadow-glow-danger;
+      transform: translateY(-1px);
     }
   }
+
+  // 成功按钮 — 翠绿渐变
+  &--success {
+    background: linear-gradient(135deg, #34D399 0%, #6EE7B7 100%);
+    border-color: transparent;
+    color: #1a1a1a;
+    &:hover {
+      background: linear-gradient(135deg, #6EE7B7 0%, #A7F3D0 100%) !important;
+      border-color: transparent !important;
+      color: #1a1a1a !important;
+      box-shadow: 0 0 20px rgba(52, 211, 153, 0.35);
+      transform: translateY(-1px);
+    }
+  }
+
+  // 信息按钮 — 薰衣草渐变
+  &--info {
+    background: linear-gradient(135deg, #A78BFA 0%, #C4B5FD 100%);
+    border-color: transparent;
+    color: #1a1a1a;
+    &:hover {
+      background: linear-gradient(135deg, #C4B5FD 0%, #DDD6FE 100%) !important;
+      border-color: transparent !important;
+      color: #1a1a1a !important;
+      box-shadow: 0 0 20px rgba(167, 139, 250, 0.35);
+      transform: translateY(-1px);
+    }
+  }
+
+  // 默认按钮
   &--default {
     background: $bg-surface;
     border-color: $border-light;
     color: $text-regular;
     &:hover {
-      color: $color-primary;
-      border-color: $color-primary;
-      background: rgba(78, 205, 196, 0.08);
+      color: $color-primary !important;
+      border-color: $color-primary !important;
+      background: rgba(232, 121, 169, 0.1) !important;
     }
   }
+
+  // 文字按钮 — 各颜色类型高对比度
   &.is-text {
+    font-weight: 600;
+    border-radius: $radius-sm;
+    padding: 6px 12px;
+
+    // 默认文字按钮
+    &:not([class*="--primary"]):not([class*="--warning"]):not([class*="--danger"]) {
+      color: $color-primary;
+      &:hover {
+        background: rgba(232, 121, 169, 0.12);
+      }
+    }
+
+    // 玫瑰粉文字按钮（编辑等）
+    &.el-button--primary {
+      color: #fff;
+      background: rgba(232, 121, 169, 0.2);
+      border: 1px solid rgba(232, 121, 169, 0.3);
+      &:hover {
+        background: rgba(232, 121, 169, 0.35);
+        border-color: rgba(232, 121, 169, 0.5);
+      }
+    }
+
+    // 琥珀金文字按钮（转让/审核等）
+    &.el-button--warning {
+      color: #1a1a1a;
+      background: rgba(245, 158, 11, 0.25);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      &:hover {
+        background: rgba(245, 158, 11, 0.4);
+        border-color: rgba(245, 158, 11, 0.55);
+      }
+    }
+
+    // 危险红文字按钮（下架/删除等）
+    &.el-button--danger {
+      color: #fff;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      &:hover {
+        background: rgba(239, 68, 68, 0.35);
+        border-color: rgba(239, 68, 68, 0.5);
+      }
+    }
+
+    // 信息/默认文字按钮
+    &.el-button--info,
+    &.el-button--default {
+      color: $text-regular;
+      background: rgba(63, 63, 70, 0.3);
+      border: 1px solid $border-base;
+      &:hover {
+        background: rgba(63, 63, 70, 0.5);
+        color: $text-primary;
+      }
+    }
+  }
+
+  // 链接按钮
+  &.is-link {
     color: $color-primary;
     &:hover {
-      background: rgba(78, 205, 196, 0.1);
+      color: $color-primary-hover;
     }
   }
 }
 
-// Input
+// Input — 高对比度输入框（解决看不清问题）
 .el-input__wrapper {
   background: $bg-input !important;
   box-shadow: 0 0 0 1px $border-base inset !important;
   border-radius: $radius-md;
+  transition: $transition-base;
   &:hover {
     box-shadow: 0 0 0 1px $color-primary inset !important;
   }
@@ -118,48 +246,64 @@
   }
 }
 .el-input__inner {
-  color: $text-primary;
+  color: $text-primary;          // 高亮主文字
+  font-size: 14px;
   &::placeholder {
-    color: $text-placeholder;
+    color: $text-placeholder;    // 加深占位符确保可见
   }
 }
+.el-input__prefix,
+.el-input__suffix {
+  color: $text-secondary;
+}
 
-// Select
+// Select 下拉选择器
 .el-select__wrapper {
   background: $bg-input !important;
   box-shadow: 0 0 0 1px $border-base inset !important;
+  border-radius: $radius-md;
+  transition: $transition-base;
+  &:hover {
+    box-shadow: 0 0 0 1px $color-primary inset !important;
+  }
 }
 
-// Table - 暗色斑马纹
+// Table — 暮光玫瑰表格风格
 .el-table {
   background: $bg-elevated !important;
   color: $text-regular;
+  border-radius: $radius-lg;
+  overflow: hidden;
   --el-table-bg-color: #{$bg-elevated};
   --el-table-tr-bg-color: #{$bg-elevated};
   --el-table-header-bg-color: #{$bg-surface};
   --el-table-header-text-color: #{$text-primary};
   --el-table-border-color: #{$border-divider};
   --el-table-row-hover-bg-color: #{$bg-hover};
-  --el-table-current-row-bg-color: rgba(78, 205, 196, 0.08);
+  --el-table-current-row-bg-color: rgba(232, 121, 169, 0.1);
 
   th.el-table__cell {
     background: $bg-surface !important;
     font-weight: 600;
     color: $text-primary;
+    text-transform: none;
+    letter-spacing: 0;
   }
   tr {
     background: $bg-elevated !important;
+    transition: $transition-base;
     &:nth-child(even) td.el-table__cell {
-      background: $bg-hover !important;
+      background: rgba(63, 63, 70, 0.3) !important;
     }
   }
   td.el-table__cell {
     background: $bg-elevated !important;
     border-bottom: 1px solid $border-divider;
+    color: $text-regular;
   }
 }
 
-// Pagination
+// Pagination 分页
 .el-pagination {
   --el-pagination-bg-color: #{$bg-input};
   --el-pagination-hover-color: #{$color-primary};
@@ -168,106 +312,291 @@
   .btn-prev, .btn-next, .el-pager li {
     background: $bg-input !important;
     color: $text-regular;
+    border-radius: $radius-sm;
+    transition: $transition-base;
     &.is-active {
-      background: $color-primary !important;
-      color: $bg-base !important;
+      background: $gradient-primary !important;
+      color: #fff !important;
+      border-color: transparent;
+      box-shadow: $shadow-glow-primary;
+    }
+    &:hover:not(.is-active) {
+      color: $color-primary;
+      background: rgba(232, 121, 169, 0.12) !important;
     }
   }
 }
 
-// Dialog
+// Dialog 对话框 — 暮光玫瑰深色主题（强覆盖）
+.el-overlay {
+  background-color: rgba(24, 24, 27, 0.75) !important;
+}
+.el-overlay-dialog {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .el-dialog {
-  background: $bg-elevated;
-  border: 1px solid $border-base;
-  border-radius: $radius-lg;
+  background: #{$bg-elevated} !important;
+  border: 1px solid $border-base !important;
+  border-radius: $radius-xl !important;
+  box-shadow: $shadow-card !important;
+  backdrop-filter: blur(12px);
+  margin-top: 0 !important; // 居中定位，避免默认偏移
+
   .el-dialog__header {
-    border-bottom: 1px solid $border-divider;
+    border-bottom: 1px solid $border-divider !important;
+    padding: 20px 24px !important;
+    margin-right: 0 !important;
+    background: transparent;
   }
   .el-dialog__title {
-    color: $text-primary;
+    color: #{$text-primary} !important;
+    font-weight: 600;
+    font-size: 17px;
+  }
+  .el-dialog__headerbtn {
+    top: 20px;
+    right: 20px;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    color: $text-secondary !important;
+    &:hover {
+      color: $text-primary !important;
+    }
+  }
+  .el-dialog__body {
+    color: #{$text-regular} !important;
+    padding: 24px !important;
+    background: transparent;
+  }
+  .el-dialog__footer {
+    border-top: 1px solid $border-divider !important;
+    padding: 16px 24px !important;
+    background: transparent;
+
+    // 弹窗内按钮统一暮光玫瑰风格
+    .el-button--primary {
+      background: $gradient-primary !important;
+      border-color: transparent !important;
+      color: #fff !important;
+      box-shadow: none;
+      &:hover {
+        box-shadow: $shadow-glow-primary !important;
+        transform: translateY(-1px);
+      }
+    }
+    .el-button--default {
+      background: #{$bg-surface} !important;
+      border-color: #{$border-light} !important;
+      color: #{$text-regular} !important;
+      &:hover {
+        color: $color-primary !important;
+        border-color: $color-primary !important;
+        background: rgba(232, 121, 169, 0.1) !important;
+      }
+    }
+  }
+
+  // 弹窗内的表单元素确保主题一致
+  .el-input__wrapper {
+    background: #{$bg-input} !important;
+    box-shadow: 0 0 0 1px #{$border-base} inset !important;
+    &.is-focus {
+      box-shadow: 0 0 0 1px #{$color-primary} inset, $shadow-glow-primary !important;
+    }
+  }
+  .el-textarea__inner {
+    background: #{$bg-input} !important;
+    color: #{$text-primary} !important;
+    border-color: #{$border-base} !important;
+    &::placeholder {
+      color: #{$text-placeholder} !important;
+    }
+    &:focus {
+      border-color: $color-primary !important;
+      box-shadow: $shadow-glow-primary !important;
+    }
+  }
+  .el-select__wrapper {
+    background: #{$bg-input} !important;
+    box-shadow: 0 0 0 1px #{$border-base} inset !important;
   }
 }
 
-// Form
+// Form 表单
 .el-form-item__label {
   color: $text-regular;
+  font-weight: 500;
 }
 
-// Tag
+// Tag 标签
 .el-tag {
   border-radius: $radius-sm;
+  font-weight: 500;
+  &--primary {
+    background: rgba(232, 121, 169, 0.15);
+    border-color: rgba(232, 121, 169, 0.3);
+    color: $color-primary;
+  }
+  &--success {
+    background: rgba(52, 211, 153, 0.15);
+    border-color: rgba(52, 211, 153, 0.3);
+    color: $color-success;
+  }
+  &--warning {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: $color-warning;
+  }
+  &--danger {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: $color-danger;
+  }
   &--info {
-    background: rgba(122, 134, 184, 0.15);
-    border-color: rgba(122, 134, 184, 0.3);
-    color: $text-regular;
+    background: rgba(167, 139, 250, 0.15);
+    border-color: rgba(167, 139, 250, 0.3);
+    color: $color-info;
   }
 }
 
-// Menu (侧边栏)
+// Menu 侧边栏导航
 .el-menu {
   border-right: none;
   background: transparent;
 }
-.el-menu-item, .el-sub-menu__title {
+.el-menu-item,
+.el-sub-menu__title {
   color: $text-regular;
+  border-radius: $radius-md;
+  margin: 2px 8px;
+  transition: $transition-base;
   &:hover {
-    background: rgba(78, 205, 196, 0.08);
+    background: rgba(232, 121, 169, 0.1);
     color: $color-primary;
   }
 }
 .el-menu-item.is-active {
   color: $color-primary;
-  background: rgba(78, 205, 196, 0.12);
+  background: $gradient-sidebar-active;
+  font-weight: 600;
   position: relative;
   &::before {
     content: '';
     position: absolute;
     left: 0;
-    top: 0;
-    bottom: 0;
+    top: 50%;
+    transform: translateY(-50%);
     width: 3px;
-    background: $color-primary;
+    height: 60%;
+    background: $gradient-primary;
+    border-radius: 0 3px 3px 0;
     box-shadow: $shadow-glow-primary;
   }
 }
 
-// Tabs
+// Tabs 标签页
 .el-tabs__item {
   color: $text-secondary;
+  font-weight: 500;
+  transition: $transition-base;
+  padding: 0 18px;
   &.is-active {
+    color: $color-primary;
+    font-weight: 600;
+  }
+  &:hover:not(.is-active) {
     color: $color-primary;
   }
 }
 .el-tabs__active-bar {
-  background: $color-primary;
+  background: $gradient-primary;
+  border-radius: 2px;
+  height: 3px;
 }
 
-// Message
+// Message 消息提示
 .el-message {
   background: $bg-surface !important;
   border: 1px solid $border-light !important;
+  border-radius: $radius-lg !important;
+  backdrop-filter: blur(10px);
+  box-shadow: $shadow-card;
 }
 
-// Dropdown
+// Dropdown 下拉菜单
 .el-dropdown-menu {
   background: $bg-surface;
   border: 1px solid $border-light;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+  padding: 6px;
 }
 .el-dropdown-menu__item {
   color: $text-regular;
+  border-radius: $radius-sm;
+  padding: 8px 16px;
+  transition: $transition-base;
   &:hover {
-    background: $bg-hover;
+    background: rgba(232, 121, 169, 0.12);
     color: $color-primary;
   }
 }
 
-// Switch
+// Switch 开关
 .el-switch.is-checked .el-switch__core {
+  background: $gradient-primary;
+  border-color: transparent;
+}
+
+// DatePicker 日期选择器
+.el-date-editor.el-input__wrapper {
+  background: $bg-input !important;
+}
+
+// Radio 单选框
+.el-radio__input.is-checked .el-radio__inner {
   background: $color-primary;
   border-color: $color-primary;
 }
+.el-radio__input.is-checked + .el-radio__label {
+  color: $color-primary;
+}
 
-// DatePicker
-.el-date-editor.el-input__wrapper {
-  background: $bg-input !important;
+// Checkbox 复选框
+.el-checkbox__input.is-checked .el-checkbox__inner {
+  background: $gradient-primary;
+  border-color: $color-primary;
+}
+.el-checkbox__input.is-checked + .el-checkbox__label {
+  color: $color-primary;
+}
+
+// Progress 进度条
+.el-progress-bar__inner {
+  background: $gradient-primary;
+  border-radius: 999px;
+}
+
+// Tooltip 提示
+.el-tooltip__trigger:focus-visible {
+  outline-color: $color-primary;
+}
+
+// Scrollbar 滚动条美化
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: $bg-base;
+}
+::-webkit-scrollbar-thumb {
+  background: $border-light;
+  border-radius: 3px;
+  &:hover {
+    background: $text-secondary;
+  }
 }

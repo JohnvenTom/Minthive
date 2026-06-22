@@ -14,12 +14,12 @@ const props = defineProps<{
   loading?: boolean
 }>()
 
-/** 健康度评分颜色 */
+/** 健康度评分颜色 — 暮光玫瑰色系 */
 const scoreColor = computed(() => {
   const score = props.report?.healthScore ?? 0
-  if (score >= 80) return '#4ECDC4'
-  if (score >= 60) return '#FFB627'
-  return '#FF5C6C'
+  if (score >= 80) return '#E879A9'
+  if (score >= 60) return '#F59E0B'
+  return '#EF4444'
 })
 
 /** 健康度环形进度描述 */
@@ -53,7 +53,7 @@ const aiSourceText = computed(() => {
     <div class="ai-score-section">
       <div class="score-ring" :style="{ '--score-color': scoreColor }">
         <svg viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r="52" fill="none" stroke="#2F3658" stroke-width="8" />
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#3f3f46" stroke-width="8" />
           <circle
             cx="60" cy="60" r="52" fill="none"
             :stroke="scoreColor" stroke-width="8" stroke-linecap="round"
@@ -113,7 +113,7 @@ const aiSourceText = computed(() => {
     position: absolute;
     top: -40px; right: -40px;
     width: 120px; height: 120px;
-    background: radial-gradient(circle, rgba(78, 205, 196, 0.15), transparent 70%);
+    background: radial-gradient(circle, rgba(232, 121, 169, 0.15), transparent 70%);
     pointer-events: none;
   }
 }
@@ -128,8 +128,8 @@ const aiSourceText = computed(() => {
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
-  background: rgba(78, 205, 196, 0.15);
-  border: 1px solid rgba(78, 205, 196, 0.4);
+  background: rgba(232, 121, 169, 0.15);
+  border: 1px solid rgba(232, 121, 169, 0.4);
   border-radius: 12px;
   color: $color-primary;
   font-size: 12px;

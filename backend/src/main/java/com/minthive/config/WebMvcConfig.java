@@ -52,6 +52,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/post/{id}",
                         // 系统公告公开接口（首页横幅 + 消息中心公告列表）
                         "/api/announcement/**",
+                        // 首页轮播图公开接口
+                        "/api/config/banners",
                         // 文档放行
                         "/doc.html",
                         "/swagger-ui.html",

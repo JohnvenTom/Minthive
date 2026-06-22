@@ -146,11 +146,11 @@ function handleFullscreen() {
   background: $bg-base;
 }
 
-// 侧边栏
+// 侧边栏 — 暮光玫瑰深灰底座
 .sidebar {
   width: $sidebar-width;
   height: 100%;
-  background: linear-gradient(180deg, #1F2340 0%, #1A1D2E 100%);
+  background: linear-gradient(180deg, #1f1f23 0%, $bg-base 100%);
   border-right: 1px solid $border-base;
   display: flex;
   flex-direction: column;
@@ -199,22 +199,22 @@ function handleFullscreen() {
   }
 
   &:hover {
-    background: rgba(78, 205, 196, 0.08);
+    background: rgba(232, 121, 169, 0.1);
     color: $color-primary;
   }
 
   &.active {
-    background: rgba(78, 205, 196, 0.14);
+    background: $gradient-sidebar-active;
     color: $color-primary;
     font-weight: 600;
-    box-shadow: inset 0 0 0 1px rgba(78, 205, 196, 0.3);
+    box-shadow: inset 0 0 0 1px rgba(232, 121, 169, 0.25);
 
     &::before {
       content: '';
       position: absolute;
       left: 0; top: 8px; bottom: 8px;
       width: 3px;
-      background: $color-primary;
+      background: $gradient-primary;
       border-radius: 2px;
       box-shadow: $shadow-glow-primary;
     }

@@ -9,6 +9,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AiAssistant: typeof import('./src/components/AiAssistant.vue')['default']
     AnimatedNumber: typeof import('./src/components/AnimatedNumber.vue')['default']
+    BannerSwiper: typeof import('./src/components/BannerSwiper.vue')['default']
     CircleCard: typeof import('./src/components/CircleCard.vue')['default']
     CommentItem: typeof import('./src/components/CommentItem.vue')['default']
     EditPostDialog: typeof import('./src/components/EditPostDialog.vue')['default']

@@ -1,64 +1,74 @@
 // ============================================================
-// MintHive Admin 暗色主题变量定义
-// 美学方向：深色专业控制台 + 薄荷绿主操作色 + 琥珀警示色
+// MintHive Admin 暮光玫瑰主题变量定义
+// 美学方向：深灰底座 + 玫瑰→橙金渐变主色 + Claude 风格圆润优雅
+// 设计灵感：Claude AI / 暮光色调 / 高端控制台
 // ============================================================
 
-// 品牌色
-$color-primary: #4ECDC4;        // 薄荷绿 - 主操作色
-$color-primary-hover: #6FE0D7;
-$color-primary-active: #3FB8B0;
+// 品牌色 - 暮光玫瑰渐变系
+$color-primary: #E879A9;        // 玫瑰粉 - 主操作色
+$color-primary-hover: #F093BB;   // 浅玫瑰 - hover 态
+$color-primary-active: #D56B9A;  // 深玫瑰 - active 态
+$color-primary-gradient-start: #E879A9; // 渐变起点：玫瑰
+$color-primary-gradient-end: #F59E0B;   // 渐变终点：琥珀金
 
-// 警示色
-$color-warning: #FFB627;        // 琥珀 - 数据高亮/警示
-$color-danger: #FF5C6C;         // 高风险红
-$color-success: #4ECDC4;        // 复用薄荷绿
-$color-info: #7A86B8;           // 中性信息
+// 警示色 - 暖色协调
+$color-warning: #F59E0B;        // 琥珀金 - 数据高亮/警示
+$color-danger: #EF4444;         // 危险红
+$color-success: #34D399;        // 翠绿 - 成功状态
+$color-info: #A78BFA;           // 薰衣草紫 - 中性信息
 
-// 背景色层级
-$bg-base: #1A1D2E;              // 最深背景
-$bg-elevated: #232842;          // 卡片背景
-$bg-surface: #2A3050;           // 表格/悬浮层
-$bg-hover: #313860;             // hover 态
-$bg-input: #1F2340;             // 输入框
+// 背景色层级 - 深灰底座，高对比度
+$bg-base: #18181b;              // 最深背景 (zinc-900)
+$bg-elevated: #27272a;          // 卡片背景 (zinc-800)
+$bg-surface: #3f3f46;           // 表格/悬浮层 (zinc-700)
+$bg-hover: #52525b;             // hover 态 (zinc-600) — 更亮以确保可见
+$bg-input: #1f1f23;             // 输入框 — 提亮底色解决看不清问题
 
-// 文字色
-$text-primary: #E8ECF5;         // 主文字
-$text-regular: #B5BDD4;         // 常规文字
-$text-secondary: #7A86B8;       // 次要文字
-$text-placeholder: #5A6388;     // 占位文字
+// 文字色 - 高对比度层级
+$text-primary: #F4F4F5;         // 主文字 (zinc-100) — 接近纯白
+$text-regular: #D4D4D8;         // 常规文字 (zinc-200)
+$text-secondary: #A1A1AA;       // 次要文字 (zinc-400)
+$text-placeholder: #71717A;     // 占位文字 (zinc-500) — 加深确保可见
 
-// 边框
-$border-base: #2F3658;
-$border-light: #3A4270;
-$border-divider: #252B45;
+// 边框 - 层次分明
+$border-base: #3f3f46;          // 基础边框 (zinc-700)
+$border-light: #52525b;         // 浅边框 (zinc-600)
+$border-divider: #27272a;       // 分割线 (zinc-800)
 
-// 字体
+// 字体 - Claude 风格
 $font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Consolas', monospace;
 $font-title: 'Sora', 'Outfit', 'PingFang SC', sans-serif;
 $font-body: 'PingFang SC', 'Source Han Sans CN', 'Microsoft YaHei', sans-serif;
 
-// 圆角
-$radius-sm: 4px;
-$radius-md: 8px;
-$radius-lg: 12px;
-$radius-xl: 16px;
+// 圆角 - Claude 圆润风格
+$radius-sm: 6px;
+$radius-md: 10px;
+$radius-lg: 14px;
+$radius-xl: 20px;
 
-// 阴影 - 发光效果
-$shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
-$shadow-glow-primary: 0 0 20px rgba(78, 205, 196, 0.35);
-$shadow-glow-warning: 0 0 20px rgba(255, 182, 39, 0.35);
-$shadow-glow-danger: 0 0 20px rgba(255, 92, 108, 0.35);
+// 阴影 - 柔和发光效果（玫瑰色调）
+$shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(63, 63, 70, 0.5);
+$shadow-glow-primary: 0 0 24px rgba(232, 121, 169, 0.4);      // 玫瑰发光
+$shadow-glow-warning: 0 0 20px rgba(245, 158, 11, 0.35);     // 琥珀发光
+$shadow-glow-danger: 0 0 20px rgba(239, 68, 68, 0.35);       // 红色发光
+
+// 渐变背景 - 用于按钮、侧边栏高亮等
+$gradient-primary: linear-gradient(135deg, $color-primary-gradient-start 0%, $color-primary-gradient-end 100%);
+$gradient-primary-hover: linear-gradient(135deg, $color-primary-hover 0%, #FBBF24 100%);
+$gradient-sidebar-active: linear-gradient(90deg, rgba(232, 121, 169, 0.15) 0%, transparent 100%);
 
 // 侧边栏
-$sidebar-width: 240px;
+$sidebar-width: 260px;
 $sidebar-collapsed-width: 72px;
 
-// 动效
-$transition-base: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+// 动效 - Claude 流畅感
+$transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-spring: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 
 // 导出为 CSS 变量供 JS / SCSS 共用
 :root {
   --color-primary: #{$color-primary};
+  --color-primary-gradient: #{$gradient-primary};
   --color-warning: #{$color-warning};
   --color-danger: #{$color-danger};
   --bg-base: #{$bg-base};

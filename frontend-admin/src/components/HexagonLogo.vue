@@ -23,8 +23,8 @@ withDefaults(defineProps<{
     <svg class="hex-svg" viewBox="0 0 48 48" :width="size" :height="size">
       <defs>
         <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#4ECDC4" />
-          <stop offset="100%" stop-color="#3FB8B0" />
+          <stop offset="0%" stop-color="#E879A9" />
+          <stop offset="100%" stop-color="#F59E0B" />
         </linearGradient>
         <filter id="hexGlow">
           <feGaussianBlur stdDeviation="1.2" result="blur" />
@@ -39,8 +39,8 @@ withDefaults(defineProps<{
         fill="url(#hexGrad)"
         filter="url(#hexGlow)"
       />
-      <polygon points="24,10 36,17 36,31 24,38 12,31 12,17" fill="#1A1D2E" />
-      <circle cx="24" cy="24" r="3.5" fill="#FFB627" />
+      <polygon points="24,10 36,17 36,31 24,38 12,31 12,17" fill="#27272a" />
+      <circle cx="24" cy="24" r="3.5" fill="#F59E0B" />
     </svg>
     <div v-if="withText" class="hex-text" :class="{ light: textLight }">
       <span class="brand">MintHive</span>

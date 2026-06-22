@@ -258,6 +258,21 @@ CREATE TABLE `ai_user_log` (
     CONSTRAINT `fk_ailog_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI用户行为日志表';
 
+-- ============================================================
+-- 12. 系统公告表 announcement
+-- ============================================================
+DROP TABLE IF EXISTS `announcement`;
+CREATE TABLE `announcement` (
+    `id`            BIGINT        NOT NULL AUTO_INCREMENT COMMENT '公告ID',
+    `title`         VARCHAR(128)  NOT NULL COMMENT '公告标题',
+    `content`       VARCHAR(2000) NOT NULL COMMENT '公告内容',
+    `status`        TINYINT       NOT NULL DEFAULT 1 COMMENT '状态:0禁用 1启用',
+    `publish_time`  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_status` (`status`),
+    KEY `idx_publish_time` (`publish_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统公告表';
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================

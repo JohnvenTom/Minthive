@@ -10,7 +10,7 @@ export interface Announcement {
   id: number
   title: string
   content: string
-  status: string
+  status: number
   publishTime: string
 }
 
@@ -39,7 +39,7 @@ export interface Operator {
   account: string
   nickname: string
   role: string
-  status: string
+  status: number
   createTime: string
 }
 
@@ -56,13 +56,13 @@ export interface AiSwitchConfig {
 }
 
 /**
- * 公告相关
+ * 公告相关（后端已迁移至数据库，返回分页数据）
  */
-export function getAnnouncements() {
-  return get<Announcement[]>('/config/announcements')
+export function getAnnouncements(current = 1, size = 20) {
+  return get<{ records: Announcement[]; total: number }>('/config/announcements', { current, size })
 }
 export function saveAnnouncement(data: Partial<Announcement>) {
-  return post('/config/announcement', data)
+  return post<Announcement>('/config/announcement', data)
 }
 export function deleteAnnouncement(id: number) {
   return del('/config/announcement', { id })
@@ -114,5 +114,5 @@ export function getAiSwitch() {
   return get<AiSwitchConfig>('/config/ai-switch')
 }
 export function updateAiSwitch(data: AiSwitchConfig) {
-  return put('/config/ai-switch', data)
+  put('/config/ai-switch', data)
 }

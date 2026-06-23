@@ -64,16 +64,25 @@ public class JwtInterceptor implements HandlerInterceptor {
             Long userId = ((Number) claims.get("userId")).longValue();
             String account = (String) claims.get("account");
             Integer role = claims.get("role") == null ? 0 : ((Number) claims.get("role")).intValue();
+            log.debug("Token解析成功: userId={}, account={}", userId, account);
 
             // 校验 Redis 中 Token 是否仍然有效(支持登出失效)
             String redisKey = RedisConstants.LOGIN_TOKEN_PREFIX + userId;
             String cachedToken = stringRedisTemplate.opsForValue().get(redisKey);
+            log.debug("Redis校验: key={}, cachedToken存在={}, 是否匹配={}",
+                    redisKey,
+                    StringUtils.hasText(cachedToken),
+                    cachedToken != null && cachedToken.equals(token));
             if (!StringUtils.hasText(cachedToken) || !cachedToken.equals(token)) {
+                log.warn("Redis Token校验失败: userId={}, redisKey={}, token存在={}, 匹配结果={}",
+                        userId, redisKey, StringUtils.hasText(cachedToken),
+                        cachedToken != null && cachedToken.equals(token));
                 return writeUnauthorized(response, ResultCode.TOKEN_EXPIRED);
             }
 
             // 存入上下文
             UserContext.set(new LoginUser(userId, account, role));
+            log.debug("用户上下文设置成功: userId={}", userId);
             return true;
         } catch (BusinessException e) {
             return writeUnauthorized(response, ResultCode.TOKEN_INVALID);

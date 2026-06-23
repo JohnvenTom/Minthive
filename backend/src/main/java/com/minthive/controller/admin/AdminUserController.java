@@ -37,7 +37,7 @@ public class AdminUserController {
      * @param page    页码（默认1）
      * @param pageSize 每页大小（默认10）
      * @param keyword 搜索关键词（可空）
-     * @param status  账号状态（可空：0封禁 1正常）
+     * @param status  账号状态（NORMAL/BANNED/DELETED，兼容数字 0/1/2）
      * @return 分页结果 {list, total, page, pageSize}
      */
     @Operation(summary = "分页查询用户列表")
@@ -46,9 +46,11 @@ public class AdminUserController {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Integer status) {
+            @RequestParam(required = false) String status) {
+        // 将前端字符串状态映射为数据库数字值
+        Integer statusInt = mapUserStatusToInt(status);
         IPage<Map<String, Object>> p = adminUserMapper.selectUserListWithStats(
-                new Page<>(page, pageSize), keyword, status);
+                new Page<>(page, pageSize), keyword, statusInt);
         Map<String, Object> data = new HashMap<>(4);
         data.put("list", p.getRecords());
         data.put("total", p.getTotal());
@@ -183,5 +185,36 @@ public class AdminUserController {
         data.put("likeCount", 0);
         data.put("lastActiveTime", null);
         return Result.success(data);
+    }
+
+    /**
+     * 将前端字符串用户状态映射为数据库数字值
+     * <p>功能：兼容前端传递的字符串状态（NORMAL/BANNED/DELETED）和数字字符串（0/1）</p>
+     *
+     * @param status 前端传入的状态参数（String）
+     * @return 数据库数字状态值（0封禁 1正常），null 表示不筛选（含 DELETED 时返回 null 由 SQL 处理）
+     */
+    private Integer mapUserStatusToInt(String status) {
+        if (status == null || status.isEmpty()) {
+            return null;
+        }
+        switch (status.toUpperCase()) {
+            case "NORMAL":
+            case "1":
+                return 1;
+            case "BANNED":
+            case "0":
+                return 0;
+            case "DELETED":
+            case "2":
+                // 已注销用户通过 cancel_status 过滤，此处返回 null 不做 status 筛选
+                return null;
+            default:
+                try {
+                    return Integer.parseInt(status);
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+        }
     }
 }

@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -119,13 +120,26 @@ public class UserController {
     /**
      * 更新兴趣标签
      *
-     * @param dto 兴趣标签请求体
-     * @return 操作结果
+     * <p>功能描述：接收前端选中的兴趣标签列表，转为逗号分隔字符串存入数据库</p>
+     *
+     * @param dto     兴趣标签请求体（包含 interests 列表）
+     * @param request HTTP 请求对象（用于备用 Token 解析）
+     * @return 操作结果（成功/未登录 401）
      */
     @Operation(summary = "更新兴趣标签")
     @PutMapping("/interests")
-    public Result<Void> updateInterests(@RequestBody InterestsDto dto) {
-        userService.updateInterests(UserContext.getUserId(), dto.getInterests());
+    public Result<Void> updateInterests(@RequestBody InterestsDto dto, HttpServletRequest request) {
+        // 双通道获取当前用户ID：优先 UserContext（正常认证流程），失败则手动从请求头解析 Token（防御性兜底）
+        Long userId = resolveUserId(request);
+        if (userId == null) {
+            return Result.error(401, "请先登录");
+        }
+        // 参数校验：防止空指针异常，允许传入空列表（表示清空兴趣标签）
+        List<String> interests = dto.getInterests();
+        if (interests == null) {
+            interests = Collections.emptyList();
+        }
+        userService.updateInterests(userId, interests);
         return Result.success();
     }
 

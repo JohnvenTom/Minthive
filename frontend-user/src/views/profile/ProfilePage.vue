@@ -7,7 +7,90 @@
     <section class="profile-hero">
       <!-- 封禁印章（仅封禁用户显示） -->
       <div v-if="userInfo.status === 0" class="banned-stamp">
-        <span class="banned-text">BANNED</span>
+        <svg class="banned-svg" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- 做旧纹理滤镜：模拟印章油墨不均匀效果 -->
+            <filter id="stamp-grunge" x="-10%" y="-10%" width="120%" height="120%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
+              <feComponentTransfer>
+                <feFuncA type="discrete" tableValues="0 1 1 1 0 1 1 0"/>
+              </feComponentTransfer>
+            </filter>
+            <!-- 斑点噪点 -->
+            <filter id="stamp-speckle">
+              <feTurbulence type="fractalNoise" baseFrequency="1.5" numOctaves="2" result="speckle" />
+              <feColorMatrix type="matrix" values="0 0 0 0 0.86   0 0 0 0 0.15   0 0 0 0 0.15   0 0 0 0.35 0" in="speckle" result="coloredSpeckle" />
+              <feBlend in="SourceGraphic" in2="coloredSpeckle" mode="multiply" />
+            </filter>
+          </defs>
+
+          <!-- 外圈粗圆环（做旧） -->
+          <circle cx="120" cy="120" r="110" fill="none"
+                  stroke="#dc2626" stroke-width="5"
+                  filter="url(#stamp-grunge)" opacity="0.85" />
+
+          <!-- 外圈细圆环 -->
+          <circle cx="120" cy="120" r="100" fill="none"
+                  stroke="#dc2626" stroke-width="1.5"
+                  filter="url(#stamp-grunge)" opacity="0.65" />
+
+          <!-- 上弧形文字 BANNED（完整半圆） -->
+          <path id="topArc" d="M 10,120 A 110,110 0 0,1 230,120" fill="none" />
+          <text font-family="'Impact','Arial Black',sans-serif" font-size="24"
+                font-weight="900" letter-spacing="8" fill="#dc2626"
+                filter="url(#stamp-speckle)">
+            <textPath href="#topArc" startOffset="50%" text-anchor="middle">BANNED</textPath>
+          </text>
+
+          <!-- 下弧形文字 BANNED（完整半圆） -->
+          <path id="bottomArc" d="M 25,145 A 95,95 0 0,0 215,145" fill="none" />
+          <text font-family="'Impact','Arial Black',sans-serif" font-size="18"
+                font-weight="900" letter-spacing="6" fill="#dc2626"
+                filter="url(#stamp-speckle)" opacity="0.75">
+            <textPath href="#bottomArc" startOffset="50%" text-anchor="middle">BANNED</textPath>
+          </text>
+
+          <!-- 左右装饰小圆点 -->
+          <circle cx="12" cy="120" r="4.5" fill="#dc2626" filter="url(#stamp-grunge)" opacity="0.7" />
+          <circle cx="228" cy="120" r="4.5" fill="#dc2626" filter="url(#stamp-grunge)" opacity="0.7" />
+          <circle cx="45" cy="148" r="3" fill="#dc2626" filter="url(#stamp-grunge)" opacity="0.5" />
+          <circle cx="195" cy="148" r="3" fill="#dc2626" filter="url(#stamp-grunge)" opacity="0.5" />
+
+          <!-- 内层细圆弧 -->
+          <circle cx="120" cy="120" r="72" fill="none"
+                  stroke="#dc2626" stroke-width="1" opacity="0.35"
+                  filter="url(#stamp-grunge)" />
+
+          <!-- 中间斜矩形横幅（旋转 -18°） -->
+          <g transform="rotate(-18, 120, 120)">
+            <!-- 横幅背景（透明，仅边框） -->
+            <rect x="28" y="96" width="184" height="48" rx="6" ry="6"
+                  fill="none"
+                  stroke="#dc2626" stroke-width="3.5"
+                  filter="url(#stamp-grunge)" />
+            <!-- 横幅内边框 -->
+            <rect x="34" y="102" width="172" height="36" rx="4" ry="4"
+                  fill="none" stroke="#dc2626" stroke-width="1"
+                  filter="url(#stamp-grunge)" opacity="0.5" />
+            <!-- 横幅主文字 BANNED -->
+            <text x="120" y="128" text-anchor="middle"
+                  font-family="'Impact','Arial Black',sans-serif"
+                  font-size="32" font-weight="900" letter-spacing="4"
+                  fill="#dc2626" filter="url(#stamp-speckle)">BANNED</text>
+          </g>
+
+          <!-- 随机墨点装饰（模拟真实印章飞白） -->
+          <g fill="#dc2626" opacity="0.25" filter="url(#stamp-grunge)">
+            <circle cx="55" cy="58" r="1.5" />
+            <circle cx="180" cy="62" r="1" />
+            <circle cx="150" cy="185" r="1.5" />
+            <circle cx="88" cy="178" r="1" />
+            <circle cx="118" cy="45" r="1.2" />
+            <circle cx="195" cy="155" r="0.8" />
+            <circle cx="42" cy="145" r="1.2" />
+          </g>
+        </svg>
       </div>
 
       <div class="hero-inner">
@@ -923,67 +1006,36 @@ watch(() => route.params.id, (newId) => {
   z-index: 0;
 }
 
-// ---------- 封禁印章 ----------
+// ---------- 封禁印章（经典双层圆形印章） ----------
 .banned-stamp {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) rotate(-12deg);
+  transform: translate(-50%, -50%);
   z-index: 10;
   pointer-events: none;
 
-  .banned-text {
-    position: relative;
-    display: inline-block;
-    font-family: 'Impact', 'Arial Black', sans-serif;
-    font-size: 48px;
-    font-weight: 900;
-    letter-spacing: 5px;
-    color: #dc2626;
-    text-transform: uppercase;
-    padding: 6px 24px;
-    border: 3px solid #dc2626;
-    border-radius: 6px;
-    background: transparent;
-    /* 多层文字描边 + 红色投影 */
-    text-shadow:
-      -2px -2px 0 #fff,
-      2px -2px 0 #fff,
-      -2px 2px 0 #fff,
-      2px 2px 0 #fff,
-      0 0 12px rgba(220, 38, 38, 0.4),
-      0 0 24px rgba(220, 38, 38, 0.15);
-    box-shadow:
-      0 0 0 1px rgba(220, 38, 38, 0.1),
-      0 6px 24px rgba(220, 38, 38, 0.2);
+  .banned-svg {
+    width: 220px;
+    height: 220px;
     /* 盖章弹入动画 */
-    animation: stamp-appear 0.45s $ease-spring both;
-
-    // 外层虚线装饰框（与文字边框同心）
-    &::before {
-      content: '';
-      position: absolute;
-      inset: -10px -14px;
-      border: 2px dashed rgba(220, 38, 38, 0.5);
-      border-radius: 8px;
-      pointer-events: none;
-    }
+    animation: stamp-appear 0.5s $ease-spring both;
+    /* 轻微呼吸感 */
+    animation: stamp-appear 0.5s $ease-spring both,
+               stamp-breathe 4s ease-in-out 0.5s infinite;
+    drop-shadow: 0 8px 32px rgba(220, 38, 38, 0.25);
   }
 }
 
 @keyframes stamp-appear {
-  0% {
-    opacity: 0;
-    transform: scale(2.2) rotate(-20deg);
-  }
-  65% {
-    opacity: 1;
-    transform: scale(0.92) rotate(-10deg);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(-12deg);
-  }
+  0% { opacity: 0; transform: scale(2.5) rotate(-30deg); }
+  55% { opacity: 1; transform: scale(0.92) rotate(-14deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes stamp-breathe {
+  0%, 100% { filter: brightness(1) drop-shadow(0 6px 20px rgba(220, 38, 38, 0.2)); }
+  50% { filter: brightness(1.08) drop-shadow(0 10px 36px rgba(220, 38, 38, 0.35)); }
 }
 
 // ---------- 个人信息卡片 ----------
@@ -1342,11 +1394,9 @@ watch(() => route.params.id, (newId) => {
 // ---------- 响应式 ----------
 @include mobile {
   .banned-stamp {
-    .banned-text {
-      font-size: 32px;
-      letter-spacing: 3px;
-      padding: 5px 16px;
-      border-width: 2.5px;
+    .banned-svg {
+      width: 170px;
+      height: 170px;
     }
   }
 

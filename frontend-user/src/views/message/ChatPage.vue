@@ -24,6 +24,94 @@
 
     <!-- 聊天消息列表 -->
     <div ref="messageListRef" class="message-list" @scroll="onScroll">
+      <!-- 封禁印章（对方被封禁时显示） -->
+      <div v-if="targetUserStatus === 0" class="banned-stamp-circle">
+        <svg class="banned-svg" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- 做旧纹理滤镜：模拟印章油墨不均匀效果 -->
+            <filter id="stamp-grunge-chat" x="-10%" y="-10%" width="120%" height="120%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
+              <feComponentTransfer>
+                <feFuncA type="discrete" tableValues="0 1 1 1 0 1 1 0"/>
+              </feComponentTransfer>
+            </filter>
+            <!-- 斑点噪点 -->
+            <filter id="stamp-speckle-chat">
+              <feTurbulence type="fractalNoise" baseFrequency="1.5" numOctaves="2" result="speckle" />
+              <feColorMatrix type="matrix" values="0 0 0 0 0.86   0 0 0 0 0.15   0 0 0 0 0.15   0 0 0 0.35 0" in="speckle" result="coloredSpeckle" />
+              <feBlend in="SourceGraphic" in2="coloredSpeckle" mode="multiply" />
+            </filter>
+          </defs>
+
+          <!-- 外圈粗圆环（做旧） -->
+          <circle cx="120" cy="120" r="110" fill="none"
+                  stroke="#dc2626" stroke-width="5"
+                  filter="url(#stamp-grunge-chat)" opacity="0.85" />
+
+          <!-- 外圈细圆环 -->
+          <circle cx="120" cy="120" r="100" fill="none"
+                  stroke="#dc2626" stroke-width="1.5"
+                  filter="url(#stamp-grunge-chat)" opacity="0.65" />
+
+          <!-- 上弧形文字 BANNED（完整半圆） -->
+          <path id="topArcChat" d="M 10,120 A 110,110 0 0,1 230,120" fill="none" />
+          <text font-family="'Impact','Arial Black',sans-serif" font-size="24"
+                font-weight="900" letter-spacing="8" fill="#dc2626"
+                filter="url(#stamp-speckle-chat)">
+            <textPath href="#topArcChat" startOffset="50%" text-anchor="middle">BANNED</textPath>
+          </text>
+
+          <!-- 下弧形文字 BANNED（完整半圆） -->
+          <path id="bottomArcChat" d="M 25,145 A 95,95 0 0,0 215,145" fill="none" />
+          <text font-family="'Impact','Arial Black',sans-serif" font-size="18"
+                font-weight="900" letter-spacing="6" fill="#dc2626"
+                filter="url(#stamp-speckle-chat)" opacity="0.75">
+            <textPath href="#bottomArcChat" startOffset="50%" text-anchor="middle">BANNED</textPath>
+          </text>
+
+          <!-- 左右装饰小圆点 -->
+          <circle cx="12" cy="120" r="4.5" fill="#dc2626" filter="url(#stamp-grunge-chat)" opacity="0.7" />
+          <circle cx="228" cy="120" r="4.5" fill="#dc2626" filter="url(#stamp-grunge-chat)" opacity="0.7" />
+          <circle cx="45" cy="148" r="3" fill="#dc2626" filter="url(#stamp-grunge-chat)" opacity="0.5" />
+          <circle cx="195" cy="148" r="3" fill="#dc2626" filter="url(#stamp-grunge-chat)" opacity="0.5" />
+
+          <!-- 内层细圆弧 -->
+          <circle cx="120" cy="120" r="72" fill="none"
+                  stroke="#dc2626" stroke-width="1" opacity="0.35"
+                  filter="url(#stamp-grunge-chat)" />
+
+          <!-- 中间斜矩形横幅（旋转 -18°） -->
+          <g transform="rotate(-18, 120, 120)">
+            <!-- 横幅背景（透明，仅边框） -->
+            <rect x="28" y="96" width="184" height="48" rx="6" ry="6"
+                  fill="none"
+                  stroke="#dc2626" stroke-width="3.5"
+                  filter="url(#stamp-grunge-chat)" />
+            <!-- 横幅内边框 -->
+            <rect x="34" y="102" width="172" height="36" rx="4" ry="4"
+                  fill="none" stroke="#dc2626" stroke-width="1"
+                  filter="url(#stamp-grunge-chat)" opacity="0.5" />
+            <!-- 横幅主文字 BANNED -->
+            <text x="120" y="128" text-anchor="middle"
+                  font-family="'Impact','Arial Black',sans-serif"
+                  font-size="32" font-weight="900" letter-spacing="4"
+                  fill="#dc2626" filter="url(#stamp-speckle-chat)">BANNED</text>
+          </g>
+
+          <!-- 随机墨点装饰（模拟真实印章飞白） -->
+          <g fill="#dc2626" opacity="0.25" filter="url(#stamp-grunge-chat)">
+            <circle cx="55" cy="58" r="1.5" />
+            <circle cx="180" cy="62" r="1" />
+            <circle cx="150" cy="185" r="1.5" />
+            <circle cx="88" cy="178" r="1" />
+            <circle cx="118" cy="45" r="1.2" />
+            <circle cx="195" cy="155" r="0.8" />
+            <circle cx="42" cy="145" r="1.2" />
+          </g>
+        </svg>
+      </div>
+
       <!-- 加载更多 -->
       <div v-if="hasMore" class="load-more-area">
         <LoadingSpinner v-if="loadingMore" size="small" />
@@ -104,10 +192,10 @@
     </div>
 
     <!-- 底部输入栏 -->
-    <footer class="chat-footer glass-card">
+    <footer class="chat-footer glass-card" :class="{ 'footer-banned': targetUserStatus === 0 }">
       <div class="input-area">
         <!-- 图片按钮 -->
-        <button class="tool-btn" @click="triggerImageUpload">
+        <button class="tool-btn" :disabled="targetUserStatus === 0" @click="triggerImageUpload">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/>
             <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
@@ -128,15 +216,16 @@
             v-model="inputText"
             type="text"
             class="msg-input"
-            placeholder="输入消息..."
+            :placeholder="targetUserStatus === 0 ? '对方已被封禁，无法发送消息' : '输入消息...'"
+            :disabled="targetUserStatus === 0"
             @keydown.enter="onSend"
           />
         </div>
 
         <!-- 发送按钮 -->
         <button
-          :class="['send-btn', { active: inputText.trim() }]"
-          :disabled="!inputText.trim() || sending"
+          :class="['send-btn', { active: inputText.trim() && targetUserStatus !== 0 }]"
+          :disabled="!inputText.trim() || sending || targetUserStatus === 0"
           @click="onSend"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -147,7 +236,7 @@
         <!-- AI智能回复按钮 -->
         <button
           :class="['ai-btn', { loading: aiReplying }]"
-          :disabled="aiReplying"
+          :disabled="aiReplying || targetUserStatus === 0"
           @click="onAiReply"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -233,6 +322,9 @@ const targetUser = ref<{ nickname: string; avatar: string }>({
   nickname: '用户',
   avatar: defaultAvatar
 })
+
+/** 聊天对象账号状态（0=封禁 1=正常） */
+const targetUserStatus = ref<number>(1)
 
 // ---------- 数据加载 ----------
 
@@ -567,6 +659,8 @@ onMounted(async () => {
           nickname: res.data.nickname || '用户',
           avatar: res.data.avatar || defaultAvatar
         }
+        // 同步获取对方账号状态（封禁检测）
+        targetUserStatus.value = res.data.status ?? 1
         // 同步到 chatStore，确保后续 WebSocket 消息等场景能正确引用
         chatStore.setCurrentChat({
           userId: targetUserId.value,
@@ -869,6 +963,35 @@ onUnmounted(() => {
   margin-top: 2px;
 }
 
+// ---------- 封禁圆形印章（经典双层圆形印章） ----------
+.banned-stamp-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  pointer-events: none;
+
+  .banned-svg {
+    width: 200px;
+    height: 200px;
+    animation: stamp-pop 0.5s $ease-spring both,
+               stamp-breathe-chat 4s ease-in-out 0.5s infinite;
+    drop-shadow: 0 8px 32px rgba(220, 38, 38, 0.25);
+  }
+}
+
+@keyframes stamp-pop {
+  0% { opacity: 0; transform: scale(0) rotate(-30deg); }
+  55% { opacity: 1; transform: scale(1.12) rotate(-6deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes stamp-breathe-chat {
+  0%, 100% { filter: brightness(1) drop-shadow(0 6px 20px rgba(220, 38, 38, 0.2)); }
+  50% { filter: brightness(1.06) drop-shadow(0 10px 36px rgba(220, 38, 38, 0.3)); }
+}
+
 // ---------- 底部输入栏 ----------
 .chat-footer {
   position: relative;
@@ -877,6 +1000,14 @@ onUnmounted(() => {
   border-top: 1px solid $ink-100;
   padding: $space-2 $space-3;
   border-radius: 0;
+  transition: opacity $dur-base ease, filter $dur-base ease;
+
+  // 封禁状态：整体置灰
+  &.footer-banned {
+    opacity: 0.5;
+    filter: grayscale(0.6);
+    pointer-events: none;
+  }
 }
 
 .input-area {
@@ -1027,6 +1158,13 @@ onUnmounted(() => {
 
 // ---------- 响应式 ----------
 @include mobile {
+  .banned-stamp-circle {
+    .banned-svg {
+      width: 155px;
+      height: 155px;
+    }
+  }
+
   .chat-header .header-inner {
     padding: $space-2 $space-3;
   }

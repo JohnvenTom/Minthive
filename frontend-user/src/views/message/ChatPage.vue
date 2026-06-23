@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-page">
+  <div class="chat-page" :class="{ 'page-shake': targetUserStatus === 0 }">
     <!-- 蜂巢装饰背景 -->
     <div class="hex-bg" />
 
@@ -28,79 +28,56 @@
       <div v-if="targetUserStatus === 0" class="banned-stamp-circle">
         <svg class="banned-svg" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <!-- 做旧纹理滤镜：模拟印章油墨不均匀效果 -->
-            <filter id="stamp-grunge-chat" x="-10%" y="-10%" width="120%" height="120%">
-              <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4" result="noise" />
-              <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
-              <feComponentTransfer>
-                <feFuncA type="discrete" tableValues="0 1 1 1 0 1 1 0"/>
-              </feComponentTransfer>
-            </filter>
-            <!-- 斑点噪点 -->
-            <filter id="stamp-speckle-chat">
-              <feTurbulence type="fractalNoise" baseFrequency="1.5" numOctaves="2" result="speckle" />
-              <feColorMatrix type="matrix" values="0 0 0 0 0.86   0 0 0 0 0.15   0 0 0 0 0.15   0 0 0 0.35 0" in="speckle" result="coloredSpeckle" />
-              <feBlend in="SourceGraphic" in2="coloredSpeckle" mode="multiply" />
+            <filter id="stamp-grunge-chat" x="-5%" y="-5%" width="110%" height="110%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="1" xChannelSelector="R" yChannelSelector="G" />
             </filter>
           </defs>
 
-          <!-- 外圈粗圆环（做旧） -->
           <circle cx="120" cy="120" r="110" fill="none"
                   stroke="#dc2626" stroke-width="5"
-                  filter="url(#stamp-grunge-chat)" opacity="0.85" />
+                  opacity="0.85" />
 
-          <!-- 外圈细圆环 -->
           <circle cx="120" cy="120" r="100" fill="none"
                   stroke="#dc2626" stroke-width="1.5"
-                  filter="url(#stamp-grunge-chat)" opacity="0.65" />
+                  opacity="0.65" />
 
-          <!-- 上弧形文字 BANNED（完整半圆） -->
-          <path id="topArcChat" d="M 10,120 A 110,110 0 0,1 230,120" fill="none" />
+          <path id="topArcChat" d="M 30,120 A 90,90 0 0,1 210,120" fill="none" />
           <text font-family="'Impact','Arial Black',sans-serif" font-size="24"
                 font-weight="900" letter-spacing="8" fill="#dc2626"
-                filter="url(#stamp-speckle-chat)">
+                filter="url(#stamp-grunge-chat)">
             <textPath href="#topArcChat" startOffset="50%" text-anchor="middle">BANNED</textPath>
           </text>
 
-          <!-- 下弧形文字 BANNED（完整半圆） -->
-          <path id="bottomArcChat" d="M 25,145 A 95,95 0 0,0 215,145" fill="none" />
+          <path id="bottomArcChat" d="M 35,138 A 85,85 0 0,0 205,138" fill="none" />
           <text font-family="'Impact','Arial Black',sans-serif" font-size="18"
                 font-weight="900" letter-spacing="6" fill="#dc2626"
-                filter="url(#stamp-speckle-chat)" opacity="0.75">
+                filter="url(#stamp-grunge-chat)" opacity="0.75">
             <textPath href="#bottomArcChat" startOffset="50%" text-anchor="middle">BANNED</textPath>
           </text>
 
-          <!-- 左右装饰小圆点 -->
-          <circle cx="12" cy="120" r="4.5" fill="#dc2626" filter="url(#stamp-grunge-chat)" opacity="0.7" />
-          <circle cx="228" cy="120" r="4.5" fill="#dc2626" filter="url(#stamp-grunge-chat)" opacity="0.7" />
-          <circle cx="45" cy="148" r="3" fill="#dc2626" filter="url(#stamp-grunge-chat)" opacity="0.5" />
-          <circle cx="195" cy="148" r="3" fill="#dc2626" filter="url(#stamp-grunge-chat)" opacity="0.5" />
+          <circle cx="12" cy="120" r="4.5" fill="#dc2626" opacity="0.7" />
+          <circle cx="228" cy="120" r="4.5" fill="#dc2626" opacity="0.7" />
+          <circle cx="45" cy="148" r="3" fill="#dc2626" opacity="0.5" />
+          <circle cx="195" cy="148" r="3" fill="#dc2626" opacity="0.5" />
 
-          <!-- 内层细圆弧 -->
           <circle cx="120" cy="120" r="72" fill="none"
-                  stroke="#dc2626" stroke-width="1" opacity="0.35"
-                  filter="url(#stamp-grunge-chat)" />
+                  stroke="#dc2626" stroke-width="1" opacity="0.35" />
 
-          <!-- 中间斜矩形横幅（旋转 -18°） -->
           <g transform="rotate(-18, 120, 120)">
-            <!-- 横幅背景（透明，仅边框） -->
             <rect x="28" y="96" width="184" height="48" rx="6" ry="6"
                   fill="none"
-                  stroke="#dc2626" stroke-width="3.5"
-                  filter="url(#stamp-grunge-chat)" />
-            <!-- 横幅内边框 -->
+                  stroke="#dc2626" stroke-width="3.5" />
             <rect x="34" y="102" width="172" height="36" rx="4" ry="4"
                   fill="none" stroke="#dc2626" stroke-width="1"
-                  filter="url(#stamp-grunge-chat)" opacity="0.5" />
-            <!-- 横幅主文字 BANNED -->
+                  opacity="0.5" />
             <text x="120" y="128" text-anchor="middle"
                   font-family="'Impact','Arial Black',sans-serif"
                   font-size="32" font-weight="900" letter-spacing="4"
-                  fill="#dc2626" filter="url(#stamp-speckle-chat)">BANNED</text>
+                  fill="#dc2626" filter="url(#stamp-grunge-chat)">BANNED</text>
           </g>
 
-          <!-- 随机墨点装饰（模拟真实印章飞白） -->
-          <g fill="#dc2626" opacity="0.25" filter="url(#stamp-grunge-chat)">
+          <g fill="#dc2626" opacity="0.15">
             <circle cx="55" cy="58" r="1.5" />
             <circle cx="180" cy="62" r="1" />
             <circle cx="150" cy="185" r="1.5" />
@@ -971,18 +948,19 @@ onUnmounted(() => {
   transform: translate(-50%, -50%);
   z-index: 20;
   pointer-events: none;
+  overflow: visible;
 
   .banned-svg {
     width: 200px;
     height: 200px;
     animation: stamp-pop 0.5s $ease-spring both,
                stamp-breathe-chat 4s ease-in-out 0.5s infinite;
-    drop-shadow: 0 8px 32px rgba(220, 38, 38, 0.25);
   }
 }
 
 @keyframes stamp-pop {
   0% { opacity: 0; transform: scale(0) rotate(-30deg); }
+  40% { opacity: 1; transform: scale(1.15) rotate(-4deg); }
   55% { opacity: 1; transform: scale(1.12) rotate(-6deg); }
   100% { opacity: 1; transform: scale(1) rotate(0deg); }
 }
@@ -990,6 +968,23 @@ onUnmounted(() => {
 @keyframes stamp-breathe-chat {
   0%, 100% { filter: brightness(1) drop-shadow(0 6px 20px rgba(220, 38, 38, 0.2)); }
   50% { filter: brightness(1.06) drop-shadow(0 10px 36px rgba(220, 38, 38, 0.3)); }
+}
+
+@keyframes screen-shake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-4px, -2px); }
+  20% { transform: translate(4px, 2px); }
+  30% { transform: translate(-3px, 1px); }
+  40% { transform: translate(3px, -1px); }
+  50% { transform: translate(-2px, 2px); }
+  60% { transform: translate(2px, -2px); }
+  70% { transform: translate(-1px, 1px); }
+  80% { transform: translate(1px, -1px); }
+  90% { transform: translate(0, 0); }
+}
+
+.page-shake {
+  animation: screen-shake 0.45s ease-out 0.2s both;
 }
 
 // ---------- 底部输入栏 ----------

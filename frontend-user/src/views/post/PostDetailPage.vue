@@ -443,7 +443,9 @@ async function fetchComments(isLoadMore = false): Promise<void> {
   try {
     const res = await getComments(postId.value, commentPage.value, commentPageSize)
     const list = res.data?.list || []
-    commentTotal.value = res.data?.total || 0
+    // 父评论数 + 所有子评论数
+    const childCount = list.reduce((sum, c) => sum + (c.children?.length || 0), 0)
+    commentTotal.value = (res.data?.total || 0) + childCount
 
     if (isLoadMore) {
       comments.value.push(...list)

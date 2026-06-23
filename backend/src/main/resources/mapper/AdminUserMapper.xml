@@ -22,7 +22,7 @@
             (SELECT COUNT(*) FROM follow WHERE user_id = u.id) AS followCount,
             (SELECT COUNT(*) FROM follow WHERE follow_user_id = u.id) AS fansCount,
             u.register_time AS registerTime,
-            (SELECT MAX(action_time) FROM ai_user_log WHERE user_id = u.id) AS lastLoginTime,
+            u.last_login_time AS lastLoginTime,
             CASE
                 WHEN u.interest_tags IS NULL OR u.interest_tags = '' THEN ''
                 ELSE u.interest_tags

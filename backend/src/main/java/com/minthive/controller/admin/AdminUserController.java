@@ -28,6 +28,8 @@ public class AdminUserController {
 
     private final UserMapper userMapper;
     private final AdminUserMapper adminUserMapper;
+    private final com.minthive.mapper.PostMapper postMapper;
+    private final com.minthive.mapper.FollowMapper followMapper;
 
     /**
      * 分页查询用户列表（含统计子查询，字段对齐前端 UserInfo）
@@ -59,37 +61,41 @@ public class AdminUserController {
      * 用户详情（字段对齐前端 UserInfo）
      *
      * @param userId 用户ID
-     * @return 用户信息
+     * @return 用户信息（含实时统计数据）
      */
     @Operation(summary = "用户详情")
     @GetMapping("/detail")
     public Result<Map<String, Object>> detail(@RequestParam Long userId) {
-        IPage<Map<String, Object>> p = adminUserMapper.selectUserListWithStats(
-                new Page<>(1, 1), null, null);
-        Map<String, Object> detail = p.getRecords().stream()
-                .filter(u -> userId.equals(((Number) u.get("userId")).longValue()))
-                .findFirst()
-                .orElseGet(() -> {
-                    User u = userMapper.selectById(userId);
-                    Map<String, Object> m = new HashMap<>();
-                    if (u != null) {
-                        m.put("userId", u.getId());
-                        m.put("account", u.getAccount());
-                        m.put("nickname", u.getNickname());
-                        m.put("avatar", u.getAvatar() != null ? u.getAvatar() : "");
-                        m.put("phone", u.getPhone());
-                        m.put("gender", u.getGender());
-                        m.put("status", u.getStatus() == 1 ? "NORMAL" : "BANNED");
-                        m.put("postCount", 0);
-                        m.put("followCount", 0);
-                        m.put("fansCount", 0);
-                        m.put("registerTime", u.getRegisterTime() != null ? u.getRegisterTime().toString() : "");
-                        m.put("lastLoginTime", "");
-                        m.put("interests", u.getInterestTags() != null ? u.getInterestTags().split(",") : new String[0]);
-                    }
-                    return m;
-                });
-        return Result.success(detail);
+        User u = userMapper.selectById(userId);
+        if (u == null) {
+            return Result.success(new HashMap<>());
+        }
+        Map<String, Object> m = new HashMap<>(16);
+        m.put("userId", u.getId());
+        m.put("account", u.getAccount());
+        m.put("nickname", u.getNickname());
+        m.put("avatar", u.getAvatar() != null ? u.getAvatar() : "");
+        m.put("phone", u.getPhone());
+        m.put("gender", u.getGender());
+        m.put("status", u.getStatus() == 1 ? "NORMAL" : "BANNED");
+        // 实时统计：帖子数、关注数、粉丝数
+        long postCount = postMapper.selectCount(
+                new LambdaQueryWrapper<com.minthive.entity.Post>()
+                        .eq(com.minthive.entity.Post::getUserId, userId));
+        long followCount = followMapper.selectCount(
+                new LambdaQueryWrapper<com.minthive.entity.Follow>()
+                        .eq(com.minthive.entity.Follow::getUserId, userId));
+        long fanCount = followMapper.selectCount(
+                new LambdaQueryWrapper<com.minthive.entity.Follow>()
+                        .eq(com.minthive.entity.Follow::getFollowUserId, userId));
+        m.put("postCount", postCount);
+        m.put("followCount", followCount);
+        m.put("fansCount", fanCount);
+        m.put("registerTime", u.getRegisterTime() != null ? u.getRegisterTime().toString() : "");
+        m.put("lastLoginTime", u.getLastLoginTime() != null ? u.getLastLoginTime().toString() : "");
+        m.put("interests", u.getInterestTags() != null && !u.getInterestTags().isBlank()
+                ? u.getInterestTags().split(",") : new String[0]);
+        return Result.success(m);
     }
 
     /**

@@ -56,6 +56,9 @@ public class User implements Serializable {
     /** 注册时间 */
     private LocalDateTime registerTime;
 
+    /** 最近登录时间（每次成功登录时更新） */
+    private LocalDateTime lastLoginTime;
+
     /** 账号状态:0封禁 1正常 */
     private Integer status;
 

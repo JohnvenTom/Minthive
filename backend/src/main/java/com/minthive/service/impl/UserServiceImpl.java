@@ -107,6 +107,11 @@ public class UserServiceImpl implements UserService {
         String token = jwtUtils.generateToken(user.getId(), user.getAccount());
         // 缓存登录态
         redisUtil.cacheLoginToken(user.getId(), token);
+        // 更新最近登录时间
+        User loginUpdate = new User();
+        loginUpdate.setId(user.getId());
+        loginUpdate.setLastLoginTime(LocalDateTime.now());
+        userMapper.updateById(loginUpdate);
         log.info("用户登录成功: account={}, id={}", account, user.getId());
         return token;
     }
@@ -295,6 +300,11 @@ public class UserServiceImpl implements UserService {
         }
         String token = jwtUtils.generateToken(user.getId(), user.getAccount());
         redisUtil.cacheLoginToken(user.getId(), token);
+        // 更新最近登录时间
+        User loginUpdate = new User();
+        loginUpdate.setId(user.getId());
+        loginUpdate.setLastLoginTime(LocalDateTime.now());
+        userMapper.updateById(loginUpdate);
         log.info("用户验证码登录成功: phone={}, id={}", phone, user.getId());
         return token;
     }

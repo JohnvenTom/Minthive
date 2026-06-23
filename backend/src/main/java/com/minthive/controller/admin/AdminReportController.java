@@ -27,6 +27,9 @@ public class AdminReportController {
 
     private final ReportMapper reportMapper;
     private final AdminReportMapper adminReportMapper;
+    private final com.minthive.mapper.UserMapper userMapper;
+    private final com.minthive.mapper.PostMapper postMapper;
+    private final com.minthive.mapper.CommentMapper commentMapper;
 
     /**
      * 分页查询举报工单列表（关联用户表 + 内容表，字段名对齐前端 ReportWorkOrder 类型）
@@ -65,36 +68,72 @@ public class AdminReportController {
     @Operation(summary = "工单详情")
     @GetMapping("/detail")
     public Result<Map<String, Object>> detail(@RequestParam Long workOrderId) {
-        IPage<Map<String, Object>> p = adminReportMapper.selectReportListWithDetails(
-                new Page<>(1, 1), null, null, null);
-        // 从全量结果中筛选目标记录
-        Map<String, Object> detail = p.getRecords().stream()
-                .filter(r -> workOrderId.equals(((Number) r.get("workOrderId")).longValue()))
-                .findFirst()
-                .orElseGet(() -> {
-                    // fallback: 直接查实体并手动映射
-                    Report r = reportMapper.selectById(workOrderId);
-                    Map<String, Object> m = new HashMap<>();
-                    if (r != null) {
-                        m.put("workOrderId", r.getId());
-                        m.put("reporterId", r.getReporterId());
-                        m.put("reporterName", "用户" + r.getReporterId());
-                        m.put("targetId", r.getTargetId());
-                        m.put("targetType", r.getTargetType().toString());
-                        m.put("targetContent", r.getReason());
-                        m.put("accusedId", r.getTargetId());
-                        m.put("accusedName", "用户" + r.getTargetId());
-                        m.put("type", r.getReportType());
-                        m.put("reason", r.getReason());
-                        m.put("status", r.getStatus() == 0 ? "PENDING" : r.getStatus() == 1 ? "REJECTED" : "RESOLVED");
-                        m.put("riskLevel", r.getAiRiskLevel() == null ? "LOW" : r.getAiRiskLevel() == 1 ? "LOW" : r.getAiRiskLevel() == 2 ? "MEDIUM" : "HIGH");
-                        m.put("createTime", r.getCreateTime() != null ? r.getCreateTime().toString() : "");
-                        m.put("handleTime", r.getHandleTime() != null ? r.getHandleTime().toString() : "");
-                        m.put("handleResult", r.getResult());
-                    }
-                    return m;
-                });
-        return Result.success(detail);
+        Report r = reportMapper.selectById(workOrderId);
+        if (r == null) {
+            return Result.success(new HashMap<>());
+        }
+        Map<String, Object> m = new HashMap<>(20);
+        m.put("workOrderId", r.getId());
+        m.put("reporterId", r.getReporterId());
+        m.put("targetId", r.getTargetId());
+        m.put("targetType", r.getTargetType().toString());
+        m.put("type", r.getReportType());
+        m.put("reason", r.getReason());
+        m.put("status", r.getStatus() == 0 ? "PENDING" : r.getStatus() == 1 ? "REJECTED" : "RESOLVED");
+        m.put("riskLevel", r.getAiRiskLevel() == null ? "LOW" : r.getAiRiskLevel() == 1 ? "LOW" : r.getAiRiskLevel() == 2 ? "MEDIUM" : "HIGH");
+        m.put("createTime", r.getCreateTime() != null ? r.getCreateTime().toString() : "");
+        m.put("handleTime", r.getHandleTime() != null ? r.getHandleTime().toString() : "");
+        m.put("handleResult", r.getResult());
+
+        // 查询举报人昵称
+        com.minthive.entity.User reporter = userMapper.selectById(r.getReporterId());
+        m.put("reporterName", reporter != null ? reporter.getNickname() : ("用户" + r.getReporterId()));
+
+        // 根据 targetType 查询被举报人信息和被举报内容
+        Integer tt = r.getTargetType();
+        String targetContent = r.getReason(); // 兜底值
+        Long accusedId = r.getTargetId();
+        String accusedName = "用户" + accusedId;
+
+        if (tt == 1) {
+            // 举报帖子：查 post 表获取内容和作者
+            com.minthive.entity.Post post = postMapper.selectById(r.getTargetId());
+            if (post != null) {
+                targetContent = post.getContent();
+                accusedId = post.getUserId();
+                com.minthive.entity.User author = userMapper.selectById(accusedId);
+                accusedName = author != null ? author.getNickname() : ("用户" + accusedId);
+            }
+        } else if (tt == 2) {
+            // 举报评论：查 comment 表
+            com.minthive.entity.Comment comment = commentMapper.selectById(r.getTargetId());
+            if (comment != null) {
+                targetContent = comment.getContent();
+                accusedId = comment.getUserId();
+                com.minthive.entity.User commenter = userMapper.selectById(accusedId);
+                accusedName = commenter != null ? commenter.getNickname() : ("用户" + accusedId);
+            }
+        } else if (tt == 4) {
+            // 举报用户：内容就是用户信息
+            com.minthive.entity.User accusedUser = userMapper.selectById(r.getTargetId());
+            if (accusedUser != null) {
+                targetContent = "账号: " + accusedUser.getAccount() + " | 昵称: " + accusedUser.getNickname()
+                        + " | 简介: " + (accusedUser.getBio() != null ? accusedUser.getBio() : "");
+                accusedName = accusedUser.getNickname();
+            }
+        }
+
+        m.put("targetContent", targetContent);
+        m.put("accusedId", accusedId);
+        m.put("accusedName", accusedName);
+
+        // AI 分析文案
+        m.put("aiAnalysis", "风险等级: " + (r.getAiRiskLevel() == null ? "未评估"
+                : r.getAiRiskLevel() == 1 ? "低"
+                : r.getAiRiskLevel() == 2 ? "中"
+                : r.getAiRiskLevel() == 3 ? "高" : "未知"));
+
+        return Result.success(m);
     }
 
     /**

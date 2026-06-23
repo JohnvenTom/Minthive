@@ -212,6 +212,11 @@ public class MessageServiceImpl implements MessageService {
             allNotifications.addAll(buildSystemMsgNotifications(userId, 5, "system"));
         }
 
+        // ---------- 6. 举报结果通知：来自 system_msg (msgType=7) ----------
+        if (type == null || type.isEmpty() || "report".equals(type)) {
+            allNotifications.addAll(buildSystemMsgNotifications(userId, Constants.SYS_MSG_TYPE_REPORT, "report"));
+        }
+
         // ---------- 全局排序（按时间倒序）----------
         allNotifications.sort((a, b) -> {
             LocalDateTime ta = (LocalDateTime) a.get("createTime");
@@ -300,11 +305,11 @@ public class MessageServiceImpl implements MessageService {
                         .eq(SystemMsg::getIsRead, Constants.READ_STATUS_UNREAD));
         unreadMap.put("circle", (int) circleUnread);
 
-        // 6. 系统通知未读：system_msg 中 msgType=5 且 isRead=0
+        // 6. 系统通知未读：system_msg 中 msgType=5 或 msgType=7(举报结果) 且 isRead=0
         long systemUnread = systemMsgMapper.selectCount(
                 new LambdaQueryWrapper<SystemMsg>()
                         .eq(SystemMsg::getUserId, userId)
-                        .eq(SystemMsg::getMsgType, 5)
+                        .in(SystemMsg::getMsgType, 5, Constants.SYS_MSG_TYPE_REPORT)
                         .eq(SystemMsg::getIsRead, Constants.READ_STATUS_UNREAD));
         unreadMap.put("system", (int) systemUnread);
 

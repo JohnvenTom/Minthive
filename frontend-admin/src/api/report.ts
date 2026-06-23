@@ -8,8 +8,8 @@ import type { PageQuery, PageResult, RiskLevel, WorkOrderStatus } from './types'
 
 /** 举报工单查询参数 */
 export interface ReportQuery extends PageQuery {
+  keyword?: string
   status?: WorkOrderStatus
-  riskLevel?: RiskLevel
   type?: string
 }
 
@@ -36,9 +36,9 @@ export interface ReportWorkOrder {
 /** 处罚入参 */
 export interface PunishParams {
   workOrderId: number
-  action: 'DELETE_CONTENT' | 'BAN_USER' | 'WARN'
-  duration?: number
-  remark: string
+  punishType: 'ban' | 'warn'
+  reason: string
+  deleteContent?: boolean
 }
 
 /**
@@ -63,14 +63,7 @@ export function rejectReport(workOrderId: number, remark: string) {
 }
 
 /**
- * 删除违规内容
- */
-export function deleteReportContent(workOrderId: number) {
-  return post('/report/delete-content', { workOrderId })
-}
-
-/**
- * 处罚违规用户
+ * 处罚违规用户（含可选删除被举报内容）
  */
 export function punishUser(params: PunishParams) {
   return post('/report/punish', params)

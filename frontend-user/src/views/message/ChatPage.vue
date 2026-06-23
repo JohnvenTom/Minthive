@@ -71,7 +71,7 @@
             <rect x="34" y="102" width="172" height="36" rx="4" ry="4"
                   fill="none" stroke="#dc2626" stroke-width="1"
                   opacity="0.5" />
-            <text x="120" y="128" text-anchor="middle"
+            <text x="120" y="133" text-anchor="middle"
                   font-family="'Impact','Arial Black',sans-serif"
                   font-size="32" font-weight="900" letter-spacing="4"
                   fill="#dc2626" filter="url(#stamp-grunge-chat)">BANNED</text>
@@ -959,9 +959,9 @@ onUnmounted(() => {
 }
 
 @keyframes stamp-pop {
-  0% { opacity: 0; transform: scale(0) rotate(-30deg); }
-  40% { opacity: 1; transform: scale(1.15) rotate(-4deg); }
-  55% { opacity: 1; transform: scale(1.12) rotate(-6deg); }
+  0% { opacity: 0; transform: scale(2.5) rotate(-30deg); }
+  40% { opacity: 1; transform: scale(0.88) rotate(-8deg); }
+  55% { opacity: 1; transform: scale(0.92) rotate(-4deg); }
   100% { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 

@@ -8,7 +8,6 @@ import {
   getReportList,
   getReportDetail,
   rejectReport,
-  deleteReportContent,
   punishUser,
   type ReportWorkOrder,
   type ReportQuery,
@@ -28,8 +27,8 @@ const total = ref(0)
 const query = reactive<ReportQuery>({
   page: 1,
   pageSize: 10,
+  keyword: '',
   status: undefined,
-  riskLevel: undefined,
   type: ''
 })
 
@@ -58,22 +57,28 @@ const rejectForm = reactive({ workOrderId: 0, remark: '' })
 const punishVisible = ref(false)
 const punishForm = reactive<PunishParams>({
   workOrderId: 0,
-  action: 'WARN',
-  duration: 24,
-  remark: ''
+  punishType: 'warn',
+  reason: '',
+  deleteContent: false
 })
 
 /** 风险等级排序权重（用于前端兜底排序） */
 const riskWeight: Record<RiskLevel, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 }
 
 /**
- * 加载工单列表
+ * 加载工单列表（过滤空值/undefined 参数，避免后端查询异常）
  */
 async function loadList() {
   loading.value = true
   try {
-    const res = await getReportList(query)
-    // 前端兜底按风险等级降序排序
+    // 过滤空值：空字符串、undefined、null 不传给后端
+    const params: Record<string, any> = {}
+    if (query.keyword) params.keyword = query.keyword
+    if (query.status !== undefined && query.status !== '') params.status = query.status
+    if (query.type !== undefined && query.type !== '') params.type = query.type
+    params.page = query.page
+    params.pageSize = query.pageSize
+    const res = await getReportList(params as ReportQuery)
     reportList.value = res.list.sort((a, b) => riskWeight[b.riskLevel] - riskWeight[a.riskLevel])
     total.value = res.total
   } catch (e) {
@@ -126,29 +131,14 @@ async function confirmReject() {
 }
 
 /**
- * 删除违规内容
- * @param row 行数据
- */
-async function handleDeleteContent(row: ReportWorkOrder) {
-  try {
-    await ElMessageBox.confirm(`确认删除被举报内容（工单 ${row.workOrderId}）？`, '删除确认', { type: 'warning' })
-    await deleteReportContent(row.workOrderId)
-    ElMessage.success('内容已删除')
-    loadList()
-  } catch (e) {
-    // ignore
-  }
-}
-
-/**
  * 打开处罚弹窗
  * @param row 行数据
  */
 function handlePunish(row: ReportWorkOrder) {
   punishForm.workOrderId = row.workOrderId
-  punishForm.action = 'WARN'
-  punishForm.duration = 24
-  punishForm.remark = ''
+  punishForm.punishType = 'warn'
+  punishForm.reason = ''
+  punishForm.deleteContent = false
   punishVisible.value = true
 }
 
@@ -156,7 +146,7 @@ function handlePunish(row: ReportWorkOrder) {
  * 确认处罚
  */
 async function confirmPunish() {
-  if (!punishForm.remark) {
+  if (!punishForm.reason) {
     ElMessage.warning('请填写处罚说明')
     return
   }
@@ -188,19 +178,15 @@ onMounted(() => {
     <!-- 搜索栏 -->
     <div class="base-card search-bar">
       <el-form inline>
-        <el-form-item label="风险等级">
-          <el-select v-model="query.riskLevel" placeholder="全部" clearable style="width: 140px">
-            <el-option label="高风险" value="HIGH" />
-            <el-option label="中风险" value="MEDIUM" />
-            <el-option label="低风险" value="LOW" />
-          </el-select>
+        <el-form-item label="关键词">
+          <el-input v-model="query.keyword" placeholder="搜索举报原因/内容" clearable style="width: 200px"
+                    @keyup.enter="loadList" />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="query.status" placeholder="全部" clearable style="width: 140px">
             <el-option label="待处理" value="PENDING" />
-            <el-option label="处理中" value="PROCESSING" />
-            <el-option label="已处理" value="RESOLVED" />
             <el-option label="已驳回" value="REJECTED" />
+            <el-option label="已处理" value="RESOLVED" />
           </el-select>
         </el-form-item>
         <el-form-item label="类型">
@@ -244,11 +230,8 @@ onMounted(() => {
             <el-button text type="primary" size="small" @click="handleDetail(row)">详情</el-button>
             <template v-if="row.status === 'PENDING'">
               <el-button text type="info" size="small" @click="handleReject(row)">驳回</el-button>
+              <el-button text type="danger" size="small" @click="handlePunish(row)">处罚</el-button>
             </template>
-          </div>
-          <div class="action-btns" v-if="row.status === 'PENDING'">
-            <el-button text type="warning" size="small" @click="handleDeleteContent(row)">删除内容</el-button>
-            <el-button text type="danger" size="small" @click="handlePunish(row)">处罚</el-button>
           </div>
         </template>
       </DataTable>
@@ -298,21 +281,16 @@ onMounted(() => {
     <el-dialog v-model="punishVisible" title="处罚违规用户" width="480px">
       <el-form :model="punishForm" label-width="100px">
         <el-form-item label="处罚方式">
-          <el-radio-group v-model="punishForm.action">
-            <el-radio value="WARN">警告</el-radio>
-            <el-radio value="BAN_USER">封禁用户</el-radio>
-            <el-radio value="DELETE_CONTENT">删除内容</el-radio>
+          <el-radio-group v-model="punishForm.punishType">
+            <el-radio value="warn">警告</el-radio>
+            <el-radio value="ban">封禁用户</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="punishForm.action === 'BAN_USER'" label="封禁时长">
-          <el-radio-group v-model="punishForm.duration">
-            <el-radio :value="24">24小时</el-radio>
-            <el-radio :value="72">3天</el-radio>
-            <el-radio :value="0">永久</el-radio>
-          </el-radio-group>
+        <el-form-item label="同时删除内容">
+          <el-switch v-model="punishForm.deleteContent" active-text="是" inactive-text="否" />
         </el-form-item>
         <el-form-item label="处罚说明">
-          <el-input v-model="punishForm.remark" type="textarea" :rows="3" placeholder="请填写处罚说明" />
+          <el-input v-model="punishForm.reason" type="textarea" :rows="3" placeholder="请填写处罚说明" />
         </el-form-item>
       </el-form>
       <template #footer>

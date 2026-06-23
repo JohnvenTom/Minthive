@@ -148,6 +148,11 @@
               <svg v-else-if="notify.type === 'circle'" width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M12 2L22 8.5V15.5L12 22L2 15.5V8.5L12 2Z" stroke="currentColor" stroke-width="2"/>
               </svg>
+              <svg v-else-if="notify.type === 'report'" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <circle cx="12" cy="17" r="0.7" fill="currentColor"/>
+              </svg>
               <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
                 <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -273,12 +278,14 @@ const unreadData = ref<{
   message: number
   circle: number
   system: number
+  report: number
 }>({
   like: 0,
   comment: 0,
   message: 0,
   circle: 0,
-  system: 0
+  system: 0,
+  report: 0
 })
 
 // ---------- 通知类型筛选配置 ----------
@@ -288,7 +295,7 @@ const notifyFilters = [
   { label: '评论', value: 'comment', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="2"/></svg>' },
   { label: '关注', value: 'follow', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' },
   { label: '圈子', value: 'circle', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L22 8.5V15.5L12 22L2 15.5V8.5L12 2Z" stroke="currentColor" stroke-width="2"/></svg>' },
-  { label: '系统', value: 'system', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' }
+  { label: '举报结果', value: 'report', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>' }
 ]
 
 // ---------- 计算属性 ----------
@@ -299,7 +306,7 @@ const notifyFilters = [
  */
 const notifyUnread = computed(() => {
   return unreadData.value.like + unreadData.value.comment +
-    unreadData.value.follow + unreadData.value.circle + unreadData.value.system
+    unreadData.value.follow + unreadData.value.circle + unreadData.value.system + unreadData.value.report
 })
 
 /**
@@ -452,17 +459,18 @@ function onNotifyClick(notify: Notification): void {
 
 /**
  * 获取通知动作描述
- * @param {'like' | 'comment' | 'follow' | 'circle' | 'system'} type - 通知类型
+ * @param {'like' | 'comment' | 'follow' | 'circle' | 'system' | 'report'} type - 通知类型
  * @returns {string} 动作描述文本
  */
-function getNotifyAction(type: 'like' | 'comment' | 'reply' | 'follow' | 'circle' | 'system'): string {
+function getNotifyAction(type: 'like' | 'comment' | 'reply' | 'follow' | 'circle' | 'system' | 'report'): string {
   const map: Record<string, string> = {
     like: '赞了你的动态',
     comment: '评论了你的动态',
     reply: '回复了你',
     follow: '关注了你',
     circle: '圈子有新动态',
-    system: '系统通知'
+    system: '系统通知',
+    report: '举报结果通知'
   }
   return map[type] || '通知'
 }
@@ -908,6 +916,11 @@ onUnmounted(() => {
     background: rgba(255, 182, 39, 0.12);
     color: $amber-500;
   }
+
+  &.report {
+    background: rgba(255, 107, 107, 0.1);
+    color: $coral-500;
+  }
 }
 
 .notify-content {
@@ -950,10 +963,16 @@ onUnmounted(() => {
 }
 
 .notify-extra {
-  font-size: 12px;
+  font-size: 13px;
   color: $ink-500;
   margin-top: 2px;
-  @include ellipsis-1;
+  line-height: 1.6;
+  /* 系统类/举报结果通知允许多行显示 */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .notify-time {

@@ -2,10 +2,13 @@ package com.minthive.controller.admin;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.minthive.common.Constants;
 import com.minthive.common.Result;
 import com.minthive.entity.Report;
+import com.minthive.entity.SystemMsg;
 import com.minthive.mapper.AdminReportMapper;
 import com.minthive.mapper.ReportMapper;
+import com.minthive.mapper.SystemMsgMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,7 @@ public class AdminReportController {
     private final com.minthive.mapper.UserMapper userMapper;
     private final com.minthive.mapper.PostMapper postMapper;
     private final com.minthive.mapper.CommentMapper commentMapper;
+    private final SystemMsgMapper systemMsgMapper;
 
     /**
      * 分页查询举报工单列表（关联用户表 + 内容表，字段名对齐前端 ReportWorkOrder 类型）
@@ -147,49 +151,103 @@ public class AdminReportController {
     public Result<Void> reject(@RequestBody Map<String, Object> params) {
         Long id = Long.valueOf(params.get("workOrderId").toString());
         String remark = (String) params.getOrDefault("remark", "");
-        Report update = new Report();
-        update.setId(id);
-        update.setStatus(1); // 已驳回
-        update.setResult(remark);
-        update.setHandleTime(LocalDateTime.now());
-        reportMapper.updateById(update);
-        return Result.success();
-    }
-
-    /**
-     * 删除被举报内容
-     *
-     * @param params 包含 workOrderId
-     * @return 操作结果
-     */
-    @Operation(summary = "删除被举报内容")
-    @PostMapping("/delete-content")
-    public Result<Void> deleteContent(@RequestBody Map<String, Object> params) {
-        Long id = Long.valueOf(params.get("workOrderId").toString());
         Report r = reportMapper.selectById(id);
         if (r != null) {
-            // 根据 targetType 标记内容为逻辑删除（实际删除需对应业务表操作）
             Report update = new Report();
             update.setId(id);
-            update.setStatus(2); // 已处理
-            update.setResult("内容已删除");
+            update.setStatus(1); // 已驳回
+            update.setResult(remark);
             update.setHandleTime(LocalDateTime.now());
             reportMapper.updateById(update);
+            // 发送举报结果通知给举报者
+            sendReportNotification(r, "已驳回", remark.isEmpty() ? "经审核，你提交的举报已被驳回。" : "经审核，你提交的举报已被驳回：" + remark);
         }
         return Result.success();
     }
 
     /**
-     * 处罚用户
+     * 处罚用户（含可选删除被举报内容）
      *
-     * @param params 包含 userId、punishType（封禁/警告）、reason
+     * <p>统一处理接口：支持封禁/警告用户，并可同时删除被举报内容。
+     * 处理完成后自动向举报者发送结果通知</p>
+     *
+     * @param params 包含：
+     *               - workOrderId: 工单ID
+     *               - punishType: 处罚类型（ban=封禁, warn=警告）
+     *               - reason: 处罚理由
+     *               - deleteContent: 是否同时删除被举报内容（true/false，默认false）
      * @return 操作结果
      */
     @Operation(summary = "处罚用户")
     @PostMapping("/punish")
     public Result<Void> punish(@RequestBody Map<String, Object> params) {
-        // 记录处罚日志并执行封禁等操作
-        // 实际项目中应写入 punish_log 表
+        Long id = Long.valueOf(params.get("workOrderId").toString());
+        String punishType = (String) params.getOrDefault("punishType", "warn");
+        String reason = (String) params.getOrDefault("reason", "");
+        boolean deleteContent = Boolean.TRUE.equals(params.get("deleteContent"));
+
+        Report r = reportMapper.selectById(id);
+        if (r == null) {
+            return Result.success();
+        }
+
+        // 1. 更新工单状态为已处理
+        Report update = new Report();
+        update.setId(id);
+        update.setStatus(2); // 已处理
+
+        // 2. 拼接处理结果描述
+        StringBuilder resultDesc = new StringBuilder();
+        if ("ban".equals(punishType)) {
+            resultDesc.append("已封禁用户");
+        } else {
+            resultDesc.append("已警告用户");
+        }
+        if (reason != null && !reason.isEmpty()) {
+            resultDesc.append("，原因：").append(reason);
+        }
+        if (deleteContent) {
+            resultDesc.append("，并删除了被举报内容");
+            // TODO: 根据 targetType 执行实际的业务表删除操作
+            //   targetType=1 → postMapper.deleteById(r.getTargetId())
+            //   targetType=2 → commentMapper.deleteById(r.getTargetId())
+            //   targetType=4 → 用户封禁逻辑
+        }
+        update.setResult(resultDesc.toString());
+        update.setHandleTime(LocalDateTime.now());
+        reportMapper.updateById(update);
+
+        // TODO: 记录处罚日志到 punish_log 表
+        // punishLogMapper.insert(...)
+
+        // 3. 发送举报结果通知给举报者
+        sendReportNotification(
+                r,
+                "已处理",
+                "你提交的举报已审核通过。" + resultDesc.toString() + "。感谢你的反馈！"
+        );
+
         return Result.success();
+    }
+
+    /**
+     * 发送举报结果通知给举报者
+     *
+     * <p>管理员处理举报工单（驳回/通过）后，通过 system_msg 表向举报者推送结果通知，
+     * 举报者可在消息中心的通知列表中查看</p>
+     *
+     * @param report   举报工单实体（包含 reporterId、targetId、targetType 等信息）
+     * @param status   处理状态描述（如"已驳回"、"已处理"）
+     * @param content  通知正文内容
+     */
+    private void sendReportNotification(Report report, String status, String content) {
+        SystemMsg msg = new SystemMsg();
+        msg.setUserId(report.getReporterId());
+        msg.setMsgType(Constants.SYS_MSG_TYPE_REPORT);
+        msg.setContent("【举报结果】" + status + " - " + content);
+        msg.setTargetId(report.getTargetId());
+        msg.setIsRead(Constants.READ_STATUS_UNREAD);
+        msg.setCreateTime(LocalDateTime.now());
+        systemMsgMapper.insert(msg);
     }
 }

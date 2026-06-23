@@ -28,6 +28,19 @@
                 <span class="report-dialog__type-text">{{ item.label }}</span>
               </button>
             </div>
+            <!-- 自定义类型输入框 -->
+            <Transition name="slide-down">
+              <div v-if="selectedType === '自定义'" class="custom-type-input-wrap">
+                <input
+                  v-model="customType"
+                  class="report-dialog__custom-input"
+                  type="text"
+                  maxlength="20"
+                  placeholder="请填写自定义举报类型..."
+                />
+                <span class="custom-type-hint">{{ customType.length }}/20</span>
+              </div>
+            </Transition>
           </div>
 
           <!-- 举报理由 -->
@@ -61,10 +74,10 @@
 <script setup lang="ts">
 /**
  * ReportDialog 举报弹窗组件
- * @description 举报类型选择+理由输入+提交，调用举报API
+ * @description 举报类型选择（含自定义）+理由输入+提交，调用举报API
  * @param {boolean} visible - 弹窗是否可见
  * @param {number} targetId - 被举报内容ID
- * @param {string} targetType - 被举报内容类型
+ * @param {string} targetType - 被举报内容类型（post/comment/message/user）
  * @emits update:visible - 更新弹窗可见状态
  * @emits success - 举报成功事件
  */
@@ -91,15 +104,19 @@ const emit = defineEmits<{
 
 /** 举报类型选项 */
 const reportTypes = [
-  { value: 'porn' as const, label: '低俗色情', icon: '🚫' },
-  { value: 'ad' as const, label: '广告引流', icon: '📢' },
-  { value: 'attack' as const, label: '人身攻击', icon: '👊' },
-  { value: 'illegal' as const, label: '违法内容', icon: '⚠️' },
-  { value: 'copy' as const, label: '抄袭搬运', icon: '📋' }
+  { value: '低俗色情', label: '低俗色情', icon: '🚫' },
+  { value: '广告引流', label: '广告引流', icon: '📢' },
+  { value: '人身攻击', label: '人身攻击', icon: '👊' },
+  { value: '违法内容', label: '违法内容', icon: '⚠️' },
+  { value: '抄袭搬运', label: '抄袭搬运', icon: '📋' },
+  { value: '自定义', label: '其他（自定义）', icon: '✏️' }
 ]
 
 /** 选中的举报类型 */
-const selectedType = ref<'porn' | 'ad' | 'attack' | 'illegal' | 'copy' | ''>('')
+const selectedType = ref<string>('')
+
+/** 自定义举报类型（当选择"其他(自定义)"时使用） */
+const customType = ref('')
 
 /** 举报理由 */
 const reason = ref('')
@@ -111,6 +128,7 @@ const isSubmitting = ref(false)
 watch(() => props.visible, (val) => {
   if (val) {
     selectedType.value = ''
+    customType.value = ''
     reason.value = ''
     isSubmitting.value = false
   }
@@ -128,17 +146,21 @@ function handleClose(): void {
 
 /**
  * 提交举报
- * @description 校验并调用举报API
+ * @description 校验并调用举报API，自定义类型时使用用户输入的值
  */
 async function handleSubmit(): Promise<void> {
   if (!selectedType.value || isSubmitting.value) return
+  // 自定义类型必须填写内容
+  if (selectedType.value === '自定义' && !customType.value.trim()) return
 
   isSubmitting.value = true
   try {
+    // 自定义类型使用用户输入值，否则使用选中的预设类型
+    const reportType = selectedType.value === '自定义' ? customType.value.trim() : selectedType.value
     await report({
       targetId: props.targetId,
       targetType: props.targetType,
-      type: selectedType.value,
+      type: reportType,
       reason: reason.value
     })
     emit('success')
@@ -297,6 +319,28 @@ async function handleSubmit(): Promise<void> {
     margin-top: $space-1;
   }
 
+  // ---------- 自定义类型输入框 ----------
+  &__custom-input {
+    width: 100%;
+    border: 1.5px solid $mint-300;
+    border-radius: $radius-sm;
+    padding: 10px $space-3;
+    font-size: 14px;
+    color: $ink-700;
+    outline: none;
+    font-family: $font-body;
+    transition: all $dur-fast ease;
+
+    &::placeholder {
+      color: $mint-500;
+    }
+
+    &:focus {
+      border-color: $mint-600;
+      box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.12);
+    }
+  }
+
   // ---------- 提交按钮 ----------
   &__submit {
     width: 100%;
@@ -325,7 +369,38 @@ async function handleSubmit(): Promise<void> {
   }
 }
 
-// ---------- 过渡动画 ----------
+// ---------- 自定义类型容器 ----------
+.custom-type-input-wrap {
+  margin-top: $space-2;
+  position: relative;
+
+  .custom-type-hint {
+    display: block;
+    text-align: right;
+    font-size: 11px;
+    color: $mint-500;
+    margin-top: $space-1;
+  }
+}
+
+// ---------- 下滑展开动画 ----------
+.slide-down-enter-active {
+  animation: slide-down-in 0.25s $ease-spring both;
+}
+.slide-down-leave-active {
+  animation: slide-down-out 0.15s ease both;
+}
+
+@keyframes slide-down-in {
+  from { opacity: 0; transform: translateY(-8px); max-height: 0; }
+  to   { opacity: 1; transform: translateY(0); max-height: 60px; }
+}
+@keyframes slide-down-out {
+  from { opacity: 1; transform: translateY(0); max-height: 60px; }
+  to   { opacity: 0; transform: translateY(-4px); max-height: 0; }
+}
+
+// ---------- 弹窗过渡动画 ----------
 .dialog-fade-enter-active {
   .report-dialog__overlay {
     animation: fade-in 0.25s ease both;

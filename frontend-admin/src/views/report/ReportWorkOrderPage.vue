@@ -244,9 +244,11 @@ onMounted(() => {
             <el-button text type="primary" size="small" @click="handleDetail(row)">详情</el-button>
             <template v-if="row.status === 'PENDING'">
               <el-button text type="info" size="small" @click="handleReject(row)">驳回</el-button>
-              <el-button text type="warning" size="small" @click="handleDeleteContent(row)">删除内容</el-button>
-              <el-button text type="danger" size="small" @click="handlePunish(row)">处罚</el-button>
             </template>
+          </div>
+          <div class="action-btns" v-if="row.status === 'PENDING'">
+            <el-button text type="warning" size="small" @click="handleDeleteContent(row)">删除内容</el-button>
+            <el-button text type="danger" size="small" @click="handlePunish(row)">处罚</el-button>
           </div>
         </template>
       </DataTable>
@@ -350,7 +352,10 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  flex-wrap: nowrap;
+  margin-bottom: 4px;
+  &:last-child {
+    margin-bottom: 0;
+  }
   .el-button--text,
   .el-button.is-text {
     padding: 4px 12px;

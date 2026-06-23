@@ -29,6 +29,7 @@ CREATE TABLE `user` (
     `interest_tags`       VARCHAR(500) DEFAULT NULL COMMENT '兴趣标签(逗号分隔)',
     `ai_interest_vector`  TEXT         DEFAULT NULL COMMENT 'AI用户兴趣向量(JSON/向量字符串)',
     `register_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
+    `last_login_time`     DATETIME     DEFAULT NULL COMMENT '最近登录时间',
     `status`              TINYINT      NOT NULL DEFAULT 1 COMMENT '账号状态:0封禁 1正常',
     `cancel_status`       TINYINT      NOT NULL DEFAULT 0 COMMENT '注销状态:0正常 1注销中 2已注销',
     `role`                TINYINT      NOT NULL DEFAULT 0 COMMENT '角色:0普通用户 1圈主 2管理员',

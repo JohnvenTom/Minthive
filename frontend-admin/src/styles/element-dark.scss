@@ -431,6 +431,52 @@
   font-weight: 500;
 }
 
+// Descriptions 描述列表 — 暮光玫瑰层次配色（深浅交替）
+.el-descriptions {
+  --el-descriptions-table-border: 1px solid #{$border-divider};
+  background: transparent !important;
+  border-radius: $radius-lg;
+  overflow: hidden;
+  border: 1px solid #{$border-base};
+}
+.el-descriptions__body {
+  background: transparent !important;
+}
+.el-descriptions__table {
+  background: transparent !important;
+}
+.el-descriptions__label {
+  // 标签列 — 稍深的暖灰底，与内容区形成对比
+  background: #2a2a30 !important;
+  color: #A1A1AA !important;   // zinc-400 柔和灰色
+  font-weight: 600;
+  font-size: 13px;
+  border-color: #333340 !important;
+  padding: 14px 18px !important;
+  width: 100px;
+}
+.el-descriptions__content {
+  // 内容列 — 更亮的底色，信息清晰可读
+  background: #{$bg-elevated} !important;
+  color: #{$text-primary} !important;
+  border-color: #333340 !important;
+  padding: 14px 18px !important;
+  font-size: 13.5px;
+
+  // 内容内的 tag 也适配
+  .el-tag {
+    font-size: 12px;
+  }
+}
+
+// 奇偶行微差 — 增加层次感
+.el-descriptions__table tr:nth-child(odd) .el-descriptions__label {
+  background: #252529 !important;
+}
+.el-descriptions__table tr:nth-child(odd) .el-descriptions__content {
+  background: #232328 !important;
+}
+
 // Tag 标签
 .el-tag {
   border-radius: $radius-sm;

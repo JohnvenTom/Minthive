@@ -286,7 +286,7 @@ onMounted(() => {
           <el-descriptions-item label="注册时间">{{ detailData.registerTime }}</el-descriptions-item>
           <el-descriptions-item label="最近登录">{{ detailData.lastLoginTime }}</el-descriptions-item>
           <el-descriptions-item label="兴趣标签" :span="2">
-            <el-tag v-for="t in detailData.interests" :key="t" size="small" style="margin-right: 4px">{{ t }}</el-tag>
+            <el-tag v-for="(t, i) in (typeof detailData.interests === 'string' ? detailData.interests.split(',').map(s => s.trim()) : detailData.interests)" :key="i" size="small" style="margin-right: 4px">{{ t }}</el-tag>
           </el-descriptions-item>
         </el-descriptions>
       </div>

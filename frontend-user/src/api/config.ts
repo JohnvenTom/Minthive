@@ -1,4 +1,4 @@
-import { get } from './request'
+import { request } from './request'
 
 /**
  * 首页轮播图数据结构
@@ -18,5 +18,5 @@ export interface Banner {
  * @returns {Promise<Banner[]>} 启用状态的轮播图数组
  */
 export function getBanners() {
-  return get<Banner[]>('/config/banners')
+  return request<Banner[]>({ url: '/config/banners', method: 'get' })
 }

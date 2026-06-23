@@ -750,8 +750,9 @@ onUnmounted(() => {
 // ============================================================
 
 .login-page {
-  position: relative;
-  width: 100%;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
   height: 100vh;
   overflow: hidden;
   background: $ink-900;

@@ -882,10 +882,6 @@ async function onLogout(): Promise<void> {
 // ---------- 生命周期 ----------
 onMounted(() => {
   fetchUserProfile()
-  // 默认展开动态内容（帖子）
-  if (isSelf.value) {
-    showContent.value = true
-  }
   fetchContent(true)
 })
 

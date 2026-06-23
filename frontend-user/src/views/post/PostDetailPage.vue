@@ -297,7 +297,7 @@ import ShareChainDialog from '@/components/ShareChainDialog.vue'
 import EditPostDialog from '@/components/EditPostDialog.vue'
 import { useUserStore } from '@/stores/user'
 import { getPostDetail, toggleLike, toggleCollect, sharePost, deletePost, updatePost, togglePostVisibility } from '@/api/post'
-import { getComments, createComment, toggleCommentLike, deleteComment } from '@/api/comment'
+import { getComments, createComment, toggleCommentLike } from '@/api/comment'
 import { aiGenerateComment } from '@/api/ai'
 import { report } from '@/api/report'
 import { wsClient } from '@/utils/websocket'
@@ -561,23 +561,14 @@ function onReply(comment: Comment): void {
 
 /**
  * 删除本人评论
- * @param {Comment} comment - 要删除的评论
- * @returns {Promise<void>}
+ * @description 由 CommentItem 内部完成确认弹窗和API调用，此处仅负责从列表中移除
+ * @param {number} id - 被删除评论的ID
+ * @returns {void}
  */
-async function onCommentDelete(comment: Comment): Promise<void> {
-  try {
-    await showConfirmDialog({
-      title: '确认删除',
-      message: '删除后不可恢复，确认删除该评论吗？'
-    })
-    await deleteComment(comment.id)
-    comments.value = comments.value.filter(c => c.id !== comment.id)
-    commentTotal.value--
-    if (post.value) post.value.commentCount--
-    showToast('已删除')
-  } catch (e: any) {
-    if (e !== 'cancel') showToast('删除失败')
-  }
+function onCommentDelete(id: number): void {
+  comments.value = comments.value.filter(c => c.id !== id)
+  commentTotal.value--
+  if (post.value) post.value.commentCount--
 }
 
 /**

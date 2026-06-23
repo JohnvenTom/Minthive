@@ -65,6 +65,29 @@ const punishForm = reactive<PunishParams>({
 /** 风险等级排序权重（用于前端兜底排序） */
 const riskWeight: Record<RiskLevel, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 }
 
+/** 举报类型选项列表 */
+const reportTypeOptions = [
+  { label: '低俗色情', value: '低俗色情' },
+  { label: '广告引流', value: '广告引流' },
+  { label: '人身攻击', value: '人身攻击' },
+  { label: '违法内容', value: '违法内容' },
+  { label: '抄袭搬运', value: '抄袭搬运' }
+]
+
+/**
+ * 关键词模糊搜索建议（包含匹配，不区分大小写）
+ * @param queryString 用户输入的搜索关键字
+ * @param cb 回调函数，传入建议列表
+ */
+function queryKeywordSuggestions(queryString: string, cb: (results: { value: string }[]) => void) {
+  const keyword = queryString.toLowerCase()
+  // 从举报类型中模糊匹配，同时保留用户自定义输入
+  const results = reportTypeOptions
+    .filter(item => item.label.toLowerCase().includes(keyword))
+    .map(item => ({ value: item.label }))
+  cb(results)
+}
+
 /**
  * 加载工单列表（过滤空值/undefined 参数，避免后端查询异常）
  */
@@ -179,8 +202,15 @@ onMounted(() => {
     <div class="base-card search-bar">
       <el-form inline>
         <el-form-item label="关键词">
-          <el-input v-model="query.keyword" placeholder="搜索举报原因/内容" clearable style="width: 200px"
-                    @keyup.enter="loadList" />
+          <el-autocomplete
+            v-model="query.keyword"
+            :fetch-suggestions="queryKeywordSuggestions"
+            placeholder="搜索举报原因/内容"
+            clearable
+            style="width: 200px"
+            @select="loadList"
+            @keyup.enter="loadList"
+          />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="query.status" placeholder="全部" clearable style="width: 140px">
@@ -190,12 +220,20 @@ onMounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item label="类型">
-          <el-select v-model="query.type" placeholder="全部" clearable style="width: 140px">
-            <el-option label="低俗色情" value="低俗色情" />
-            <el-option label="广告引流" value="广告引流" />
-            <el-option label="人身攻击" value="人身攻击" />
-            <el-option label="违法内容" value="违法内容" />
-            <el-option label="抄袭搬运" value="抄袭搬运" />
+          <el-select
+            v-model="query.type"
+            placeholder="全部"
+            clearable
+            filterable
+            allow-create
+            style="width: 160px"
+          >
+            <el-option
+              v-for="item in reportTypeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item>

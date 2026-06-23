@@ -41,7 +41,7 @@ public class AdminReportController {
      * @param page     页码
      * @param pageSize 每页大小
      * @param keyword  搜索关键词
-     * @param status   工单状态（0待处理 1已驳回 2已处理）
+     * @param status   工单状态（PENDING/REJECTED/RESOLVED，兼容数字 0/1/2）
      * @param type     举报类型
      * @return 分页结果 {list, total, page, pageSize}
      */
@@ -51,10 +51,12 @@ public class AdminReportController {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String type) {
+        // 将前端字符串状态映射为数据库数字值
+        Integer statusInt = mapStatusToInt(status);
         IPage<Map<String, Object>> p = adminReportMapper.selectReportListWithDetails(
-                new Page<>(page, pageSize), keyword, status, type);
+                new Page<>(page, pageSize), keyword, statusInt, type);
         Map<String, Object> data = new HashMap<>(4);
         data.put("list", p.getRecords());
         data.put("total", p.getTotal());
@@ -196,10 +198,15 @@ public class AdminReportController {
         update.setId(id);
         update.setStatus(2); // 已处理
 
-        // 2. 拼接处理结果描述
+        // 2. 拼接处理结果描述 & 执行实际处罚操作
         StringBuilder resultDesc = new StringBuilder();
         if ("ban".equals(punishType)) {
             resultDesc.append("已封禁用户");
+            try {
+                doBanAccusedUser(r);
+            } catch (Exception e) {
+                resultDesc.append("（封禁执行失败）");
+            }
         } else {
             resultDesc.append("已警告用户");
         }
@@ -208,17 +215,15 @@ public class AdminReportController {
         }
         if (deleteContent) {
             resultDesc.append("，并删除了被举报内容");
-            // TODO: 根据 targetType 执行实际的业务表删除操作
-            //   targetType=1 → postMapper.deleteById(r.getTargetId())
-            //   targetType=2 → commentMapper.deleteById(r.getTargetId())
-            //   targetType=4 → 用户封禁逻辑
+            try {
+                deleteTargetContent(r);
+            } catch (Exception e) {
+                resultDesc.append("（删除执行失败）");
+            }
         }
         update.setResult(resultDesc.toString());
         update.setHandleTime(LocalDateTime.now());
         reportMapper.updateById(update);
-
-        // TODO: 记录处罚日志到 punish_log 表
-        // punishLogMapper.insert(...)
 
         // 3. 发送举报结果通知给举报者
         sendReportNotification(
@@ -228,6 +233,65 @@ public class AdminReportController {
         );
 
         return Result.success();
+    }
+
+    /**
+     * 执行封禁被举报用户操作
+     * <p>功能：根据 targetType 确定被举报人，将其 user.status 设为 0（封禁）</p>
+     *
+     * @param report 举报工单实体
+     */
+    private void doBanAccusedUser(Report report) {
+        Long accusedId = resolveAccusedUserId(report);
+        if (accusedId == null) {
+            return;
+        }
+        com.minthive.entity.User userUpdate = new com.minthive.entity.User();
+        userUpdate.setId(accusedId);
+        userUpdate.setStatus(0); // 封禁
+        userMapper.updateById(userUpdate);
+    }
+
+    /**
+     * 根据举报工单解析被举报人用户ID
+     * <p>功能：根据 targetType 从对应业务表中获取被举报人的真实 userId</p>
+     *
+     * @param report 举报工单实体
+     * @return 被举报人用户ID，无法确定时返回 null
+     */
+    private Long resolveAccusedUserId(Report report) {
+        Integer targetType = report.getTargetType();
+        if (targetType == 1) {
+            // 举报帖子：被封禁的是帖子作者
+            com.minthive.entity.Post post = postMapper.selectById(report.getTargetId());
+            return post != null ? post.getUserId() : null;
+        } else if (targetType == 2) {
+            // 举报评论：被封禁的是评论作者
+            com.minthive.entity.Comment comment = commentMapper.selectById(report.getTargetId());
+            return comment != null ? comment.getUserId() : null;
+        } else if (targetType == 4) {
+            // 举报用户：targetId 直接就是被举报用户 ID
+            return report.getTargetId();
+        }
+        return null;
+    }
+
+    /**
+     * 删除被举报内容（软删除，设置 deleted=1）
+     * <p>功能：根据 targetType 对应的业务表执行软删除，使用原生 SQL 避免 @TableLogic 拦截</p>
+     *
+     * @param report 举报工单实体
+     */
+    private void deleteTargetContent(Report report) {
+        Integer tt = report.getTargetType();
+        if (tt == 1) {
+            // 软删除帖子：直接更新 deleted 字段，绕过 @TableLogic 的 WHERE 条件限制
+            adminReportMapper.softDeletePost(report.getTargetId());
+        } else if (tt == 2) {
+            // 软删除评论
+            adminReportMapper.softDeleteComment(report.getTargetId());
+        }
+        // targetType==4（举报用户）：不删除用户账号，仅封禁
     }
 
     /**
@@ -249,5 +313,36 @@ public class AdminReportController {
         msg.setIsRead(Constants.READ_STATUS_UNREAD);
         msg.setCreateTime(LocalDateTime.now());
         systemMsgMapper.insert(msg);
+    }
+
+    /**
+     * 将前端字符串状态映射为数据库数字值
+     * <p>功能：兼容前端传递的字符串状态（PENDING/REJECTED/RESOLVED）和数字字符串（0/1/2）</p>
+     *
+     * @param status 前端传入的状态参数（String）
+     * @return 数据库数字状态值（0待处理 1已驳回 2已处理），null 表示不筛选
+     */
+    private Integer mapStatusToInt(String status) {
+        if (status == null || status.isEmpty()) {
+            return null;
+        }
+        switch (status.toUpperCase()) {
+            case "PENDING":
+            case "0":
+                return 0;
+            case "REJECTED":
+            case "1":
+                return 1;
+            case "RESOLVED":
+            case "2":
+                return 2;
+            default:
+                // 尝试直接解析数字
+                try {
+                    return Integer.parseInt(status);
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+        }
     }
 }

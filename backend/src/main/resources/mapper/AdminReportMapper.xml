@@ -66,4 +66,14 @@
         ORDER BY r.ai_risk_level DESC, r.create_time DESC
     </select>
 
+    <!-- 软删除帖子（原生 SQL，绕过 @TableLogic 自动添加的 WHERE deleted=0 限制） -->
+    <update id="softDeletePost">
+        UPDATE post SET deleted = 1 WHERE id = #{postId}
+    </update>
+
+    <!-- 软删除评论（原生 SQL，绕过 @TableLogic 自动添加的 WHERE deleted=0 限制） -->
+    <update id="softDeleteComment">
+        UPDATE comment SET deleted = 1 WHERE id = #{commentId}
+    </update>
+
 </mapper>

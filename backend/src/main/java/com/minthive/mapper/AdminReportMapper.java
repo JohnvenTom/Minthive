@@ -29,4 +29,20 @@ public interface AdminReportMapper {
             @Param("keyword") String keyword,
             @Param("status") Integer status,
             @Param("type") String type);
+
+    /**
+     * 软删除帖子（设置 deleted=1，绕过 @TableLogic 拦截）
+     *
+     * @param postId 帖子ID
+     * @return 影响行数
+     */
+    int softDeletePost(@Param("postId") Long postId);
+
+    /**
+     * 软删除评论（设置 deleted=1，绕过 @TableLogic 拦截）
+     *
+     * @param commentId 评论ID
+     * @return 影响行数
+     */
+    int softDeleteComment(@Param("commentId") Long commentId);
 }

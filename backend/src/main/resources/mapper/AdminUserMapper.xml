@@ -34,7 +34,7 @@
                 AND u.status = #{status}
             </if>
             <if test="keyword != null and keyword != ''">
-                AND (u.nickname LIKE CONCAT('%', #{keyword}, '%') OR u.account LIKE CONCAT('%', #{keyword}, '%'))
+                AND (u.nickname LIKE CONCAT('%', #{keyword}, '%') OR u.account LIKE CONCAT('%', #{keyword}, '%') OR u.phone LIKE CONCAT('%', #{keyword}, '%'))
             </if>
         </where>
         ORDER BY u.register_time DESC

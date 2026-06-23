@@ -10,6 +10,7 @@ declare module 'vue' {
     AiReportCard: typeof import('./src/components/AiReportCard.vue')['default']
     ChartCard: typeof import('./src/components/ChartCard.vue')['default']
     DataTable: typeof import('./src/components/DataTable.vue')['default']
+    ElAutocomplete: typeof import('element-plus/es')['ElAutocomplete']
     ElAvatar: typeof import('element-plus/es')['ElAvatar']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElDescriptions: typeof import('element-plus/es')['ElDescriptions']

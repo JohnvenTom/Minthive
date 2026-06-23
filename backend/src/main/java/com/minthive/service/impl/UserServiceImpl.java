@@ -368,15 +368,17 @@ public class UserServiceImpl implements UserService {
      * <p>将兴趣标签列表转为逗号分隔字符串存入数据库</p>
      *
      * @param userId    用户ID
-     * @param interests 兴趣标签列表
+     * @param interests 兴趣标签列表（允许为空列表或null）
      */
     @Override
     public void updateInterests(Long userId, List<String> interests) {
         User update = new User();
         update.setId(userId);
-        update.setInterestTags(String.join(",", interests));
+        // 防御性编程：处理 interests 为 null 或空列表的情况，避免 NullPointerException
+        String tags = (interests == null || interests.isEmpty()) ? null : String.join(",", interests);
+        update.setInterestTags(tags);
         userMapper.updateById(update);
-        log.info("用户兴趣标签更新: userId={}, tags={}", userId, update.getInterestTags());
+        log.info("用户兴趣标签更新: userId={}, tags={}", userId, tags);
     }
 
     /**

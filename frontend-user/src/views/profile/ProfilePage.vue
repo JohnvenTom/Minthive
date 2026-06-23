@@ -5,6 +5,11 @@
 
     <!-- 个人信息卡片 -->
     <section class="profile-hero">
+      <!-- 封禁印章（仅封禁用户显示） -->
+      <div v-if="userInfo.status === 0" class="banned-stamp">
+        <span class="banned-text">BANNED</span>
+      </div>
+
       <div class="hero-inner">
         <!-- 蜂巢装饰 -->
         <div class="hero-deco">
@@ -918,13 +923,76 @@ watch(() => route.params.id, (newId) => {
   z-index: 0;
 }
 
+// ---------- 封禁印章 ----------
+.banned-stamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  z-index: 10;
+  pointer-events: none;
+
+  .banned-text {
+    position: relative;
+    display: inline-block;
+    font-family: 'Impact', 'Arial Black', sans-serif;
+    font-size: 48px;
+    font-weight: 900;
+    letter-spacing: 5px;
+    color: #dc2626;
+    text-transform: uppercase;
+    padding: 6px 24px;
+    border: 3px solid #dc2626;
+    border-radius: 6px;
+    background: transparent;
+    /* 多层文字描边 + 红色投影 */
+    text-shadow:
+      -2px -2px 0 #fff,
+      2px -2px 0 #fff,
+      -2px 2px 0 #fff,
+      2px 2px 0 #fff,
+      0 0 12px rgba(220, 38, 38, 0.4),
+      0 0 24px rgba(220, 38, 38, 0.15);
+    box-shadow:
+      0 0 0 1px rgba(220, 38, 38, 0.1),
+      0 6px 24px rgba(220, 38, 38, 0.2);
+    /* 盖章弹入动画 */
+    animation: stamp-appear 0.45s $ease-spring both;
+
+    // 外层虚线装饰框（与文字边框同心）
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -10px -14px;
+      border: 2px dashed rgba(220, 38, 38, 0.5);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+  }
+}
+
+@keyframes stamp-appear {
+  0% {
+    opacity: 0;
+    transform: scale(2.2) rotate(-20deg);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(0.92) rotate(-10deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-12deg);
+  }
+}
+
 // ---------- 个人信息卡片 ----------
 .profile-hero {
   position: relative;
   z-index: 1;
   @include glass(24px, rgba(255, 255, 255, 0.85));
   border-bottom: 1px solid rgba(78, 205, 196, 0.1);
-  overflow: hidden;
+  overflow: visible; /* 允许封禁印章溢出显示 */
 }
 
 .hero-inner {
@@ -1273,6 +1341,15 @@ watch(() => route.params.id, (newId) => {
 
 // ---------- 响应式 ----------
 @include mobile {
+  .banned-stamp {
+    .banned-text {
+      font-size: 32px;
+      letter-spacing: 3px;
+      padding: 5px 16px;
+      border-width: 2.5px;
+    }
+  }
+
   .hero-inner {
     padding: $space-6 $space-3 $space-4;
   }

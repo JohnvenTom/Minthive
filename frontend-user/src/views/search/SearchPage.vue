@@ -178,6 +178,7 @@
             :circle="circle"
             class="result-item"
             @click="onCircleClick"
+            @join="onCircleJoin"
           />
           <button
             v-if="circleResults.length > 3"
@@ -223,6 +224,7 @@
             :circle="circle"
             class="result-item"
             @click="onCircleClick"
+            @join="onCircleJoin"
           />
         </template>
       </div>
@@ -279,6 +281,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { search, searchUsers, searchPosts, searchCircles, getHotKeywords } from '@/api/search'
 import { toggleFollow } from '@/api/follow'
 import { toggleLike, toggleCollect } from '@/api/post'
+import { joinCircle, leaveCircle } from '@/api/circle'
 import type { User, Post, Circle } from '@/types'
 
 // ---------- 路由 ----------
@@ -525,6 +528,35 @@ async function onUserFollow(userId: number, willFollow: boolean): Promise<void> 
  */
 function onCircleClick(circleId: number): void {
   router.push(`/circle/${circleId}`)
+}
+
+/**
+ * 加入/退出圈子
+ * @param {number} circleId - 圈子ID
+ * @returns {Promise<void>}
+ * @description 根据当前 joined 状态调用加入或退出 API，更新本地状态
+ */
+async function onCircleJoin(circleId: number): Promise<void> {
+  const circle = circleResults.value.find(c => c.id === circleId)
+  if (!circle) return
+
+  try {
+    if (circle.joined) {
+      // 已加入 → 退出
+      await leaveCircle(circleId)
+      circle.joined = false
+      circle.memberCount = Math.max(0, (circle.memberCount || 0) - 1)
+      showToast('已退出圈子')
+    } else {
+      // 未加入 → 加入
+      await joinCircle(circleId)
+      circle.joined = true
+      circle.memberCount = (circle.memberCount || 0) + 1
+      showToast('已加入圈子')
+    }
+  } catch {
+    showToast(circle.joined ? '退出失败' : '加入失败')
+  }
 }
 
 // ---------- 帖子交互 ----------

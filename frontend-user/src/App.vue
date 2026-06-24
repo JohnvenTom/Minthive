@@ -71,7 +71,7 @@
     <!-- 主内容区域 -->
     <main class="main-content" :class="{ 'main-content--with-nav': !isMobile && showNavbar, 'main-content--with-tabbar': isMobile && showTabBar }">
       <router-view v-slot="{ Component, route }">
-        <transition :name="route.meta.transition as string || 'fade-slide'" mode="out-in">
+        <transition :name="route.meta.transition as string || 'fade-slide'" appear>
           <component :is="Component" :key="route.path" />
         </transition>
       </router-view>
@@ -386,13 +386,21 @@ onUnmounted(() => {
 
 // ---------- 页面切换动画 ----------
 
-/** 默认淡入上滑 */
+/** 默认淡入上滑（无 mode="out-in"，通过 animation-delay 实现先后顺序） */
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
 .fade-slide-enter-active {
   animation: fade-up 0.35s $ease-out;
+  animation-delay: 0.12s;
 }
 
 .fade-slide-leave-active {
-  animation: fade-up 0.25s $ease-out reverse;
+  animation: fade-up 0.22s $ease-out reverse;
+  position: absolute; /* 离场时脱离文档流，避免影响新页面布局 */
+  width: 100%;
 }
 
 @keyframes fade-up {

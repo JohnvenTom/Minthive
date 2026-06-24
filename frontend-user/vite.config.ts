@@ -6,7 +6,7 @@ import { ElementPlusResolver, VantResolver } from 'unplugin-vue-components/resol
 import path from 'path'
 
 // Vite 配置：MintHive 用户端开发服务器与构建配置
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     vue(),
     AutoImport({
@@ -16,6 +16,8 @@ export default defineConfig({
       resolvers: [ElementPlusResolver(), VantResolver()]
     })
   ],
+  // Capacitor 使用 file:// 协议，必须用相对路径
+  base: mode === 'capacitor' ? './' : '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src')
@@ -57,4 +59,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

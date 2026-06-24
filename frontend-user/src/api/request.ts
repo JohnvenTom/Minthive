@@ -10,7 +10,7 @@ import { getToken, clearToken } from '@/utils/token'
 import type { ApiResponse } from '@/types'
 
 const service: AxiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api` : '/api',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' }
 })

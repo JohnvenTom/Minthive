@@ -63,10 +63,21 @@ Desktop.ini
 .env
 .env.local
 .env.*.local
+!frontend-user/.env.production
+!frontend-user/.env.capacitor.example
+frontend-user/.env
+frontend-user/.env.capacitor
 application-local.yml
 application-test.yml
 backend/.env
 !backend/.env.example
+
+# ========================
+# Capacitor
+# ========================
+frontend-user/android/
+frontend-user/ios/
+frontend-user/.capacitor/
 
 # ========================
 # Logs
@@ -84,3 +95,4 @@ logs/
 *~
 
 .deveco
+.mimocode

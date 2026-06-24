@@ -4,7 +4,7 @@
  * @description 定义应用路由表、路由守卫（登录态校验、页面切换动画）
  */
 
-import { createRouter, createWebHistory, RouteRecordRaw, RouteLocationNormalized } from 'vue-router'
+import { createRouter, createWebHistory, createWebHashHistory, RouteRecordRaw, RouteLocationNormalized } from 'vue-router'
 import { getToken } from '@/utils/token'
 
 /**
@@ -135,8 +135,11 @@ const routes: RouteRecordRaw[] = [
   }
 ]
 
+/** Capacitor 环境使用 hash 模式，避免刷新 404；Web 端保持 history 模式 */
+const isApp = !!(window as any).Capacitor
+
 const router = createRouter({
-  history: createWebHistory(),
+  history: isApp ? createWebHashHistory() : createWebHistory(),
   routes,
   scrollBehavior(_to, _from, savedPosition) {
     return savedPosition || { top: 0 }

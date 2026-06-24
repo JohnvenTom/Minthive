@@ -186,6 +186,10 @@ class WsClient {
 function buildWsUrl(): string {
   const token = getToken()
   if (!token) return ''
+  const wsBase = import.meta.env.VITE_WS_BASE_URL
+  if (wsBase) {
+    return `${wsBase}/ws/${token}`
+  }
   const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
   return `${protocol}://${location.host}/ws/${token}`
 }

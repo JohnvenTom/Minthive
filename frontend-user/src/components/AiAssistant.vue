@@ -88,6 +88,9 @@
 
 import { ref, nextTick } from 'vue'
 import { aiChatStream } from '@/api/ai'
+import { useAppStore } from '@/stores/app'
+
+const appStore = useAppStore()
 
 /** 面板是否可见（用于 v-show + Transition 动画） */
 const visible = ref(true)
@@ -101,10 +104,9 @@ const isLoading = ref(false)
 /** 流式输出控制器（用于中断请求） */
 let abortController: AbortController | null = null
 
-/** 消息列表 */
-const messages = ref<Array<{ role: 'user' | 'ai'; content: string }>>([
-  { role: 'ai', content: '你好！我是 MintHive AI 助手，有什么可以帮你的吗？' }
-])
+/** 消息列表（引用 appStore，组件销毁不丢失，页面刷新自动清空）
+ *  注意：Pinia store 的 ref 在外部自动解包为纯数组，无需 .value */
+const messages = appStore.aiChatHistory
 
 /** 消息列表DOM引用 */
 const messagesRef = ref<HTMLElement | null>(null)
@@ -147,7 +149,7 @@ async function sendMessage(): Promise<void> {
     abortController = null
   }
 
-  messages.value.push({ role: 'user', content: text })
+  messages.push({ role: 'user', content: text })
   inputText.value = ''
   isLoading.value = true
   streamingText.value = ''
@@ -167,7 +169,7 @@ async function sendMessage(): Promise<void> {
     () => {
       abortController = null
       if (streamBuffer) {
-        messages.value.push({ role: 'ai', content: streamBuffer })
+        messages.push({ role: 'ai', content: streamBuffer })
         streamBuffer = ''
         streamingText.value = ''
       }
@@ -179,12 +181,14 @@ async function sendMessage(): Promise<void> {
       abortController = null
       console.error('[AI] 流式请求失败:', err)
       const finalText = streamBuffer || '抱歉，我暂时无法回答这个问题，请稍后再试。'
-      messages.value.push({ role: 'ai', content: finalText })
+      messages.push({ role: 'ai', content: finalText })
       streamBuffer = ''
       streamingText.value = ''
       isLoading.value = false
       scrollToBottom()
-    }
+    },
+    // history：将已有消息列表作为上下文传入（偶数索引 user，奇数索引 ai）
+    messages.slice(0, -1).flatMap(m => [m.content])  // 排除刚 push 的 user 消息，只传之前的对话
   )
 }
 

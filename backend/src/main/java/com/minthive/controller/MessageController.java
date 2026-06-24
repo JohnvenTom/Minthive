@@ -72,12 +72,12 @@ public class MessageController {
     }
 
     /**
-     * 撤回 AI 代回复消息
+     * 撤回消息
      *
      * @param messageId 消息ID
      * @return 操作结果
      */
-    @Operation(summary = "撤回AI代回复消息")
+    @Operation(summary = "撤回消息")
     @DeleteMapping("/revoke/{messageId}")
     public Result<Void> revoke(@PathVariable Long messageId) {
         messageService.revokeAiMessage(messageId, UserContext.getUserId());

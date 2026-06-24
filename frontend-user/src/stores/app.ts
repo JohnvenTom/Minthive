@@ -22,6 +22,11 @@ export const useAppStore = defineStore('app', () => {
   /** AI 客服弹窗是否显示 */
   const showAiAssistant = ref<boolean>(false)
 
+  /** AI 助手对话历史（内存级，页面刷新自动清空） */
+  const aiChatHistory = ref<Array<{ role: 'user' | 'ai'; content: string }>>([
+    { role: 'ai', content: '你好！我是 MintHive AI 助手，有什么可以帮你的吗？' }
+  ])
+
   // ---------- Actions ----------
 
   /**
@@ -45,10 +50,19 @@ export const useAppStore = defineStore('app', () => {
   /**
    * 设置 AI 功能开关
    * @param {boolean} enabled - 是否启用 AI 功能
-   * @returns {void}
    */
   function setAiEnabled(enabled: boolean): void {
     aiEnabled.value = enabled
+  }
+
+  /**
+   * 重置 AI 助手对话历史（页面刷新或切换账号时调用）
+   * @returns {void}
+   */
+  function resetAiChatHistory(): void {
+    aiChatHistory.value = [
+      { role: 'ai', content: '你好！我是 MintHive AI 助手，有什么可以帮你的吗？' }
+    ]
   }
 
   return {
@@ -56,9 +70,11 @@ export const useAppStore = defineStore('app', () => {
     isMobile,
     aiEnabled,
     showAiAssistant,
+    aiChatHistory,
     toggleAiAssistant,
     setTheme,
-    setAiEnabled
+    setAiEnabled,
+    resetAiChatHistory
   }
 }, {
   persist: {

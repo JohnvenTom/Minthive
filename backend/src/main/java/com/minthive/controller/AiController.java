@@ -141,7 +141,7 @@ public class AiController {
     @PostMapping(value = "/qa/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter qaStream(@RequestBody QaDto dto) {
         aiRateLimiter.checkLimit();
-        SseEmitter emitter = aiContext.smartQaStream(dto.getQuestion());
+        SseEmitter emitter = aiContext.smartQaStream(dto.getQuestion(), dto.getHistory());
         aiRateLimiter.increment();
         return emitter;
     }
@@ -235,5 +235,7 @@ public class AiController {
     @Data
     public static class QaDto {
         private String question;
+        /** 对话历史（偶数索引为 user，奇数索引为 ai，用于上下文连贯） */
+        private List<String> history;
     }
 }

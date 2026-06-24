@@ -104,14 +104,15 @@ public class AiContext {
     }
 
     /**
-     * 代理调用：智能问答（流式输出）
+     * AI 智能问答（流式输出）
      *
      * <p>通过 SSE 逐块推送 AI 回复，前端可实现打字机效果</p>
      *
      * @param question 用户提问
+     * @param history  对话历史（偶数索引为 user 消息，奇数索引为 ai 回复）
      * @return SseEmitter 流式发射器
      */
-    public SseEmitter smartQaStream(String question) {
-        return getAiService().smartQaStream(question);
+    public SseEmitter smartQaStream(String question, List<String> history) {
+        return getAiService().smartQaStream(question, history);
     }
 }

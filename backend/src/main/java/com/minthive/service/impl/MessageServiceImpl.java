@@ -87,20 +87,17 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /**
-     * 撤回 AI 代回复消息
+     * 撤回消息（支持普通消息和AI代回复消息）
      *
      * @param messageId 消息ID
      * @param userId    操作用户ID
-     * @throws BusinessException 消息不存在或非AI消息时抛出
+     * @throws BusinessException 消息不存在或无权操作时抛出
      */
     @Override
     public void revokeAiMessage(Long messageId, Long userId) {
         Message message = messageMapper.selectById(messageId);
         if (message == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "消息不存在");
-        }
-        if (message.getAiReply() != Constants.AI_GENERATED_YES) {
-            throw new BusinessException(ResultCode.BUSINESS_ERROR, "仅可撤回AI代回复消息");
         }
         if (!message.getFromUserId().equals(userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权撤回他人消息");

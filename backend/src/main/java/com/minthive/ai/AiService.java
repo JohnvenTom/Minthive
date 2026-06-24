@@ -68,12 +68,13 @@ public interface AiService {
      * AI 智能问答（流式输出）
      *
      * <p>通过 SSE (Server-Sent Events) 逐块推送 AI 回复文本，
-     * 前端可实现打字机效果</p>
+     * 前端可实现打字机效果。支持传入对话历史以保持上下文连贯。</p>
      *
      * @param question 用户提问
+     * @param history  对话历史（偶数索引为 user 消息，奇数索引为 ai 回复），可为 null
      * @return SseEmitter 流式发射器，每个事件携带一段文本片段
      */
-    SseEmitter smartQaStream(String question);
+    SseEmitter smartQaStream(String question, List<String> history);
 
     /**
      * AI 内容检测结果封装

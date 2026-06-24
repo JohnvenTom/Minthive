@@ -151,15 +151,17 @@
  * App 根组件逻辑
  * @description 管理响应式布局检测、导航显隐、未读消息徽标、AI 客服弹窗
  */
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useChatStore } from '@/stores/chat'
+import { useUserStore } from '@/stores/user'
 import AiAssistant from '@/components/AiAssistant.vue'
 
 const route = useRoute()
 const appStore = useAppStore()
 const chatStore = useChatStore()
+const userStore = useUserStore()
 
 /** 窗口宽度响应式引用 */
 import { ref } from 'vue'
@@ -223,6 +225,16 @@ function handleResize(): void {
 onMounted(() => {
   window.addEventListener('resize', handleResize)
   handleResize()
+
+  // 页面加载时清空 AI 助手历史（确保刷新后不残留）
+  appStore.resetAiChatHistory()
+
+  // 监听用户 ID 变化（切换账号时清空 AI 历史）
+  watch(() => userStore.userInfo?.id, (newId, oldId) => {
+    if (newId && oldId && newId !== oldId) {
+      appStore.resetAiChatHistory()
+    }
+  })
 })
 
 onUnmounted(() => {

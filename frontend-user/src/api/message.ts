@@ -50,8 +50,8 @@ export function sendMessage(data: {
 }
 
 /**
- * 撤回 AI 代回复消息
- * @param {number} id
+ * 撤回消息（支持普通消息和AI代回复消息）
+ * @param {number} id - 消息ID
  */
 export function revokeAiMessage(id: number) {
   return request({ url: `/message/revoke/${id}`, method: 'delete' })

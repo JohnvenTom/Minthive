@@ -102,26 +102,31 @@ export function aiChat(question: string) {
  * @param {string} question - 用户提问
  * @param {(text: string) => void} onChunk - 每收到一段文本的回调
  * @param {() => void} onDone - 流结束回调
- * @param {(err: Error) => void} onError - 错误回调
+ * @param {(err: Error) => void} [onError] - 错误回调
+ * @param {string[]} [history] - 对话历史（偶数索引为 user 消息，奇数索引为 ai 回复）
  */
-function tryUnquoteJsonString(raw: string): string {
-  if (raw.startsWith('"') && raw.endsWith('"')) {
-    try {
-      return JSON.parse(raw)
-    } catch {
-      return raw
-    }
-  }
-  return raw
-}
-
 export function aiChatStream(
   question: string,
   onChunk: (text: string) => void,
   onDone: () => void,
-  onError?: (err: Error) => void
+  onError?: (err: Error) => void,
+  history?: string[]
 ): AbortController {
   const controller = new AbortController()
+
+  /**
+   * 尝试解析 JSON 字符串（处理被引号包裹的情况）
+   */
+  function tryUnquoteJsonString(raw: string): string {
+    if (raw.startsWith('"') && raw.endsWith('"')) {
+      try {
+        return JSON.parse(raw)
+      } catch {
+        return raw
+      }
+    }
+    return raw
+  }
 
   // 防重入守卫：确保回调只触发一次，避免流结束后继续写入导致数据混乱
   let settled = false
@@ -149,7 +154,7 @@ export function aiChatStream(
         ? { Authorization: `Bearer ${localStorage.getItem('minthive_token')}` }
         : {})
     },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, history: history || [] }),
     signal: controller.signal
   })
     .then(async (response) => {

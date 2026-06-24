@@ -1,5 +1,5 @@
 <template>
-  <div class="members-page">
+  <div class="members-page page-enter">
     <!-- 顶部导航栏 -->
     <header class="nav-bar">
       <button class="back-btn" @click="goBack">
@@ -40,7 +40,7 @@
     />
 
     <div v-else class="member-list">
-      <div v-for="member in memberList" :key="member.userId" class="member-card">
+      <div v-for="(member, index) in memberList" :key="member.userId" class="member-card stagger-item" :style="{ '--stagger-delay': `${index * 60}ms` }">
         <img
           :src="member.avatar"
           :alt="member.nickname"
@@ -319,6 +319,19 @@ onMounted(() => {
   min-height: 100vh;
   background: $ink-50;
   padding-bottom: 40px;
+  animation: page-enter 0.5s $ease-out both;
+}
+
+// ---------- 页面整体入场动画 ----------
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 // ---------- 顶部导航 ----------

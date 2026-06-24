@@ -74,6 +74,17 @@ export function logout() {
 }
 
 /**
+ * 修改密码（需登录状态）
+ * @param {string} oldPassword - 当前密码
+ * @param {string} newPassword - 新密码
+ * @returns {Promise<void>}
+ * @description 调用后端接口更新用户登录密码，成功后需要重新登录
+ */
+export function changePassword(oldPassword: string, newPassword: string) {
+  return request({ url: '/user/password', method: 'put', data: { oldPassword, newPassword } })
+}
+
+/**
  * 获取当前用户信息
  */
 export function getCurrentUser() {

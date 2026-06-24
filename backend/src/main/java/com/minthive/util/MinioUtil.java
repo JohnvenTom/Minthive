@@ -124,6 +124,6 @@ public class MinioUtil {
      * @return URL 字符串
      */
     private String buildUrl(String objectName) {
-        return minioConfig.getEndpoint() + "/" + minioConfig.getBucket() + "/" + objectName;
+        return minioConfig.getPublicUrl() + "/" + minioConfig.getBucket() + "/" + objectName;
     }
 }

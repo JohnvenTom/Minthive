@@ -24,6 +24,7 @@ spring:
 # 注意：endpoint 必须使用客户端可访问的地址，不能用 localhost
 minio:
   endpoint: http://26.141.51.0:9000
+  public-url: http://100.69.234.20:9000
   access-key: ${MINIO_DEV_ACCESS_KEY:minioadmin}
   secret-key: ${MINIO_DEV_SECRET_KEY:minioadmin}
   bucket: minthive

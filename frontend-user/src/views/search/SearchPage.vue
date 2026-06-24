@@ -121,6 +121,8 @@
             :key="user.id"
             :user="user"
             class="result-item"
+            @click="onUserClick"
+            @follow="onUserFollow"
           />
           <button
             v-if="userResults.length > 3"
@@ -147,6 +149,11 @@
             class="result-item"
             @click="goPostDetail(post.id)"
             @click-user="router.push(`/profile/${$event}`)"
+            @like="onPostLike"
+            @collect="onPostCollect"
+            @openShare="onPostShare"
+            @viewShares="onViewShares"
+            @select="onPostActionSelect"
           />
           <button
             v-if="postResults.length > 3"
@@ -170,6 +177,7 @@
             :key="circle.id"
             :circle="circle"
             class="result-item"
+            @click="onCircleClick"
           />
           <button
             v-if="circleResults.length > 3"
@@ -189,6 +197,8 @@
             :key="user.id"
             :user="user"
             class="result-item"
+            @click="onUserClick"
+            @follow="onUserFollow"
           />
         </template>
         <template v-else-if="activeResultTab === 'post'">
@@ -199,6 +209,11 @@
             class="result-item"
             @click="goPostDetail(post.id)"
             @click-user="router.push(`/profile/${$event}`)"
+            @like="onPostLike"
+            @collect="onPostCollect"
+            @openShare="onPostShare"
+            @viewShares="onViewShares"
+            @select="onPostActionSelect"
           />
         </template>
         <template v-else-if="activeResultTab === 'circle'">
@@ -207,6 +222,7 @@
             :key="circle.id"
             :circle="circle"
             class="result-item"
+            @click="onCircleClick"
           />
         </template>
       </div>
@@ -226,6 +242,21 @@
       </div>
     </div>
   </div>
+
+  <!-- 分享面板 -->
+  <ShareSheet
+    v-model:show="showShareSheet"
+    :post-id="sharePostId"
+    @shared="onShared"
+  />
+
+  <!-- 转发链弹窗 -->
+  <ShareChainDialog
+    v-model:show="showShareChain"
+    :post-id="shareChainPostId"
+    @click-share="router.push(`/post/${$event}`)"
+    @click-user="router.push(`/profile/${$event}`)"
+  />
 </template>
 
 <script setup lang="ts">
@@ -242,8 +273,12 @@ import PostCard from '@/components/PostCard.vue'
 import UserCard from '@/components/UserCard.vue'
 import CircleCard from '@/components/CircleCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ShareSheet from '@/components/ShareSheet.vue'
+import ShareChainDialog from '@/components/ShareChainDialog.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { search, searchUsers, searchPosts, searchCircles, getHotKeywords } from '@/api/search'
+import { toggleFollow } from '@/api/follow'
+import { toggleLike, toggleCollect } from '@/api/post'
 import type { User, Post, Circle } from '@/types'
 
 // ---------- 路由 ----------
@@ -285,6 +320,13 @@ const circleResults = ref<Circle[]>([])
 
 /** DOM引用 */
 const searchInputRef = ref<HTMLInputElement | null>(null)
+
+/** 分享面板状态 */
+const showShareSheet = ref(false)
+const sharePostId = ref(0)
+/** 转发链弹窗状态 */
+const showShareChain = ref(false)
+const shareChainPostId = ref(0)
 
 // ---------- 搜索历史管理 ----------
 
@@ -446,6 +488,114 @@ function goPostDetail(id: number): void {
  */
 function goBack(): void {
   router.back()
+}
+
+// ---------- 用户交互 ----------
+
+/**
+ * 点击用户卡片，跳转个人主页
+ * @param {number} userId - 用户ID
+ */
+function onUserClick(userId: number): void {
+  router.push(`/profile/${userId}`)
+}
+
+/**
+ * 关注/取关用户
+ * @param {number} userId - 用户ID
+ * @param {boolean} willFollow - true=关注, false=取关
+ * @returns {Promise<void>}
+ */
+async function onUserFollow(userId: number, willFollow: boolean): Promise<void> {
+  const user = userResults.value.find(u => u.id === userId)
+  if (!user) return
+  try {
+    await toggleFollow(userId, willFollow)
+    user.isFollowing = willFollow
+    user.followerCount += willFollow ? 1 : -1
+    showToast(willFollow ? '已关注' : '已取消关注')
+  } catch {
+    showToast('操作失败')
+  }
+}
+
+/**
+ * 点击圈子卡片，跳转圈子详情
+ * @param {number} circleId - 圈子ID
+ */
+function onCircleClick(circleId: number): void {
+  router.push(`/circle/${circleId}`)
+}
+
+// ---------- 帖子交互 ----------
+
+/**
+ * 点赞/取消点赞帖子
+ * @param {number} postId - 帖子ID
+ */
+async function onPostLike(postId: number): Promise<void> {
+  const post = postResults.value.find(p => p.id === postId)
+  if (!post) return
+  try {
+    await toggleLike(postId, !post.liked)
+    post.liked = !post.liked
+    post.likeCount += post.liked ? 1 : -1
+  } catch {
+    showToast('操作失败')
+  }
+}
+
+/**
+ * 收藏/取消收藏帖子
+ * @param {number} postId - 帖子ID
+ */
+async function onPostCollect(postId: number): Promise<void> {
+  const post = postResults.value.find(p => p.id === postId)
+  if (!post) return
+  try {
+    await toggleCollect(postId, !post.collected)
+    post.collected = !post.collected
+    post.collectCount += post.collected ? 1 : -1
+  } catch {
+    showToast('操作失败')
+  }
+}
+
+/**
+ * 转发/分享帖子 - 打开分享面板
+ * @param {number} postId - 帖子ID
+ */
+function onPostShare(postId: number): void {
+  sharePostId.value = postId
+  showShareSheet.value = true
+}
+
+/**
+ * 查看转发链弹窗
+ * @param {number} postId - 帖子ID
+ */
+function onViewShares(postId: number): void {
+  shareChainPostId.value = postId
+  showShareChain.value = true
+}
+
+/**
+ * 分享成功回调
+ * @returns {void}
+ */
+function onShared(): void {
+  const post = postResults.value.find(p => p.id === sharePostId.value)
+  if (post) post.shareCount++
+}
+
+/**
+ * 非作者的操作菜单选择（转发等）
+ * @param {any} action - 选中的操作项
+ */
+function onPostActionSelect(action: any): void {
+  if (action?.value === 'share') {
+    onPostShare(action.postId)
+  }
 }
 
 // ---------- 生命周期 ----------

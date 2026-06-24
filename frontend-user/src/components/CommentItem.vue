@@ -1,5 +1,5 @@
 <template>
-  <div class="comment-item" :class="{ 'is-ai': comment.aiGenerated }">
+  <div class="comment-item" :class="{ 'is-ai': comment.aiGenerated, 'is-child': isChild }">
     <div class="comment-item__main">
       <!-- 头像 -->
       <div class="comment-item__avatar" @click="handleClickUser">
@@ -429,6 +429,12 @@ function handleClickUser(): void {
     align-items: center;
     justify-content: space-between;
     margin-top: $space-2;
+
+    // 子评论（楼中楼）：改用固定间距，避免时间与回复按钮挤在一起
+    .is-child & {
+      justify-content: flex-start;
+      gap: $space-6;
+    }
   }
 
   &__time {

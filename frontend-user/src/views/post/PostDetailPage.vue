@@ -197,11 +197,18 @@
 
     <!-- 底部评论输入栏 -->
     <footer class="comment-input-bar glass-card">
-      <div class="input-area">
+      <div class="input-area" :class="{ 'has-chip': replyTarget }">
+        <!-- 回复目标胶囊（绝对定位，不占流空间） -->
+        <Transition name="chip-in">
+          <span v-if="replyTarget" class="reply-chip" @click.stop="cancelReply">
+            <van-icon name="cross" class="chip-close" />
+            回复 {{ replyTarget }}
+          </span>
+        </Transition>
         <input
           v-model="commentText"
           class="comment-input"
-          :placeholder="replyTarget ? `回复 ${replyTarget}...` : '写评论...'"
+          :placeholder="replyTarget ? '写回复...' : '写评论...'"
           @focus="onInputFocus"
           @keyup.enter="onSubmitComment"
         />
@@ -552,13 +559,17 @@ async function onCommentLike(comment: Comment): Promise<void> {
 /**
  * 回复评论
  * @param {Comment} comment - 被回复的评论
- * @description 设置回复目标并聚焦输入框
+ * @description 设置回复目标，显示胶囊，滚动到底部输入框并聚焦
  */
 function onReply(comment: Comment): void {
   replyTarget.value = comment.nickname
   replyToId.value = comment.userId
   replyParentId.value = comment.parentId && comment.parentId !== 0 ? comment.parentId : comment.id
-  commentText.value = `@${comment.nickname} `
+  // 滚动到输入框并聚焦，让用户看到胶囊
+  nextTick(() => {
+    const inputEl = document.querySelector('.comment-input') as HTMLInputElement | null
+    inputEl?.focus()
+  })
 }
 
 /**
@@ -620,6 +631,16 @@ async function onSubmitComment(): Promise<void> {
   } catch {
     showToast('评论失败')
   }
+}
+
+/**
+ * 取消回复目标
+ * @description 清空回复状态，移除胶囊，恢复为普通评论模式
+ */
+function cancelReply(): void {
+  replyTarget.value = ''
+  replyToId.value = null
+  replyParentId.value = null
 }
 
 /**
@@ -1281,6 +1302,71 @@ onUnmounted(() => {
   border-radius: $radius-pill;
   padding: $space-1 $space-2;
   gap: $space-2;
+  position: relative; // 为胶囊提供定位参考
+
+  // 有胶囊时增加顶部内边距，给胶囊留出空间
+  &.has-chip {
+    padding-top: calc($space-1 + 26px); // 胶囊高度约22px + 间距
+    align-items: flex-start;
+  }
+}
+
+// 回复目标胶囊（绝对定位悬浮，不占流空间）
+.reply-chip {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  padding: 3px $space-2;
+  border-radius: $radius-pill;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  background: linear-gradient(135deg, #6ee7b7, #34d399);
+  cursor: pointer;
+  user-select: none;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  z-index: 1;
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(110, 231, 183, 0.35);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.chip-close {
+  font-size: 10px;
+  opacity: 0.8;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+// 胶囊入场/退场动画
+.chip-in-enter-active {
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.chip-in-leave-active {
+  transition: all 0.15s ease-in;
+}
+.chip-in-enter-from {
+  opacity: 0;
+  transform: scale(0.6) translateX(-8px);
+}
+.chip-in-leave-to {
+  opacity: 0;
+  transform: scale(0.5);
 }
 
 .comment-input {
@@ -1354,6 +1440,11 @@ onUnmounted(() => {
   box-shadow: $shadow-lg;
   padding: $space-4;
   animation: fade-up 0.4s $ease-spring both;
+  // 磨砂玻璃质感
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .ai-panel-header {

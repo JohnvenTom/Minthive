@@ -790,13 +790,18 @@ onMounted(initForm)
 }
 
 // ========== 过渡动画 ==========
-.crop-fade-enter-active,
-.crop-fade-leave-active {
-  transition: opacity 0.25s ease;
-}
-
 .crop-fade-enter-from,
 .crop-fade-leave-to {
   opacity: 0;
+}
+
+/**
+ * 移动端响应式样式
+ * @description 包含安全区域适配，为页面根容器添加顶部安全区域内边距
+ */
+@include mobile {
+  .edit-profile-page {
+    padding-top: env(safe-area-inset-top);
+  }
 }
 </style>

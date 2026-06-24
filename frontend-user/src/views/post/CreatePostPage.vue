@@ -1661,6 +1661,14 @@ $radius-btn: 10px;
 
 // ---------- Mobile ----------
 @include mobile {
+  /**
+   * 移动端安全区域适配
+   * @description 为页面根容器添加顶部安全区域内边距，避免内容被刘海屏遮挡
+   */
+  .create-post-page {
+    padding-top: env(safe-area-inset-top);
+  }
+
   .create-main {
     padding: 16px;
     gap: 10px;

@@ -1385,6 +1385,11 @@ watch(() => route.params.id, (newId) => {
 
 // ---------- 响应式 ----------
 @include mobile {
+  .profile-page {
+    /* 刘海屏安全区域：顶部留出状态栏/刘海空间 */
+    padding-top: env(safe-area-inset-top);
+  }
+
   .banned-stamp {
     .banned-svg {
       width: 170px;

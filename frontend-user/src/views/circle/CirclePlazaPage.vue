@@ -751,6 +751,14 @@ onUnmounted(() => {
 
 // ---------- 响应式 ----------
 @include mobile {
+  /**
+   * 移动端安全区域适配
+   * @description 为页面根容器添加顶部安全区域内边距，避免内容被刘海屏遮挡
+   */
+  .circle-plaza {
+    padding-top: env(safe-area-inset-top);
+  }
+
   .plaza-header {
     padding: $space-3 $space-3 $space-2;
   }

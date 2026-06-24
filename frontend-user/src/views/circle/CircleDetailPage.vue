@@ -25,7 +25,7 @@
           <div class="hero-meta">
             <h1 class="hero-name">{{ circle.name }}</h1>
             <div class="hero-tags">
-              <span class="tag-category">{{ circle.category }}</span>
+              <span class="tag-category">{{ circle.categoryName || '未分类' }}</span>
               <span :class="['tag-type', circle.type]">
                 {{ circle.type === 'public' ? '公开圈' : '私密圈' }}
               </span>
@@ -339,8 +339,8 @@
 
     <!-- 分享面板 -->
     <ShareSheet
-      v-model:visible="showShareSheet"
-      :post-id="shareTargetPostId"
+      v-model:show="showShareSheet"
+      :post-id="shareTargetPostId || 0"
       @shared="onShared"
       @click-share="(id: number) => goPostDetail(id)"
       @click-user="router.push(`/profile/${$event}`)"

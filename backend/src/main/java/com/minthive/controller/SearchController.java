@@ -8,11 +8,15 @@ import com.minthive.entity.User;
 import com.minthive.service.CircleService;
 import com.minthive.service.PostService;
 import com.minthive.service.UserService;
+import com.minthive.mapper.CircleUserMapper;
+import com.minthive.mapper.UserMapper;
+import com.minthive.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +34,9 @@ public class SearchController {
     private final UserService userService;
     private final PostService postService;
     private final CircleService circleService;
+    private final CircleUserMapper circleUserMapper;
+    private final UserMapper userMapper;
+    private final JwtUtil jwtUtil;
 
     /**
      * 搜索用户
@@ -69,14 +76,59 @@ public class SearchController {
      * @param keyword  关键词
      * @param current  当前页
      * @param size     每页大小
-     * @return 分页结果
+     * @return 分页结果（含 joined/ownerName/ownerAvatar 等完整字段）
      */
     @Operation(summary = "搜索圈子")
     @GetMapping("/circle")
-    public Result<Page<Circle>> searchCircle(@RequestParam String keyword,
-                                             @RequestParam(defaultValue = "1") long current,
-                                             @RequestParam(defaultValue = "10") long size) {
-        return Result.success(circleService.page(current, size, null, keyword));
+    public Result<Page<Map<String, Object>>> searchCircle(@RequestParam String keyword,
+                                                           @RequestParam(defaultValue = "1") long current,
+                                                           @RequestParam(defaultValue = "10") long size,
+                                                           HttpServletRequest request) {
+        Page<Circle> page = circleService.page(current, size, null, keyword);
+        // 获取当前登录用户ID（用于填充 joined 状态）
+        Long currentUserId = resolveUserId(request);
+        // 将 Circle 实体转换为 Map，补充非持久化字段
+        Page<Map<String, Object>> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        List<Map<String, Object>> records = page.getRecords().stream().map(circle -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", circle.getId());
+            map.put("ownerId", circle.getOwnerId());
+            // 查询圈主昵称和头像
+            if (circle.getOwnerId() != null) {
+                User owner = userMapper.selectById(circle.getOwnerId());
+                map.put("ownerName", owner != null ? owner.getNickname() : "未知用户");
+                map.put("ownerAvatar", owner != null ? owner.getAvatar() : "");
+            } else {
+                map.put("ownerName", "未知用户");
+                map.put("ownerAvatar", "");
+            }
+            map.put("name", circle.getName());
+            map.put("categoryId", circle.getCategoryId());
+            map.put("categoryName", circle.getCategoryName());
+            map.put("intro", circle.getIntro());
+            map.put("avatar", circle.getAvatar());
+            map.put("banner", circle.getBanner());
+            // type: Integer(0/1) → String("public"/"private")
+            map.put("type", circle.getType() != null && circle.getType() == 1 ? "private" : "public");
+            map.put("memberCount", circle.getMemberCount());
+            map.put("postCount", circle.getPostCount() != null ? circle.getPostCount() : 0);
+            map.put("status", circle.getStatus());
+            map.put("notice", circle.getNotice());
+            // 填充当前用户是否已加入
+            boolean joined = false;
+            if (currentUserId != null) {
+                long count = circleUserMapper.selectCount(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.minthive.entity.CircleUser>()
+                        .eq(com.minthive.entity.CircleUser::getCircleId, circle.getId())
+                        .eq(com.minthive.entity.CircleUser::getUserId, currentUserId)
+                );
+                joined = count > 0;
+            }
+            map.put("joined", joined);
+            return map;
+        }).toList();
+        result.setRecords(records);
+        return Result.success(result);
     }
 
     /**
@@ -93,7 +145,8 @@ public class SearchController {
     @GetMapping
     public Result<?> search(@RequestParam String keyword,
                             @RequestParam(defaultValue = "all") String type,
-                            @RequestParam(defaultValue = "1") long current) {
+                            @RequestParam(defaultValue = "1") long current,
+                            HttpServletRequest request) {
         long size = 10;
         switch (type.toLowerCase()) {
             case "user":
@@ -101,7 +154,11 @@ public class SearchController {
             case "post":
                 return Result.success(postService.searchByKeyword(keyword, current, size));
             case "circle":
-                return Result.success(circleService.page(current, size, null, keyword));
+                // 单独搜索圈子：返回分页的完整字段 Map
+                Page<Circle> circlePage = circleService.page(current, size, null, keyword);
+                Page<Map<String, Object>> enrichedPage = new Page<>(circlePage.getCurrent(), circlePage.getSize(), circlePage.getTotal());
+                enrichedPage.setRecords(enrichCircles(circlePage.getRecords(), request));
+                return Result.success(enrichedPage);
             case "topic":
                 // 话题搜索暂无独立服务，返回空结果
                 return Result.success(new Page<>(current, size));
@@ -111,7 +168,8 @@ public class SearchController {
                 Map<String, Object> allResult = new HashMap<>();
                 allResult.put("users", userService.searchByKeyword(keyword, current, size).getRecords());
                 allResult.put("posts", postService.searchByKeyword(keyword, current, size).getRecords());
-                allResult.put("circles", circleService.page(current, size, null, keyword).getRecords());
+                // 圈子也需要填充完整字段
+                allResult.put("circles", enrichCircles(circleService.page(current, size, null, keyword).getRecords(), request));
                 return Result.success(allResult);
         }
     }
@@ -130,5 +188,68 @@ public class SearchController {
                 "Vue3", "React", "Java", "SpringBoot", "前端", "后端"
         );
         return Result.success(hotKeywords);
+    }
+
+    /**
+     * 双通道解析当前登录用户ID
+     * @param request HTTP 请求对象
+     * @return 当前用户ID，未登录返回 null
+     */
+    private Long resolveUserId(HttpServletRequest request) {
+        try {
+            return com.minthive.security.UserContext.getUserId();
+        } catch (Exception e) {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                try {
+                    return jwtUtil.getUserIdFromToken(authHeader.substring(7));
+                } catch (Exception ignored) {
+                    return null;
+                }
+            }
+            return null;
+        }
+    }
+
+    /**
+     * 将 Circle 实体列表转换为 Map 列表，补充 joined/ownerName/ownerAvatar/type 等字段
+     */
+    private List<Map<String, Object>> enrichCircles(List<Circle> circles, HttpServletRequest request) {
+        Long currentUserId = resolveUserId(request);
+        return circles.stream().map(circle -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", circle.getId());
+            map.put("ownerId", circle.getOwnerId());
+            if (circle.getOwnerId() != null) {
+                User owner = userMapper.selectById(circle.getOwnerId());
+                map.put("ownerName", owner != null ? owner.getNickname() : "未知用户");
+                map.put("ownerAvatar", owner != null ? owner.getAvatar() : "");
+            } else {
+                map.put("ownerName", "未知用户");
+                map.put("ownerAvatar", "");
+            }
+            map.put("name", circle.getName());
+            map.put("categoryId", circle.getCategoryId());
+            map.put("categoryName", circle.getCategoryName());
+            map.put("intro", circle.getIntro());
+            map.put("avatar", circle.getAvatar());
+            map.put("banner", circle.getBanner());
+            map.put("type", circle.getType() != null && circle.getType() == 1 ? "private" : "public");
+            map.put("memberCount", circle.getMemberCount());
+            map.put("postCount", circle.getPostCount() != null ? circle.getPostCount() : 0);
+            map.put("status", circle.getStatus());
+            map.put("notice", circle.getNotice());
+            boolean joined = false;
+            if (currentUserId != null) {
+                long count = circleUserMapper.selectCount(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.minthive.entity.CircleUser>()
+                        .eq(com.minthive.entity.CircleUser::getCircleId, circle.getId())
+                        .eq(com.minthive.entity.CircleUser::getUserId, currentUserId)
+                );
+                joined = count > 0;
+            }
+            map.put("joined", joined);
+            return map;
+        }).toList();
     }
 }

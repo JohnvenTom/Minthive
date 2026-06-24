@@ -17,8 +17,11 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "minio")
 public class MinioConfig {
 
-    /** MinIO 服务地址 */
+    /** MinIO 服务地址（客户端连接用） */
     private String endpoint;
+
+    /** 图片访问地址（前端展示用，为空则取 endpoint） */
+    private String publicUrl;
 
     /** 访问密钥 */
     private String accessKey;
@@ -28,6 +31,15 @@ public class MinioConfig {
 
     /** 默认存储桶名称 */
     private String bucket;
+
+    /**
+     * 获取图片访问地址
+     *
+     * @return publicUrl 或 endpoint
+     */
+    public String getPublicUrl() {
+        return publicUrl != null && !publicUrl.isEmpty() ? publicUrl : endpoint;
+    }
 
     /**
      * 构建 MinioClient 客户端实例

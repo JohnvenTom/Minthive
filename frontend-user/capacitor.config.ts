@@ -5,6 +5,7 @@ const config: CapacitorConfig = {
   appName: 'minthive',
   webDir: 'dist',
   server: {
+    androidScheme: 'http',
     cleartext: true,
   },
   plugins: {

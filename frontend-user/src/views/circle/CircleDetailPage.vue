@@ -165,7 +165,15 @@
         </div>
         <PostCard
           :post="pinnedPost"
+          @click="goPostDetail(pinnedPost.id)"
           @click-user="router.push(`/profile/${$event}`)"
+          @like="onLike"
+          @collect="onCollect"
+          @openShare="onShare"
+          @select="onPostActionSelect"
+          @editPost="goPostDetail"
+          @deletePost="onDeletePost"
+          @toggleVisibility="onToggleVisibility"
         />
       </section>
 
@@ -191,7 +199,15 @@
             v-for="post in postList"
             :key="post.id"
             :post="post"
+            @click="goPostDetail(post.id)"
             @click-user="router.push(`/profile/${$event}`)"
+            @like="onLike"
+            @collect="onCollect"
+            @openShare="onShare"
+            @select="onPostActionSelect"
+            @editPost="goPostDetail"
+            @deletePost="onDeletePost"
+            @toggleVisibility="onToggleVisibility"
           />
         </div>
 
@@ -320,6 +336,15 @@
         </div>
       </div>
     </transition>
+
+    <!-- 分享面板 -->
+    <ShareSheet
+      v-model:visible="showShareSheet"
+      :post-id="shareTargetPostId"
+      @shared="onShared"
+      @click-share="(id: number) => goPostDetail(id)"
+      @click-user="router.push(`/profile/${$event}`)"
+    />
   </div>
 </template>
 
@@ -331,13 +356,15 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getCircleDetail, getCirclePosts, joinCircle, leaveCircle, getCircleMembers, transferCircleOwner, updateCircleNotice } from '@/api/circle'
-import { getPostDetail } from '@/api/post'
+import { toggleLike, toggleCollect, sharePost, deletePost, updatePost as togglePostVisibility } from '@/api/post'
+import { showToast, showConfirmDialog } from 'vant'
 import { useUserStore } from '@/stores/user'
 import type { Circle, Post } from '@/types'
 import PostCard from '@/components/PostCard.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import AnimatedSelect from '@/components/AnimatedSelect.vue'
+import ShareSheet from '@/components/ShareSheet.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -388,6 +415,10 @@ const showDissolveConfirm = ref(false)
 const dissolveConfirmText = ref('')
 /** 解散提交中 */
 const dissolving = ref(false)
+/** 分享面板显示状态 */
+const showShareSheet = ref(false)
+/** 分享目标帖子ID */
+const shareTargetPostId = ref<number | null>(null)
 
 // ---------- 计算属性 ----------
 /** 圈子ID */
@@ -641,6 +672,121 @@ function showOwnerInfo(): void {
  */
 function goBack(): void {
   router.back()
+}
+
+// ---------- 帖子交互（PostCard 事件处理） ----------
+
+/**
+ * 跳转帖子详情
+ * @param {number} id - 帖子ID
+ */
+function goPostDetail(id: number): void {
+  router.push(`/post/${id}`)
+}
+
+/**
+ * 点赞/取消点赞帖子
+ * @param {number} postId - 帖子ID
+ * @returns {Promise<void>}
+ */
+async function onLike(postId: number): Promise<void> {
+  const post = findPost(postId)
+  if (!post) return
+  try {
+    await toggleLike(postId, !post.liked)
+    post.liked = !post.liked
+    post.likeCount += post.liked ? 1 : -1
+  } catch {
+    showToast('操作失败')
+  }
+}
+
+/**
+ * 收藏/取消收藏帖子
+ * @param {number} postId - 帖子ID
+ * @returns {Promise<void>}
+ */
+async function onCollect(postId: number): Promise<void> {
+  const post = findPost(postId)
+  if (!post) return
+  try {
+    await toggleCollect(postId, !post.collected)
+    post.collected = !post.collected
+    post.collectCount += post.collected ? 1 : -1
+  } catch {
+    showToast('操作失败')
+  }
+}
+
+/**
+ * 打开分享面板
+ * @param {number} postId - 帖子ID
+ */
+function onShare(postId: number): void {
+  shareTargetPostId.value = postId
+  showShareSheet.value = true
+}
+
+/**
+ * 分享成功回调，更新本地转发计数
+ */
+function onShared(): void {
+  const post = findPost(shareTargetPostId.value!)
+  if (post) post.shareCount++
+}
+
+/**
+ * 删除帖子（从 PostCard emit）
+ * @param {number} postId - 帖子ID
+ * @returns {Promise<void>}
+ */
+async function onDeletePost(postId: number): Promise<void> {
+  try {
+    await showConfirmDialog({ title: '确认删除', message: '删除后不可恢复，确认删除该帖子吗？' })
+    await deletePost(postId)
+    postList.value = postList.value.filter(p => p.id !== postId)
+    if (pinnedPost.value?.id === postId) pinnedPost.value = null
+    if (circle.value) circle.value.postCount--
+    showToast('已删除')
+  } catch {
+    // 用户取消或接口失败，静默处理
+  }
+}
+
+/**
+ * 切换帖子可见性（隐藏/公开）
+ * @param {number} postId - 帖子ID
+ * @param {number} visibility - 目标可见性(0=公开 2=仅自己隐藏)
+ * @returns {Promise<void>}
+ */
+async function onToggleVisibility(postId: number, visibility: number): Promise<void> {
+  try {
+    await togglePostVisibility(postId, { visibility })
+    const post = findPost(postId)
+    if (post) post.visibility = visibility
+  } catch {
+    showToast('操作失败')
+  }
+}
+
+/**
+ * 在帖子列表或置顶帖中查找指定 ID 的帖子
+ * @param {number} id - 帖子ID
+ * @returns {Post | undefined} 找到的帖子引用
+ */
+function findPost(id: number): Post | undefined {
+  return postList.value.find(p => p.id === id) || (pinnedPost.value?.id === id ? pinnedPost.value : undefined)
+}
+
+/**
+ * 非作者的操作菜单选择（转发/举报等）
+ * @param {any} action - 选中的操作项
+ */
+function onPostActionSelect(action: any): void {
+  // 目前仅处理分享，其他可扩展
+  if (action?.value === 'share') {
+    onShare(action.postId)
+  }
 }
 
 /**

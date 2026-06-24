@@ -29,12 +29,12 @@
 
         <!-- 导航链接 -->
         <nav class="top-nav__links">
-          <router-link to="/" class="nav-link" active-class="nav-link--active">
+          <a class="nav-link" :class="{ 'nav-link--active': route.path === '/' }" @click.prevent="onHomeClick">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V10" />
             </svg>
             首页
-          </router-link>
+          </a>
           <router-link to="/circle" class="nav-link" active-class="nav-link--active">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10" />
@@ -79,12 +79,13 @@
 
     <!-- 移动端底部 TabBar -->
     <nav v-if="isMobile && showTabBar" class="bottom-tabbar">
-      <router-link to="/" class="tab-item" active-class="tab-item--active">
+      <!-- 首页：已在首页则平滑滚动到顶部，否则导航 -->
+      <a class="tab-item" :class="{ 'tab-item--active': route.path === '/' }" @click.prevent="onHomeClick">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V10" />
         </svg>
         <span>首页</span>
-      </router-link>
+      </a>
 
       <router-link to="/circle" class="tab-item" active-class="tab-item--active">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
@@ -152,13 +153,14 @@
  * @description 管理响应式布局检测、导航显隐、未读消息徽标、AI 客服弹窗
  */
 import { computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
 import AiAssistant from '@/components/AiAssistant.vue'
 
 const route = useRoute()
+const router = useRouter()
 const appStore = useAppStore()
 const chatStore = useChatStore()
 const userStore = useUserStore()
@@ -220,6 +222,23 @@ const unreadBadge = computed(() => {
 function handleResize(): void {
   windowWidth.value = window.innerWidth
   appStore.isMobile = windowWidth.value <= 768
+}
+
+/**
+ * 首页按钮点击处理
+ * @description 已在首页则平滑滚动到顶部（带弹性动画），否则导航到首页
+ */
+function onHomeClick(): void {
+  if (route.path === '/') {
+    // 已在首页：平滑回顶，使用 scroll-behavior: smooth 的增强版
+    const startY = window.scrollY
+    if (startY <= 0) return
+    // 使用原生 smooth 滚动
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } else {
+    // 不在首页：正常导航
+    router.push('/')
+  }
 }
 
 onMounted(() => {

@@ -139,10 +139,11 @@ public class LocalAiServiceImpl implements AiService {
      * <p>本地模式不支持真正的流式输出，模拟一次性返回</p>
      *
      * @param question 用户提问
+     * @param history  对话历史（本地模式暂不使用）
      * @return SseEmitter 流式发射器（一次性发送完整回答）
      */
     @Override
-    public SseEmitter smartQaStream(String question) {
+    public SseEmitter smartQaStream(String question, List<String> history) {
         SseEmitter emitter = new SseEmitter(10_000L);
         CompletableFuture.runAsync(() -> {
             try {

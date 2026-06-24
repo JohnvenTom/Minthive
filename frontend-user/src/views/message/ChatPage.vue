@@ -101,6 +101,10 @@
           v-for="msg in messages"
           :key="msg.id"
           :class="['msg-row', { 'is-self': msg.fromUserId === currentUserId }]"
+          @contextmenu.prevent="onMsgContextMenu($event, msg)"
+          @touchstart.passive="onMsgTouchStart($event, msg)"
+          @touchend="onMsgTouchEnd"
+          @touchmove="onMsgTouchEnd"
         >
           <!-- 对方消息 -->
           <template v-if="msg.fromUserId !== currentUserId">
@@ -167,6 +171,47 @@
         icon="chat-o"
       />
     </div>
+
+    <!-- 消息操作菜单（长按/右键触发） -->
+    <Teleport to="body">
+      <Transition name="action-menu-fade">
+        <div
+          v-if="actionMenu.visible"
+          class="msg-action-overlay"
+          @click="closeActionMenu"
+          @contextmenu.prevent="closeActionMenu"
+        >
+          <div
+            class="msg-action-menu"
+            :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }"
+          >
+            <button
+              v-if="actionMenu.msg?.fromUserId === currentUserId"
+              class="action-menu-item danger"
+              @click="onRevokeMessage(actionMenu.msg!.id)"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              撤回消息
+            </button>
+            <button
+              v-else
+              class="action-menu-item"
+              @click="copyMessage(actionMenu.msg?.content)"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"/>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              复制内容
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- 底部输入栏 -->
     <footer class="chat-footer glass-card" :class="{ 'footer-banned': targetUserStatus === 0 }">
@@ -302,6 +347,22 @@ const targetUser = ref<{ nickname: string; avatar: string }>({
 
 /** 聊天对象账号状态（0=封禁 1=正常） */
 const targetUserStatus = ref<number>(1)
+
+/** 消息操作菜单状态 */
+const actionMenu = ref<{
+  visible: boolean
+  x: number
+  y: number
+  msg: Message | null
+}>({
+  visible: false,
+  x: 0,
+  y: 0,
+  msg: null
+})
+
+/** 长按定时器 */
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
 
 // ---------- 数据加载 ----------
 
@@ -458,16 +519,15 @@ function triggerImageUpload(): void {
 /**
  * AI智能回复
  * @returns {Promise<void>}
- * @description 基于当前聊天上下文（含输入框待发送内容）调用AI生成代回复，
- *   使用真实昵称做角色分离，确保AI清楚区分发送方与接收方
+ * @description 根据聊天历史记录自动生成一条回复，无需用户手动输入。
+ *   AI 会分析对方最新消息和上下文，以当前用户口吻自然地生成回复并发送
  */
 async function onAiReply(): Promise<void> {
   if (aiReplying.value) return
 
-  // 如果输入框为空，提示用户先输入内容
-  const pendingContent = inputText.value.trim()
-  if (!pendingContent) {
-    showToast('请先在输入框输入要发送的内容')
+  // 需要有聊天记录才能让AI理解上下文
+  if (!messages.value.length) {
+    showToast('暂无聊天记录，先聊几句吧')
     return
   }
 
@@ -481,6 +541,10 @@ async function onAiReply(): Promise<void> {
      */
     const myNickname = userStore.userInfo?.nickname || '我'
     const peerNickname = targetUser.value.nickname || '对方'
+
+    // 取对方最新的一条消息作为触发点（incomingMessage）
+    const latestPeerMsg = [...messages.value].reverse().find(m => m.fromUserId !== currentUserId.value)
+    const incomingMsg = latestPeerMsg?.content || ''
 
     const systemPrompt = `你是${myNickname}的聊天助手。请根据以下聊天记录，以${myNickname}的口吻生成一条回复给${peerNickname}。
 要求：
@@ -497,18 +561,21 @@ async function onAiReply(): Promise<void> {
       })
       .join('\n')
 
-    // 将输入框中的待发送内容作为"我"的最新一条消息加入上下文
-    const fullContext = `${systemPrompt}\n\n【聊天记录】\n${historyContext}\n${myNickname}: ${pendingContent}`
+    // 完整上下文：系统提示 + 聊天历史
+    const fullContext = `${systemPrompt}\n\n【聊天记录】\n${historyContext}`
 
-    const res = await aiReplyMessage(targetUserId.value, fullContext)
-    const content = res.data?.content
+    const res = await aiReplyMessage(fullContext, incomingMsg)
+    const content = typeof res.data === 'string' ? res.data : res.data?.content
     if (content) {
-      // 先发送用户输入框中的原始消息
-      const userMsg = await chatStore.sendMessage(targetUserId.value, pendingContent, 'text')
-      messages.value.push(normalizeMessage(userMsg))
-      inputText.value = ''
+      // 如果输入框有内容，先发送用户自己的消息
+      const pendingContent = inputText.value.trim()
+      if (pendingContent) {
+        const userMsg = await chatStore.sendMessage(targetUserId.value, pendingContent, 'text')
+        messages.value.push(normalizeMessage(userMsg))
+        inputText.value = ''
+      }
 
-      // 再发送AI生成的回复（标记为aiReply）
+      // 发送AI生成的回复（标记为aiReply）
       const aiMsg = await chatStore.sendMessage(targetUserId.value, content, 'text')
       messages.value.push({ ...normalizeMessage(aiMsg), aiReply: true })
       await nextTick()
@@ -534,6 +601,119 @@ async function onRevokeAi(msgId: number): Promise<void> {
     showToast('已撤回')
   } catch {
     showToast('撤回失败')
+  }
+}
+
+// ---------- 消息操作菜单（长按/右键） ----------
+
+/**
+ * 右键菜单：显示消息操作选项
+ * @param {MouseEvent} event - 右键事件对象
+ * @param {Message} msg - 当前消息
+ * @returns {void}
+ * @description 在鼠标右键位置弹出操作菜单，自己的消息可撤回，对方的消息可复制
+ */
+function onMsgContextMenu(event: MouseEvent, msg: Message): void {
+  showActionMenu(event.clientX, event.clientY, msg)
+}
+
+/**
+ * 触摸开始：启动长按检测定时器
+ * @param {TouchEvent} event - 触摸事件对象
+ * @param {Message} msg - 当前消息
+ * @returns {void}
+ * @description 移动端长按 500ms 后弹出操作菜单
+ */
+function onMsgTouchStart(event: TouchEvent, msg: Message): void {
+  // 清除已有定时器，避免重复触发
+  if (longPressTimer) clearTimeout(longPressTimer)
+  longPressTimer = setTimeout(() => {
+    const touch = event.touches[0]
+    if (touch) {
+      showActionMenu(touch.clientX, touch.clientY, msg)
+    }
+  }, 500)
+}
+
+/**
+ * 触摸结束/移动：取消长按检测
+ * @returns {void}
+ * @description 手指松开或滑动时清除长按定时器，防止误触
+ */
+function onMsgTouchEnd(): void {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+/**
+ * 显示消息操作菜单
+ * @param {number} x - 菜单显示的 X 坐标
+ * @param {number} y - 菜单显示的 Y 坐标
+ * @param {Message} msg - 目标消息
+ * @returns {void}
+ * @description 在指定坐标处弹出操作菜单，自动处理边界防溢出
+ */
+function showActionMenu(x: number, y: number, msg: Message): void {
+  // 边界处理：防止菜单超出屏幕右侧/底部
+  const menuWidth = 140
+  const menuHeight = actionMenu.value.msg?.fromUserId === currentUserId.value ? 52 : 52
+  if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 8
+  if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 8
+
+  actionMenu.value = { visible: true, x, y, msg }
+}
+
+/**
+ * 关闭消息操作菜单
+ * @returns {void}
+ * @description 隐藏操作菜单并清空目标消息引用
+ */
+function closeActionMenu(): void {
+  actionMenu.value.visible = false
+  actionMenu.value.msg = null
+}
+
+/**
+ * 撤回普通消息（非 AI 代回复）
+ * @param {number} msgId - 要撤回的消息ID
+ * @returns {Promise<void>}
+ * @description 调用后端撤回接口，成功后从本地列表中移除该消息并关闭菜单
+ */
+async function onRevokeMessage(msgId: number): Promise<void> {
+  try {
+    await revokeAiMessage(msgId)
+    messages.value = messages.value.filter(m => m.id !== msgId)
+    closeActionMenu()
+    showToast('已撤回')
+  } catch {
+    showToast('撤回失败')
+  }
+}
+
+/**
+ * 复制消息内容到剪贴板
+ * @param {string | undefined} content - 要复制的文本内容
+ * @returns {Promise<void>}
+ * @description 使用 Clipboard API 将消息文本复制到系统剪贴板
+ */
+async function copyMessage(content?: string): Promise<void> {
+  if (!content) return
+  try {
+    await navigator.clipboard.writeText(content)
+    closeActionMenu()
+    showToast('已复制')
+  } catch {
+    // 降级方案：使用传统 execCommand
+    const textarea = document.createElement('textarea')
+    textarea.value = content
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    closeActionMenu()
+    showToast('已复制')
   }
 }
 
@@ -1148,6 +1328,84 @@ onUnmounted(() => {
 }
 .preview-fade-enter-from,
 .preview-fade-leave-to {
+  opacity: 0;
+}
+
+// ---------- 消息操作菜单 ----------
+.msg-action-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.msg-action-menu {
+  position: absolute;
+  min-width: 140px;
+  padding: 6px;
+  background: #fff;
+  border-radius: $radius-md;
+  box-shadow: $shadow-lg;
+  overflow: hidden;
+  animation: menu-pop 0.2s $ease-spring both;
+}
+
+@keyframes menu-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.action-menu-item {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: $radius-sm;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: $ink-700;
+  cursor: pointer;
+  transition: all $dur-fast ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: $ink-50;
+  }
+
+  &:active {
+    background: $ink-100;
+  }
+
+  &.danger {
+    color: $coral-500;
+
+    &:hover {
+      background: rgba(255, 107, 107, 0.08);
+    }
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+// 操作菜单过渡动画
+.action-menu-fade-enter-active {
+  transition: opacity 0.15s ease;
+}
+.action-menu-fade-leave-active {
+  transition: opacity 0.1s ease;
+}
+.action-menu-fade-enter-from,
+.action-menu-fade-leave-to {
   opacity: 0;
 }
 

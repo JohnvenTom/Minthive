@@ -276,12 +276,11 @@
         <div class="modal-box">
           <h3 class="modal-title">转让圈主</h3>
           <p class="modal-desc">选择一位成员转让圈主身份，转让后你将变为普通成员</p>
-          <select v-model="transferUserId" class="modal-select">
-            <option value="" disabled>请选择要转让的成员</option>
-            <option v-for="m in memberList" :key="m.userId" :value="m.userId">
-              {{ m.nickname }}
-            </option>
-          </select>
+          <AnimatedSelect
+            v-model="transferUserId"
+            :options="memberList.map(m => ({ value: m.userId, label: m.nickname }))"
+            placeholder="请选择要转让的成员"
+          />
           <div class="modal-footer">
             <button class="modal-cancel" @click="showTransferModal = false">取消</button>
             <button
@@ -338,6 +337,7 @@ import type { Circle, Post } from '@/types'
 import PostCard from '@/components/PostCard.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import AnimatedSelect from '@/components/AnimatedSelect.vue'
 
 const route = useRoute()
 const router = useRouter()

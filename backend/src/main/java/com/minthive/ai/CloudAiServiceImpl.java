@@ -17,6 +17,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -168,13 +169,15 @@ public class CloudAiServiceImpl implements AiService {
     /**
      * AI 智能问答(流式输出)
      *
-     * <p>通过 SSE 逐块推送 AI 回复，前端可实现打字机效果</p>
+     * <p>通过 SSE 逐块推送 AI 回复，前端可实现打字机效果。
+     * 支持传入对话历史以保持上下文连贯。</p>
      *
      * @param question 用户提问
+     * @param history  对话历史（偶数索引为 user 消息，奇数索引为 ai 回复），可为 null
      * @return SseEmitter 流式发射器
      */
     @Override
-    public SseEmitter smartQaStream(String question) {
+    public SseEmitter smartQaStream(String question, List<String> history) {
         // SSE 超时时间 120 秒（流式传输需要足够时间）
         SseEmitter emitter = new SseEmitter(120_000L);
 
@@ -187,7 +190,7 @@ public class CloudAiServiceImpl implements AiService {
                 String systemPrompt = "你是MintHive兴趣社交平台的智能助手（代号MinthiveAI），一个面向户外运动和兴趣爱好者的社区平台。"
                         + "你的职责是帮助用户了解平台功能、提供户外活动建议、兴趣圈子推荐等。"
                         + "回答要简洁实用（100字以内），语气友好自然。如果问题与平台无关，也尽量结合兴趣社交角度给出建议。";
-                callStreamingApiWithSystem(emitter, systemPrompt, question);
+                callStreamingApiWithSystem(emitter, systemPrompt, question, history);
                 emitter.complete();
             } catch (Exception e) {
                 log.error("[CloudAI] 智能问答流式异常: ", e);
@@ -273,19 +276,31 @@ public class CloudAiServiceImpl implements AiService {
      * @param emitter      SSE 发射器
      * @param systemPrompt 系统提示词
      * @param userMessage  用户消息
+     * @param history      对话历史（偶数索引为 user 消息，奇数索引为 ai 回复），可为 null
      * @throws Exception 调用失败时抛出
      */
-    private void callStreamingApiWithSystem(SseEmitter emitter, String systemPrompt, String userMessage) throws Exception {
+    private void callStreamingApiWithSystem(SseEmitter emitter, String systemPrompt, String userMessage, List<String> history) throws Exception {
         AiConfig.Cloud cloud = aiConfig.getCloud();
+
+        // 构建消息列表：system + 历史对话 + 当前问题
+        List<Message> messages = new ArrayList<>();
+        messages.add(new Message("system", systemPrompt));
+
+        // 将历史消息按 user/ai 角色交替注入上下文
+        if (history != null && !history.isEmpty()) {
+            for (int i = 0; i < history.size(); i++) {
+                String role = (i % 2 == 0) ? "user" : "assistant";
+                messages.add(new Message(role, history.get(i)));
+            }
+        }
+        // 当前用户问题
+        messages.add(new Message("user", userMessage));
 
         // 构建流式请求体（stream: true）
         String requestBody = objectMapper.writeValueAsString(
                 new StreamChatRequest(
                         cloud.getModel(),
-                        List.of(
-                                new Message("system", systemPrompt),
-                                new Message("user", userMessage)
-                        ),
+                        messages,
                         0.7,
                         1024,
                         true

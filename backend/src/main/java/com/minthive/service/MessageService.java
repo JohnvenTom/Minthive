@@ -38,7 +38,7 @@ public interface MessageService {
     void markRead(Long fromUserId, Long toUserId);
 
     /**
-     * 撤回 AI 代回复消息
+     * 撤回消息（支持普通消息和AI代回复消息）
      *
      * @param messageId 消息ID
      * @param userId    操作用户ID

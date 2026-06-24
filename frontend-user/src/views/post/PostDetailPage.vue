@@ -1435,4 +1435,14 @@ onUnmounted(() => {
 .slide-up-leave-active {
   animation: fade-up 0.25s $ease-out reverse both;
 }
+
+/**
+ * 移动端响应式样式
+ * @description 包含安全区域适配，为页面根容器添加顶部安全区域内边距
+ */
+@include mobile {
+  .post-detail-page {
+    padding-top: env(safe-area-inset-top);
+  }
+}
 </style>

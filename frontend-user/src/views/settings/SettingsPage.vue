@@ -245,6 +245,7 @@ function handleDeleteAccount(): void {
 
 <style lang="scss" scoped>
 @use '@/styles/variables.scss' as *;
+@use '@/styles/mixins.scss' as *;
 
 .settings-page {
   min-height: 100vh;
@@ -374,6 +375,16 @@ function handleDeleteAccount(): void {
     p {
       margin-bottom: $space-2;
     }
+  }
+}
+
+/**
+ * 移动端响应式样式
+ * @description 包含安全区域适配，为页面根容器添加顶部安全区域内边距
+ */
+@include mobile {
+  .settings-page {
+    padding-top: env(safe-area-inset-top);
   }
 }
 </style>

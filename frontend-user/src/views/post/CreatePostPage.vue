@@ -357,7 +357,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { showToast, showConfirmDialog } from 'vant'
+import { showToast, showConfirmDialog, closeToast } from 'vant'
 import ImageUploader from '@/components/ImageUploader.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { useUserStore } from '@/stores/user'
@@ -664,9 +664,11 @@ async function onAiCheck(): Promise<void> {
   try {
     showToast({ message: 'AI 检测中...', duration: 0, forbidClick: true })
     const res = await aiCheckContent(content)
+    closeToast()
     checkResult.value = res.data || { violated: false }
     showCheckResult.value = true
   } catch {
+    closeToast()
     showToast('检测失败，请重试')
   }
 }
@@ -1626,14 +1628,14 @@ $radius-btn: 10px;
 .check-fail {
   p {
     font-size: 15px;
-    color: $text-primary;
+    color: $ink-100;
     font-weight: 500;
   }
 }
 
 .check-fail .fail-detail {
   font-size: 13px;
-  color: $text-secondary;
+  color: $ink-300;
   font-weight: 400;
   margin-top: 8px;
   line-height: 1.6;

@@ -42,6 +42,9 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+-- 更新 circle 表 status 字段注释以支持待审核/已驳回状态
+ALTER TABLE `circle` MODIFY COLUMN `status` TINYINT NOT NULL DEFAULT 1 COMMENT '圈子状态:0下架 1正常 2待审核 3已驳回';
+
 -- 确保 circle 表有 banner 字段（圈子封面图）
 SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'circle' AND COLUMN_NAME = 'banner');
 SET @sql = IF(@col_exists = 0, 'ALTER TABLE `circle` ADD COLUMN `banner` VARCHAR(500) DEFAULT NULL COMMENT ''圈子封面图'' AFTER `avatar`', 'SELECT 1');

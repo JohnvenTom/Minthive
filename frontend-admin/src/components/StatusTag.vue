@@ -36,7 +36,8 @@ const statusMap: Record<string, Record<string, { label: string; color: string }>
   circle: {
     ONLINE: { label: '已上线', color: 'primary' },
     OFFLINE: { label: '已下架', color: 'danger' },
-    PENDING: { label: '待审核', color: 'warning' }
+    PENDING: { label: '待审核', color: 'warning' },
+    REJECTED: { label: '已驳回', color: 'info' }
   },
   common: {
     ACTIVE: { label: '启用', color: 'primary' },

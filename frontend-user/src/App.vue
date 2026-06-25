@@ -181,7 +181,7 @@ const isMobile = computed(() => windowWidth.value <= 768)
  * @returns {boolean}
  */
 const showNavbar = computed(() => {
-  const hiddenRoutes = ['/login', '/interest-select']
+  const hiddenRoutes = ['/login', '/interest-select', '/forgot-password']
   return !hiddenRoutes.includes(route.path)
 })
 
@@ -191,7 +191,7 @@ const showNavbar = computed(() => {
  * @returns {boolean}
  */
 const showTabBar = computed(() => {
-  const hiddenPrefixes = ['/login', '/interest-select', '/post/', '/chat/', '/settings']
+  const hiddenPrefixes = ['/login', '/interest-select', '/forgot-password', '/post/', '/chat/', '/settings']
   return !hiddenPrefixes.some(p => route.path.startsWith(p))
 })
 
@@ -201,7 +201,7 @@ const showTabBar = computed(() => {
  * @returns {boolean}
  */
 const showAiButton = computed(() => {
-  const hiddenRoutes = ['/login', '/interest-select']
+  const hiddenRoutes = ['/login', '/interest-select', '/forgot-password']
   return !hiddenRoutes.includes(route.path)
 })
 

@@ -6,13 +6,22 @@ import type { PageQuery, PageResult } from './types'
  * 功能：创建申请审核、编辑、下架、转让圈主、分类、推荐位
  */
 
+/** 圈子分类 */
+export interface CircleCategory {
+  id: number
+  name: string
+  sort: number
+  status: number
+}
+
 /** 圈子信息 */
 export interface CircleInfo {
   circleId: number
   ownerId: number
   ownerName: string
   name: string
-  category: string
+  categoryId: number
+  categoryName: string
   intro: string
   type: 'PUBLIC' | 'PRIVATE'
   memberCount: number
@@ -23,44 +32,47 @@ export interface CircleInfo {
   createTime: string
 }
 
-/** 圈子申请 */
-export interface CircleApply {
+/** 圈子创建申请 */
+export interface CircleCreationApply {
   applyId: number
-  userId: number
-  nickname: string
+  ownerId: number
+  ownerName: string
   name: string
-  category: string
+  categoryId: number
+  categoryName: string
   intro: string
+  avatar: string
+  type: 'PUBLIC' | 'PRIVATE'
   applyTime: string
-  status: string
+  status: 'PENDING' | 'REJECTED'
 }
 
 /**
  * 查询圈子列表
  */
-export function getCircleList(params: PageQuery & { status?: string; category?: string }) {
+export function getCircleList(params: PageQuery & { status?: string | number; categoryId?: number }) {
   return get<PageResult<CircleInfo>>('/circle/list', params)
 }
 
 /**
- * 查询创建申请列表
+ * 查询圈子创建申请列表
  */
-export function getCircleApplyList(params: PageQuery) {
-  return get<PageResult<CircleApply>>('/circle/apply-list', params)
+export function getCircleCreationApplyList(params: PageQuery) {
+  return get<PageResult<CircleCreationApply>>('/circle/creation-apply-list', params)
 }
 
 /**
- * 审核通过圈子创建申请
+ * 审批通过圈子创建
  */
-export function approveCircleApply(applyId: number) {
-  return post('/circle/apply/approve', { applyId })
+export function approveCircleCreation(circleId: number) {
+  return post('/circle/creation-approve', { circleId })
 }
 
 /**
- * 驳回圈子创建申请
+ * 驳回圈子创建
  */
-export function rejectCircleApply(applyId: number, reason: string) {
-  return post('/circle/apply/reject', { applyId, reason })
+export function rejectCircleCreation(circleId: number, reason: string) {
+  return post('/circle/creation-reject', { circleId, reason })
 }
 
 /**
@@ -95,5 +107,5 @@ export function setRecommend(circleId: number, recommended: boolean) {
  * 获取圈子分类列表
  */
 export function getCircleCategories() {
-  return get<string[]>('/circle/categories')
+  return get<CircleCategory[]>('/circle/categories')
 }

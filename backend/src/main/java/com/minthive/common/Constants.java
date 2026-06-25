@@ -50,6 +50,15 @@ public final class Constants {
     /** 点赞收藏类型: 收藏帖子 */
     public static final int LC_TYPE_COLLECT_POST = 3;
 
+    /** 圈子状态: 下架 */
+    public static final int CIRCLE_STATUS_OFFLINE = 0;
+    /** 圈子状态: 正常(已上线) */
+    public static final int CIRCLE_STATUS_NORMAL = 1;
+    /** 圈子状态: 待审核 */
+    public static final int CIRCLE_STATUS_PENDING = 2;
+    /** 圈子状态: 已驳回 */
+    public static final int CIRCLE_STATUS_REJECTED = 3;
+
     /** 圈子类型: 公开 */
     public static final int CIRCLE_TYPE_PUBLIC = 0;
     /** 圈子类型: 私密 */

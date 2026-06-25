@@ -78,6 +78,13 @@ export function createCircle(data: {
 }
 
 /**
+ * 重新提交被驳回的圈子创建申请
+ */
+export function resubmitCircle(id: number) {
+  return request({ url: `/circle/resubmit/${id}`, method: 'post' })
+}
+
+/**
  * 更新圈子信息（仅圈主可操作）
  * @param {number} id - 圈子ID
  * @param {object} data - 可更新的字段（name, categoryId, intro, avatar, banner, type）

@@ -5,10 +5,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.BusinessException;
 import com.minthive.common.Constants;
 import com.minthive.common.ResultCode;
+import com.minthive.entity.Circle;
 import com.minthive.entity.Comment;
 import com.minthive.entity.LikeCollect;
 import com.minthive.entity.Post;
 import com.minthive.entity.User;
+import com.minthive.mapper.CircleMapper;
 import com.minthive.mapper.CommentMapper;
 import com.minthive.mapper.LikeCollectMapper;
 import com.minthive.mapper.PostMapper;
@@ -35,6 +37,8 @@ public class PostServiceImpl implements PostService {
 
     private final PostMapper postMapper;
 
+    private final CircleMapper circleMapper;
+
     private final UserMapper userMapper;
 
     private final SensitiveWordService sensitiveWordService;
@@ -56,6 +60,12 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     public Post publish(Post post) {
+        if (post.getCircleId() != null && post.getCircleId() > 0) {
+            var circle = circleMapper.selectById(post.getCircleId());
+            if (circle == null || circle.getStatus() != Constants.CIRCLE_STATUS_NORMAL) {
+                throw new BusinessException(ResultCode.CIRCLE_NOT_EXISTS, "圈子不存在或未上线");
+            }
+        }
         // 敏感词过滤
         if (sensitiveWordService.contains(post.getContent())) {
             throw new BusinessException(ResultCode.SENSITIVE_WORD, "帖子内容包含敏感词，请修改后发布");

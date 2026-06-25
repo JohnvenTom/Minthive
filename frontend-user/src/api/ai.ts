@@ -18,7 +18,8 @@ export function aiGeneratePost(keyword: string, circleCategory?: string) {
   return request<AiPostDraft[]>({
     url: '/ai/post-content',
     method: 'post',
-    data: { keywords: keyword, category: circleCategory }
+    data: { keywords: keyword, category: circleCategory },
+    timeout: 60000
   })
 }
 
@@ -31,7 +32,8 @@ export function aiPolishPost(content: string) {
   return request<string>({
     url: '/ai/polish',
     method: 'post',
-    data: { content }
+    data: { content },
+    timeout: 60000
   })
 }
 
@@ -45,7 +47,8 @@ export function aiGenerateComment(postContent: string, category?: string) {
   return request<string[]>({
     url: '/ai/comment',
     method: 'post',
-    data: { postContent, category }
+    data: { postContent, category },
+    timeout: 60000
   })
 }
 
@@ -58,7 +61,8 @@ export function aiReplyMessage(context: string, incomingMessage: string) {
   return request<string>({
     url: '/ai/message-reply',
     method: 'post',
-    data: { context, incomingMessage }
+    data: { context, incomingMessage },
+    timeout: 60000
   })
 }
 
@@ -76,7 +80,8 @@ export function aiCheckContent(text?: string, imageBase64?: string) {
   }>({
     url: '/ai/detect',
     method: 'post',
-    data: { text, imageBase64 }
+    data: { text, imageBase64 },
+    timeout: 60000
   })
 }
 
@@ -89,7 +94,8 @@ export function aiChat(question: string) {
   return request<{ answer: string }>({
     url: '/ai/qa',
     method: 'post',
-    data: { question }
+    data: { question },
+    timeout: 60000
   })
 }
 

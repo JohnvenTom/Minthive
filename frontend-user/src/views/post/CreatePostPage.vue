@@ -353,6 +353,36 @@
         </div>
       </div>
     </van-dialog>
+
+    <!-- AI 润色预览弹窗 -->
+    <van-dialog
+      v-model:show="showPolishPreview"
+      title="AI 润色预览"
+      :show-confirm-button="false"
+      :show-cancel-button="false"
+      teleport="body"
+      class="polish-dialog"
+    >
+      <div class="polish-preview-content">
+        <div class="polish-section">
+          <span class="polish-label">原文</span>
+          <p class="polish-text --original">{{ polishOriginal }}</p>
+        </div>
+        <div class="polish-divider">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="polish-section">
+          <span class="polish-label --result">润色后</span>
+          <p class="polish-text --result">{{ polishResult }}</p>
+        </div>
+      </div>
+      <div class="polish-actions">
+        <button class="polish-btn --reject" @click="rejectPolish">保留原文</button>
+        <button class="polish-btn --accept" @click="acceptPolish">采纳润色</button>
+      </div>
+    </van-dialog>
   </div>
 </template>
 
@@ -424,6 +454,11 @@ const aiKeyword = ref('')
 const aiGenerating = ref(false)
 const aiDrafts = ref<AiPostDraft[]>([])
 const selectedDraftIdx = ref<number | null>(null)
+
+// ---------- AI 润色预览 ----------
+const showPolishPreview = ref(false)
+const polishOriginal = ref('')
+const polishResult = ref('')
 
 // ---------- AI 预检 ----------
 const showCheckResult = ref(false)
@@ -626,7 +661,7 @@ function applyDraft(): void {
 /**
  * AI文案润色
  * @returns {Promise<void>}
- * @description 调用AI接口对当前文案进行润色优化
+ * @description 调用AI接口对当前文案进行润色优化，弹出预览让用户决定是否采纳
  */
 async function onAiPolish(): Promise<void> {
   const content = form.value.content.trim()
@@ -635,21 +670,38 @@ async function onAiPolish(): Promise<void> {
   try {
     showToast({ message: 'AI 润色中...', duration: 0, forbidClick: true })
     const res = await aiPolishPost(content)
-    form.value.content = res.data?.content || content
+    closeToast()
 
-    // 合并AI推荐的话题
-    if (res.data?.topics?.length) {
-      res.data.topics.forEach((t: string) => {
-        if (!form.value.topics.includes(t)) {
-          form.value.topics.push(t)
-        }
-      })
+    const polished = res.data || content
+    if (polished === content) {
+      showToast('润色后内容无变化')
+      return
     }
 
-    showToast('润色完成')
+    polishOriginal.value = content
+    polishResult.value = polished
+    showPolishPreview.value = true
   } catch {
+    closeToast()
     showToast('润色失败，请重试')
   }
+}
+
+/**
+ * 采纳润色结果
+ */
+function acceptPolish(): void {
+  form.value.content = polishResult.value
+  showPolishPreview.value = false
+  showToast('润色已采纳')
+}
+
+/**
+ * 拒绝润色结果，保留原文
+ */
+function rejectPolish(): void {
+  showPolishPreview.value = false
+  showToast('已保留原文')
 }
 
 // ---------- AI 预检 ----------
@@ -1709,5 +1761,100 @@ $radius-btn: 10px;
   --van-dialog-message-color: #6B6560;
   --van-dialog-confirm-button-color: #{$mint-500};
   --van-dialog-cancel-button-color: #9B958E;
+}
+
+.polish-dialog.van-dialog {
+  --van-dialog-background: #FFFFFF;
+  --van-dialog-header-color: #1A1A1A;
+  --van-dialog-width: 90vw;
+  --van-dialog-max-width: 360px;
+  --van-dialog-border-radius: 16px;
+  --van-dialog-padding: 20px;
+}
+
+.polish-preview-content {
+  padding: 0 4px;
+}
+
+.polish-section {
+  margin-bottom: 12px;
+}
+
+.polish-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: $ink-300;
+  background: $bg-warm;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+
+  &.--result {
+    color: $mint-600;
+    background: rgba(78, 205, 196, 0.1);
+  }
+}
+
+.polish-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: $ink-700;
+  background: $bg-warm;
+  padding: 12px;
+  border-radius: 10px;
+  max-height: 120px;
+  overflow-y: auto;
+  word-break: break-word;
+
+  &.--original {
+    color: $ink-500;
+  }
+
+  &.--result {
+    background: rgba(78, 205, 196, 0.1);
+  }
+}
+
+.polish-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 8px 0;
+  color: $ink-300;
+}
+
+.polish-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.polish-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+
+  &.--reject {
+    color: $ink-500;
+    background: $bg-warm;
+    border: 1px solid $ink-100;
+
+    &:hover {
+      background: darken(#FFF9F2, 2%);
+    }
+  }
+
+  &.--accept {
+    color: #fff;
+    background: $grad-mint;
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
+    }
+  }
 }
 </style>

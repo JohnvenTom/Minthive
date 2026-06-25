@@ -612,7 +612,7 @@ function startSmsCountdown(): void {
  * @returns {void}
  */
 function handleForgotPassword(): void {
-  ElMessage.info('忘记密码功能开发中')
+  router.push('/forgot-password')
 }
 
 // ============================================================

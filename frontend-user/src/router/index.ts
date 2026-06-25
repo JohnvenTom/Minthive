@@ -22,6 +22,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, transition: 'fade-slide', title: '登录' }
   },
   {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/login/ResetPasswordPage.vue'),
+    meta: { requiresAuth: false, transition: 'fade-slide', title: '忘记密码' }
+  },
+  {
     path: '/interest-select',
     name: 'InterestSelect',
     component: () => import('@/views/interest/InterestSelectPage.vue'),

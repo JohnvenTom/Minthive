@@ -163,12 +163,12 @@ ul, ol { list-style: none; }
 
 // ---------- Vant Dialog 样式修复 ----------
 .van-dialog {
-  --van-dialog-background: #{$ink-800};
+  --van-dialog-background: #FFFFFF;
   --van-dialog-header-font-size: 18px;
   --van-dialog-header-line-height: 1.4;
   --van-dialog-message-font-size: 14px;
   --van-dialog-message-line-height: 1.6;
-  --van-dialog-message-color: #{$ink-300};
+  --van-dialog-message-color: #{$ink-500};
   --van-dialog-confirm-button-color: #{$mint-500};
-  --van-dialog-cancel-button-color: #{$ink-500};
+  --van-dialog-cancel-button-color: #{$ink-300};
 }

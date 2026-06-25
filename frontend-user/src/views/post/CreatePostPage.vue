@@ -326,6 +326,8 @@
       title="AI 内容预检结果"
       :show-confirm-button="true"
       confirm-button-text="知道了"
+      teleport="body"
+      class="check-dialog"
     >
       <div class="check-result-content">
         <div v-if="!checkResult.violated" class="check-pass">
@@ -1628,14 +1630,14 @@ $radius-btn: 10px;
 .check-fail {
   p {
     font-size: 15px;
-    color: $ink-100;
+    color: $text-primary;
     font-weight: 500;
   }
 }
 
 .check-fail .fail-detail {
   font-size: 13px;
-  color: $ink-300;
+  color: $text-secondary;
   font-weight: 400;
   margin-top: 8px;
   line-height: 1.6;
@@ -1695,5 +1697,17 @@ $radius-btn: 10px;
     padding: 4px 10px;
     font-size: 11px;
   }
+}
+</style>
+
+<style lang="scss">
+@use '@/styles/variables.scss' as *;
+
+.check-dialog.van-dialog {
+  --van-dialog-background: #FFFFFF;
+  --van-dialog-header-color: #1A1A1A;
+  --van-dialog-message-color: #6B6560;
+  --van-dialog-confirm-button-color: #{$mint-500};
+  --van-dialog-cancel-button-color: #9B958E;
 }
 </style>

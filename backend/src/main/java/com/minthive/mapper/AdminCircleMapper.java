@@ -30,11 +30,11 @@ public interface AdminCircleMapper {
             @Param("categoryId") Long categoryId);
 
     /**
-     * 分页查询圈子加入申请列表（关联用户昵称）
+     * 分页查询圈子创建申请列表（关联圈主昵称）
      *
      * @param page 分页参数
-     * @return 申请列表
+     * @return 创建申请列表
      */
-    IPage<Map<String, Object>> selectApplyListWithNickname(
+    IPage<Map<String, Object>> selectCircleCreationApplyList(
             Page<Map<String, Object>> page);
 }

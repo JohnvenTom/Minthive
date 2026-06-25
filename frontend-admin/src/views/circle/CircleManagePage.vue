@@ -5,15 +5,17 @@ import DataTable from '@/components/DataTable.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import {
   getCircleList,
-  getCircleApplyList,
-  approveCircleApply,
-  rejectCircleApply,
+  getCircleCreationApplyList,
+  approveCircleCreation,
+  rejectCircleCreation,
   updateCircle,
   offlineCircle,
   transferOwner,
   setRecommend,
+  getCircleCategories,
   type CircleInfo,
-  type CircleApply
+  type CircleCreationApply,
+  type CircleCategory
 } from '@/api/circle'
 
 /**
@@ -28,13 +30,14 @@ const loading = ref(false)
 // 圈子列表
 const circleList = ref<CircleInfo[]>([])
 const total = ref(0)
-const query = reactive({ page: 1, pageSize: 10, keyword: '', status: '', category: '' })
+const query = reactive({ page: 1, pageSize: 10, keyword: '', status: undefined as string | number | undefined, categoryId: undefined as number | undefined })
+const categoryList = ref<CircleCategory[]>([])
 
 /** 圈子表格列 */
 const circleColumns = [
   { prop: 'circleId', label: '圈子ID', width: 90 },
   { prop: 'name', label: '圈子名称', minWidth: 160, slot: 'name' },
-  { prop: 'category', label: '分类', width: 110 },
+  { prop: 'categoryName', label: '分类', width: 110 },
   { prop: 'type', label: '类型', width: 90, align: 'center' as const, slot: 'type' },
   { prop: 'ownerName', label: '圈主', width: 130 },
   { prop: 'memberCount', label: '成员数', width: 90, align: 'center' as const },
@@ -45,16 +48,17 @@ const circleColumns = [
 ]
 
 // 创建申请
-const applyList = ref<CircleApply[]>([])
+const applyList = ref<CircleCreationApply[]>([])
 const applyTotal = ref(0)
-const applyQuery = reactive({ page: 1, pageSize: 10, keyword: '' })
+const applyQuery = reactive({ page: 1, pageSize: 10 })
 
 /** 申请表格列 */
 const applyColumns = [
   { prop: 'applyId', label: '申请ID', width: 90 },
-  { prop: 'nickname', label: '申请人', width: 130 },
+  { prop: 'ownerName', label: '申请人', width: 130 },
   { prop: 'name', label: '圈子名称', minWidth: 160 },
-  { prop: 'category', label: '分类', width: 110 },
+  { prop: 'categoryName', label: '分类', width: 110 },
+  { prop: 'type', label: '类型', width: 90, align: 'center' as const, slot: 'applyType' },
   { prop: 'intro', label: '简介', minWidth: 200, slot: 'intro' },
   { prop: 'applyTime', label: '申请时间', width: 170 },
   { prop: 'status', label: '状态', width: 100, align: 'center' as const, slot: 'applyStatus' },
@@ -66,7 +70,7 @@ const editVisible = ref(false)
 const editForm = reactive({
   circleId: 0,
   name: '',
-  category: '',
+  categoryId: undefined as number | undefined,
   intro: '',
   type: 'PUBLIC' as 'PUBLIC' | 'PRIVATE'
 })
@@ -81,7 +85,7 @@ const offlineForm = reactive({ circleId: 0, name: '', reason: '' })
 
 // 驳回申请弹窗
 const rejectApplyVisible = ref(false)
-const rejectApplyForm = reactive({ applyId: 0, reason: '' })
+const rejectApplyForm = reactive({ circleId: 0, reason: '' })
 
 /**
  * 加载圈子列表
@@ -105,7 +109,7 @@ async function loadList() {
 async function loadApplyList() {
   loading.value = true
   try {
-    const res = await getCircleApplyList(applyQuery)
+    const res = await getCircleCreationApplyList(applyQuery)
     applyList.value = res.list
     applyTotal.value = res.total
   } catch (e) {
@@ -134,7 +138,7 @@ function handleTabChange(tab: string) {
 function handleEdit(row: CircleInfo) {
   editForm.circleId = row.circleId
   editForm.name = row.name
-  editForm.category = row.category
+  editForm.categoryId = row.categoryId || undefined
   editForm.intro = row.intro
   editForm.type = row.type
   editVisible.value = true
@@ -232,10 +236,10 @@ async function handleRecommend(row: CircleInfo, val: boolean) {
  * 通过创建申请
  * @param row 行数据
  */
-async function handleApproveApply(row: CircleApply) {
+async function handleApproveApply(row: CircleCreationApply) {
   try {
     await ElMessageBox.confirm(`确认通过「${row.name}」的创建申请？`, '审核确认', { type: 'success' })
-    await approveCircleApply(row.applyId)
+    await approveCircleCreation(row.applyId)
     ElMessage.success('已通过')
     loadApplyList()
   } catch (e) {
@@ -243,26 +247,19 @@ async function handleApproveApply(row: CircleApply) {
   }
 }
 
-/**
- * 打开驳回申请弹窗
- * @param row 行数据
- */
-function handleRejectApply(row: CircleApply) {
-  rejectApplyForm.applyId = row.applyId
+function handleRejectApply(row: CircleCreationApply) {
+  rejectApplyForm.circleId = row.applyId
   rejectApplyForm.reason = ''
   rejectApplyVisible.value = true
 }
 
-/**
- * 确认驳回申请
- */
 async function confirmRejectApply() {
   if (!rejectApplyForm.reason) {
     ElMessage.warning('请填写驳回原因')
     return
   }
   try {
-    await rejectCircleApply(rejectApplyForm.applyId, rejectApplyForm.reason)
+    await rejectCircleCreation(rejectApplyForm.circleId, rejectApplyForm.reason)
     ElMessage.success('已驳回')
     rejectApplyVisible.value = false
     loadApplyList()
@@ -271,8 +268,18 @@ async function confirmRejectApply() {
   }
 }
 
+async function loadCategories() {
+  try {
+    const list = await getCircleCategories()
+    categoryList.value = list
+  } catch (e) {
+    // ignore
+  }
+}
+
 onMounted(() => {
   loadList()
+  loadCategories()
 })
 </script>
 
@@ -305,12 +312,16 @@ onMounted(() => {
             <el-input v-model="query.keyword" placeholder="圈子名称" clearable style="width: 200px" @keyup.enter="loadList" />
           </el-form-item>
           <el-form-item label="分类">
-            <el-input v-model="query.category" placeholder="分类" clearable style="width: 140px" />
+            <el-select v-model="query.categoryId" placeholder="全部" clearable style="width: 140px">
+              <el-option v-for="cat in categoryList" :key="cat.id" :label="cat.name" :value="cat.id" />
+            </el-select>
           </el-form-item>
           <el-form-item label="状态">
             <el-select v-model="query.status" placeholder="全部" clearable style="width: 140px">
-              <el-option label="已上线" value="ONLINE" />
-              <el-option label="已下架" value="OFFLINE" />
+              <el-option label="已上线" :value="1" />
+              <el-option label="已下架" :value="0" />
+              <el-option label="待审核" :value="2" />
+              <el-option label="已驳回" :value="3" />
             </el-select>
           </el-form-item>
           <el-form-item>
@@ -358,17 +369,6 @@ onMounted(() => {
 
     <!-- 创建申请 -->
     <template v-else>
-      <div class="base-card search-bar">
-        <el-form inline>
-          <el-form-item label="关键词">
-            <el-input v-model="applyQuery.keyword" placeholder="圈子名称/申请人" clearable style="width: 220px" @keyup.enter="loadApplyList" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :icon="'Search'" @click="loadApplyList">查询</el-button>
-          </el-form-item>
-        </el-form>
-      </div>
-
       <div class="base-card table-card">
         <DataTable
           :data="applyList"
@@ -380,11 +380,18 @@ onMounted(() => {
           @update:page="loadApplyList"
           @update:pageSize="loadApplyList"
         >
+          <template #applyType="{ row }">
+            <el-tag :type="row.type === 'PUBLIC' ? 'primary' : 'warning'" size="small" effect="dark">
+              {{ row.type === 'PUBLIC' ? '公开' : '私密' }}
+            </el-tag>
+          </template>
           <template #intro="{ row }">
             <div class="content-cell">{{ row.intro }}</div>
           </template>
           <template #applyStatus="{ row }">
-            <StatusTag :status="row.status" type="circle" />
+            <el-tag :type="row.status === 'PENDING' ? 'warning' : 'danger'" size="small">
+              {{ row.status === 'PENDING' ? '待审核' : '已驳回' }}
+            </el-tag>
           </template>
           <template #applyActions="{ row }">
             <template v-if="row.status === 'PENDING'">
@@ -404,7 +411,9 @@ onMounted(() => {
           <el-input v-model="editForm.name" />
         </el-form-item>
         <el-form-item label="分类">
-          <el-input v-model="editForm.category" />
+          <el-select v-model="editForm.categoryId" placeholder="请选择分类" clearable style="width: 100%">
+            <el-option v-for="cat in categoryList" :key="cat.id" :label="cat.name" :value="cat.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="类型">
           <el-radio-group v-model="editForm.type">

@@ -50,7 +50,7 @@ public class Circle implements Serializable {
     /** 成员数量 */
     private Integer memberCount;
 
-    /** 圈子状态:0下架 1正常 */
+    /** 圈子状态:0下架 1正常 2待审核 3已驳回 */
     private Integer status;
 
     /** 是否推荐:0否 1是 */

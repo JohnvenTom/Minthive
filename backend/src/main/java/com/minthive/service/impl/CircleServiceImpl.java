@@ -57,7 +57,7 @@ public class CircleServiceImpl implements CircleService {
         // 确保有分类ID：如果未传 categoryId，尝试按名称匹配或新建
         resolveCategoryId(circle);
         circle.setMemberCount(1);
-        circle.setStatus(1);
+        circle.setStatus(Constants.CIRCLE_STATUS_PENDING);
         circleMapper.insert(circle);
         // 圈主自动加入
         CircleUser cu = new CircleUser();
@@ -96,6 +96,14 @@ public class CircleServiceImpl implements CircleService {
         return circle;
     }
 
+    private Circle getByIdForUser(Long id) {
+        Circle circle = getById(id);
+        if (circle.getStatus() != Constants.CIRCLE_STATUS_NORMAL) {
+            throw new BusinessException(ResultCode.CIRCLE_NOT_EXISTS);
+        }
+        return circle;
+    }
+
     /**
      * 分页查询圈子
      *
@@ -127,7 +135,7 @@ public class CircleServiceImpl implements CircleService {
     @Override
     @Transactional
     public void join(Long circleId, Long userId) {
-        Circle circle = getById(circleId);
+        Circle circle = getByIdForUser(circleId);
         // 校验是否已加入
         Long exist = circleUserMapper.selectCount(new LambdaQueryWrapper<CircleUser>()
                 .eq(CircleUser::getCircleId, circleId)
@@ -139,8 +147,7 @@ public class CircleServiceImpl implements CircleService {
         cu.setCircleId(circleId);
         cu.setUserId(userId);
         cu.setRole(Constants.CIRCLE_MEMBER_NORMAL);
-        // 公开圈子直接通过，私密圈子待审
-        cu.setAuditStatus(circle.getType() == Constants.CIRCLE_TYPE_PUBLIC ? 1 : 0);
+        cu.setAuditStatus(1);
         circleUserMapper.insert(cu);
         // 成员数 +1
         circle.setMemberCount(circle.getMemberCount() + 1);
@@ -159,7 +166,7 @@ public class CircleServiceImpl implements CircleService {
         circleUserMapper.delete(new LambdaQueryWrapper<CircleUser>()
                 .eq(CircleUser::getCircleId, circleId)
                 .eq(CircleUser::getUserId, userId));
-        Circle circle = getById(circleId);
+        Circle circle = getByIdForUser(circleId);
         if (circle.getMemberCount() > 0) {
             circle.setMemberCount(circle.getMemberCount() - 1);
             circleMapper.updateById(circle);
@@ -190,8 +197,7 @@ public class CircleServiceImpl implements CircleService {
      */
     @Override
     public Page<Post> getCirclePosts(Long id, long current, long size) {
-        // 校验圈子是否存在
-        getById(id);
+        getByIdForUser(id);
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
                 .eq(Post::getCircleId, id)
                 .eq(Post::getAuditStatus, 1)
@@ -297,6 +303,7 @@ public class CircleServiceImpl implements CircleService {
     public List<Circle> recommendCircles() {
         LambdaQueryWrapper<Circle> wrapper = new LambdaQueryWrapper<Circle>()
                 .eq(Circle::getStatus, 1)
+                .eq(Circle::getRecommend, 1)
                 .orderByDesc(Circle::getMemberCount)
                 .last("LIMIT 10");
         List<Circle> list = circleMapper.selectList(wrapper);
@@ -310,8 +317,7 @@ public class CircleServiceImpl implements CircleService {
      */
     @Override
     public IPage<Map<String, Object>> listMembers(Long circleId, long current, long size, String keyword) {
-        // 校验圈子存在
-        getById(circleId);
+        getByIdForUser(circleId);
         return circleMemberMapper.selectMembers(new Page<>(current, size), circleId, keyword);
     }
 
@@ -390,5 +396,43 @@ public class CircleServiceImpl implements CircleService {
             throw new BusinessException(ResultCode.FORBIDDEN, "只有圈主才能执行此操作");
         }
         return circle;
+    }
+
+    @Override
+    public void approveCreation(Long circleId) {
+        Circle circle = circleMapper.selectById(circleId);
+        if (circle == null || circle.getStatus() != Constants.CIRCLE_STATUS_PENDING) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "圈子不存在或非待审核状态");
+        }
+        circle.setStatus(Constants.CIRCLE_STATUS_NORMAL);
+        circleMapper.updateById(circle);
+    }
+
+    @Override
+    public void rejectCreation(Long circleId, String reason) {
+        Circle circle = circleMapper.selectById(circleId);
+        if (circle == null || circle.getStatus() != Constants.CIRCLE_STATUS_PENDING) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "圈子不存在或非待审核状态");
+        }
+        circle.setStatus(Constants.CIRCLE_STATUS_REJECTED);
+        circle.setNotice(reason);
+        circleMapper.updateById(circle);
+    }
+
+    @Override
+    public void resubmitCreation(Long circleId, Long userId) {
+        Circle circle = circleMapper.selectById(circleId);
+        if (circle == null) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "圈子不存在");
+        }
+        if (!circle.getOwnerId().equals(userId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "只有圈主才能重新提交");
+        }
+        if (circle.getStatus() != Constants.CIRCLE_STATUS_REJECTED) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "只有被驳回的圈子才能重新提交");
+        }
+        circle.setStatus(Constants.CIRCLE_STATUS_PENDING);
+        circle.setNotice(null);
+        circleMapper.updateById(circle);
     }
 }

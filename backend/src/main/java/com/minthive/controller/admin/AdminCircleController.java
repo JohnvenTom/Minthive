@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
 import com.minthive.entity.Circle;
+import com.minthive.entity.CircleCategory;
 import com.minthive.mapper.AdminCircleMapper;
 import com.minthive.mapper.CircleMapper;
 import com.minthive.service.CircleService;
@@ -13,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -28,6 +30,12 @@ public class AdminCircleController {
     private final CircleMapper circleMapper;
     private final AdminCircleMapper adminCircleMapper;
     private final CircleService circleService;
+
+    @Operation(summary = "圈子分类列表")
+    @GetMapping("/categories")
+    public Result<List<CircleCategory>> categories() {
+        return Result.success(circleService.getCategories());
+    }
 
     /**
      * 圈子列表（关联圈主，字段对齐前端 CircleInfo）
@@ -58,18 +66,18 @@ public class AdminCircleController {
     }
 
     /**
-     * 圈子加入申请列表（关联用户昵称，字段对齐前端 CircleApply）
+     * 圈子创建申请列表
      *
      * @param page     页码
      * @param pageSize 每页大小
-     * @return 申请列表
+     * @return 创建申请列表
      */
-    @Operation(summary = "申请列表")
-    @GetMapping("/apply-list")
-    public Result<Map<String, Object>> applyList(
+    @Operation(summary = "创建申请列表")
+    @GetMapping("/creation-apply-list")
+    public Result<Map<String, Object>> creationApplyList(
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
-        IPage<Map<String, Object>> p = adminCircleMapper.selectApplyListWithNickname(
+        IPage<Map<String, Object>> p = adminCircleMapper.selectCircleCreationApplyList(
                 new Page<>(page, pageSize));
         Map<String, Object> data = new HashMap<>(4);
         data.put("list", p.getRecords());
@@ -80,31 +88,31 @@ public class AdminCircleController {
     }
 
     /**
-     * 通过入圈申请
+     * 审批通过圈子创建
      *
-     * @param params 包含 applyId
+     * @param params 包含 circleId
      * @return 操作结果
      */
-    @Operation(summary = "通过申请")
-    @PostMapping("/apply/approve")
-    public Result<Void> approveApply(@RequestBody Map<String, Object> params) {
-        Long applyId = Long.valueOf(params.get("applyId").toString());
-        // 更新 circle_user.audit_status = 1
+    @Operation(summary = "审批通过圈子创建")
+    @PostMapping("/creation-approve")
+    public Result<Void> approveCreation(@RequestBody Map<String, Object> params) {
+        Long circleId = Long.valueOf(params.get("circleId").toString());
+        circleService.approveCreation(circleId);
         return Result.success();
     }
 
     /**
-     * 驳回入圈申请
+     * 驳回圈子创建
      *
-     * @param params 包含 applyId 和 reason
+     * @param params 包含 circleId 和 reason
      * @return 操作结果
      */
-    @Operation(summary = "驳回申请")
-    @PostMapping("/apply/reject")
-    public Result<Void> rejectApply(@RequestBody Map<String, Object> params) {
-        Long applyId = Long.valueOf(params.get("applyId").toString());
-        String reason = (String) params.getOrDefault("reason", "不符合入圈条件");
-        // 更新 circle_user.audit_status = 2
+    @Operation(summary = "驳回圈子创建")
+    @PostMapping("/creation-reject")
+    public Result<Void> rejectCreation(@RequestBody Map<String, Object> params) {
+        Long circleId = Long.valueOf(params.get("circleId").toString());
+        String reason = (String) params.getOrDefault("reason", "不符合创建条件");
+        circleService.rejectCreation(circleId, reason);
         return Result.success();
     }
 

@@ -138,4 +138,27 @@ public interface CircleService {
      * @param newOwnerId  新圈主用户ID
      */
     void transferOwner(Long circleId, Long operatorId, Long newOwnerId);
+
+    /**
+     * 审批通过圈子创建
+     *
+     * @param circleId 圈子ID
+     */
+    void approveCreation(Long circleId);
+
+    /**
+     * 驳回圈子创建
+     *
+     * @param circleId 圈子ID
+     * @param reason   驳回原因
+     */
+    void rejectCreation(Long circleId, String reason);
+
+    /**
+     * 重新提交圈子创建（用户编辑后重新提交被驳回的圈子）
+     *
+     * @param circleId 圈子ID
+     * @param userId   当前用户ID
+     */
+    void resubmitCreation(Long circleId, Long userId);
 }

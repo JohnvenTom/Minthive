@@ -740,7 +740,7 @@ async function onSubmit(): Promise<void> {
 
     // 展示成功粒子动画
     showSuccessParticles.value = true
-    showToast('圈子创建成功')
+    showToast('申请已提交，等待管理员审核')
 
     // 2.5 秒后关闭动画并返回
     setTimeout(() => {

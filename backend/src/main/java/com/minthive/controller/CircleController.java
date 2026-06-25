@@ -3,6 +3,7 @@ package com.minthive.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.BusinessException;
+import com.minthive.common.Constants;
 import com.minthive.common.Result;
 import com.minthive.common.ResultCode;
 import com.minthive.entity.Circle;
@@ -103,6 +104,9 @@ public class CircleController {
     @GetMapping("/{id}")
     public Result<Map<String, Object>> get(@PathVariable Long id, HttpServletRequest request) {
         Circle circle = circleService.getById(id);
+        if (circle.getStatus() != Constants.CIRCLE_STATUS_NORMAL) {
+            return Result.error(ResultCode.CIRCLE_NOT_EXISTS);
+        }
         // 双通道获取当前登录用户ID（/api/circle/{id} 在排除列表中，UserContext 可能未设置）
         Long currentUserId = resolveUserId(request);
         // 查询当前登录用户是否已加入该圈子
@@ -287,6 +291,19 @@ public class CircleController {
     @PostMapping("/leave/{circleId}")
     public Result<Void> leave(@PathVariable Long circleId) {
         circleService.leave(circleId, UserContext.getUserId());
+        return Result.success();
+    }
+
+    /**
+     * 重新提交圈子创建（被驳回后重新提交）
+     *
+     * @param id 圈子ID
+     * @return 操作结果
+     */
+    @Operation(summary = "重新提交圈子创建")
+    @PostMapping("/resubmit/{id}")
+    public Result<Void> resubmit(@PathVariable Long id) {
+        circleService.resubmitCreation(id, UserContext.getUserId());
         return Result.success();
     }
 

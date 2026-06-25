@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DataTable from '@/components/DataTable.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -54,6 +54,12 @@ const postColumns = [
 /** 详情弹窗 */
 const detailVisible = ref(false)
 const detailData = ref<PostInfo | null>(null)
+const detailImages = computed<string[]>(() => {
+  const raw = detailData.value?.images
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw
+  try { return JSON.parse(raw as unknown as string) } catch { return [] }
+})
 
 /** 驳回弹窗 */
 const rejectVisible = ref(false)
@@ -393,15 +399,18 @@ onMounted(() => {
           </div>
         </div>
         <div class="post-content">{{ detailData.content }}</div>
-        <div v-if="detailData.images?.length" class="post-images">
+        <div v-if="detailImages.length" class="post-images">
           <el-image
-            v-for="(img, i) in detailData.images"
+            v-for="(img, i) in detailImages"
             :key="i"
             :src="img"
-            :preview-src-list="detailData.images"
+            :preview-src-list="detailImages"
             fit="cover"
             class="post-img"
           />
+        </div>
+        <div v-if="detailData.video" class="post-video">
+          <video :src="detailData.video" controls class="video-player" />
         </div>
         <div class="post-meta">
           <span>点赞 {{ detailData.likeCount }}</span>
@@ -534,6 +543,14 @@ onMounted(() => {
 .post-img {
   width: 100px;
   height: 100px;
+  border-radius: $radius-md;
+}
+.post-video {
+  margin-bottom: 12px;
+}
+.video-player {
+  width: 100%;
+  max-height: 300px;
   border-radius: $radius-md;
 }
 .post-meta {

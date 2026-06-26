@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -46,6 +47,9 @@ public class CloudAiServiceImpl implements AiService {
 
     @Autowired
     private AiToolService aiToolService;
+
+    @Autowired
+    private IntentParser intentParser;
 
     /** HTTP 客户端（复用连接池） */
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -221,15 +225,17 @@ public class CloudAiServiceImpl implements AiService {
 
         CompletableFuture.runAsync(() -> {
             try {
-                // 1. 解析意图
-                IntentParser intentParser = new IntentParser();
-                IntentParser.ParsedIntent intent = intentParser.parse(question);
+                // 1. LLM 意图识别（先用 LLM 判断，失败则降级到正则）
+                IntentParser.ParsedIntent intent = parseIntentWithLLM(question);
+                if (intent == null || intent.getType() == IntentParser.IntentType.NONE) {
+                    intent = intentParser.parse(question);
+                }
 
                 ToolResult toolResult = null;
                 boolean hasRealData = false;
 
                 // 2. 如果有匹配的数据查询意图，执行工具
-                if (intent.getType() != IntentParser.IntentType.NONE) {
+                if (intent != null && intent.getType() != IntentParser.IntentType.NONE) {
                     toolResult = aiToolService.execute(intent);
                     hasRealData = toolResult != null && toolResult.isSuccess();
                 }
@@ -275,6 +281,82 @@ public class CloudAiServiceImpl implements AiService {
         });
 
         return emitter;
+    }
+
+    /**
+     * LLM 意图识别
+     *
+     * <p>先快速调一次 LLM 判断用户问题是否需要查数据库，以及查什么。
+     * LLM 返回 JSON 格式的意图描述，解析后转换为 ParsedIntent。
+     * 如果 LLM 调用失败或返回无匹配，返回 null 让 regex 兜底。</p>
+     */
+    private IntentParser.ParsedIntent parseIntentWithLLM(String question) {
+        try {
+            String systemPrompt = "你是一个意图分类器。判断用户的问题是否需要查询数据库获取数据。\n"
+                    + "如果需要，只返回 JSON（不要其他文字）：{\"intent\":\"工具名\",\"params\":{...}}\n"
+                    + "如果不需要，返回：{\"intent\":\"none\"}\n"
+                    + "\n"
+                    + "可用工具：\n"
+                    + "- get_post：查帖子详情，参数 {\"id\": 数字}。当用户提到某个具体帖子时使用\n"
+                    + "- get_circle：查圈子详情，参数 {\"id\": 数字}。当用户提到某个具体圈子时使用\n"
+                    + "- get_user：查用户信息，参数 {\"id\": 数字}。当用户提到某个具体用户时使用\n"
+                    + "- get_stats：查平台统计数据（用户数、帖子数等），无需参数\n"
+                    + "- search_posts：搜索帖子，参数 {\"keyword\": \"关键词\"}。当用户想搜索内容时使用\n"
+                    + "- get_trending：查热门帖子，无需参数\n"
+                    + "- get_new_users：查新注册用户，无需参数";
+
+            String response = callChatApiWithSystem(systemPrompt, question).trim();
+
+            // 提取 JSON（兼容 LLM 可能用 ```json ... ``` 包裹）
+            if (response.startsWith("```")) {
+                int start = response.indexOf('{');
+                int end = response.lastIndexOf('}');
+                if (start >= 0 && end > start) {
+                    response = response.substring(start, end + 1);
+                }
+            }
+
+            JsonNode root = objectMapper.readTree(response);
+            String intentName = root.path("intent").asText("none");
+
+            if ("none".equals(intentName)) {
+                return new IntentParser.ParsedIntent(IntentParser.IntentType.NONE, null);
+            }
+
+            IntentParser.IntentType type = mapIntentName(intentName);
+            if (type == IntentParser.IntentType.NONE) {
+                return new IntentParser.ParsedIntent(IntentParser.IntentType.NONE, null);
+            }
+
+            Map<String, Object> params = new HashMap<>();
+            JsonNode paramsNode = root.path("params");
+            if (!paramsNode.isMissingNode()) {
+                if (paramsNode.has("id")) {
+                    params.put("id", paramsNode.get("id").asLong());
+                }
+                if (paramsNode.has("keyword")) {
+                    params.put("keyword", paramsNode.get("keyword").asText());
+                }
+            }
+
+            return new IntentParser.ParsedIntent(type, params);
+        } catch (Exception e) {
+            log.warn("[CloudAI] LLM 意图识别失败，降级到正则: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private IntentParser.IntentType mapIntentName(String name) {
+        return switch (name) {
+            case "get_post" -> IntentParser.IntentType.GET_POST;
+            case "get_circle" -> IntentParser.IntentType.GET_CIRCLE;
+            case "get_user" -> IntentParser.IntentType.GET_USER;
+            case "get_stats" -> IntentParser.IntentType.GET_STATS;
+            case "search_posts" -> IntentParser.IntentType.SEARCH_POSTS;
+            case "get_trending" -> IntentParser.IntentType.GET_TRENDING;
+            case "get_new_users" -> IntentParser.IntentType.GET_NEW_USERS;
+            default -> IntentParser.IntentType.NONE;
+        };
     }
 
     private String buildQuerySystemPrompt(ToolResult toolResult) {

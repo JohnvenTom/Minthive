@@ -33,6 +33,10 @@ function initChart() {
     backgroundColor: 'transparent',
     textStyle: { color: '#B5BDD4', fontFamily: 'JetBrains Mono, monospace' },
     grid: { top: 40, right: 24, bottom: 32, left: 48 },
+    axisLine: { lineStyle: { color: '#3A4270' } },
+    axisTick: { lineStyle: { color: '#3A4270' } },
+    axisLabel: { color: '#7A86B8' },
+    splitLine: { lineStyle: { color: '#2F3658', type: 'dashed' } },
     ...props.option
   })
 }
@@ -106,9 +110,10 @@ onBeforeUnmount(() => {
 .chart-deco {
   width: 6px;
   height: 6px;
-  background: $color-primary;
+  background: $gradient-primary;
   transform: rotate(45deg);
-  box-shadow: $shadow-glow-primary;
+  box-shadow: 0 0 8px rgba(232, 121, 169, 0.5);
+  flex-shrink: 0;
 }
 .chart-body {
   width: 100%;

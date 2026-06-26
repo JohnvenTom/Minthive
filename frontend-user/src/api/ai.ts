@@ -290,13 +290,14 @@ export function aiQueryStream(
     onChunk: (text: string) => void
     onNavigation: (items: NavigationAction[]) => void
     onMeta: (meta: { hasRealData: boolean }) => void
+    onStatus?: (status: { status: string; message: string }) => void
     onDone: () => void
     onError?: (err: Error) => void
   },
   history?: string[]
 ): AbortController {
   const controller = new AbortController()
-  const { onChunk, onNavigation, onMeta, onDone, onError } = callbacks
+  const { onChunk, onNavigation, onMeta, onStatus, onDone, onError } = callbacks
 
   let settled = false
   const settle = (fn: () => void) => {
@@ -357,6 +358,11 @@ export function aiQueryStream(
 
             try {
               const parsed = JSON.parse(data)
+              // 状态事件（进度指示）
+              if (parsed.type === 'status' && parsed.status) {
+                onStatus?.(parsed)
+                continue
+              }
               // 导航事件
               if (parsed.type === 'navigation' && Array.isArray(parsed.items)) {
                 onNavigation(parsed.items)

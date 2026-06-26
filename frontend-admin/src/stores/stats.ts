@@ -38,14 +38,12 @@ export const useStatsStore = defineStore('stats', () => {
   const aiLoading = ref(false)
 
   /**
-   * 加载全部大屏数据（分两批：核心数据+图表先返回，AI 日报异步加载）
+   * 加载核心指标 + 图表数据（快，通常 <500ms）
    * @param range 时间维度
    */
-  async function loadAll(range: TimeRange = 'DAY') {
+  async function loadData(range: TimeRange = 'DAY') {
     loading.value = true
-    aiLoading.value = true
     try {
-      // 第一批：核心指标 + 图表数据（快，通常 <500ms）
       const [core, reg, active, post, inter, circle, report] = await Promise.all([
         getCoreMetrics(),
         getRegisterTrend(range),
@@ -55,7 +53,6 @@ export const useStatsStore = defineStore('stats', () => {
         getCircleActiveRank(),
         getReportStats(range)
       ])
-      // 响应拦截器已将 {code,data,msg} 解包为 data 本身，直接赋值即可
       coreMetrics.value = core
       registerTrend.value = reg
       activeTrend.value = active
@@ -66,8 +63,11 @@ export const useStatsStore = defineStore('stats', () => {
     } finally {
       loading.value = false
     }
+  }
 
-    // 第二批：AI 日报（慢，调用大模型，独立加载不阻塞页面）
+  /** 加载 AI 日报（慢，调用大模型，独立加载不阻塞页面） */
+  async function loadAiReport() {
+    aiLoading.value = true
     try {
       aiReport.value = await getAiDailyReport()
     } catch (e) {
@@ -75,6 +75,15 @@ export const useStatsStore = defineStore('stats', () => {
     } finally {
       aiLoading.value = false
     }
+  }
+
+  /**
+   * 加载全部大屏数据（核心指标+图表+AI 日报）
+   * @param range 时间维度
+   */
+  async function loadAll(range: TimeRange = 'DAY') {
+    await loadData(range)
+    await loadAiReport()
   }
 
   return {
@@ -88,6 +97,8 @@ export const useStatsStore = defineStore('stats', () => {
     aiReport,
     loading,
     aiLoading,
+    loadData,
+    loadAiReport,
     loadAll
   }
 })

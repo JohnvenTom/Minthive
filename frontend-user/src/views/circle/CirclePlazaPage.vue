@@ -536,13 +536,14 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   opacity: 0;
+  pointer-events: none;
   transition: opacity $dur-slow $ease-out;
   cursor: pointer;
-  /* 无 banner 时使用默认渐变背景 */
   background: linear-gradient(135deg, #6BCB77 0%, #4ECDC4 100%);
 
   &.active {
     opacity: 1;
+    pointer-events: auto;
   }
 }
 

@@ -1,5 +1,20 @@
 <template>
   <div class="interest-page">
+    <!-- 主题切换按钮 -->
+    <button
+      class="theme-toggle"
+      :class="{ 'theme-toggle--light': appStore.theme === 'light' }"
+      @click="appStore.setTheme()"
+      :aria-label="appStore.theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
+    >
+      <svg v-if="appStore.theme === 'dark'" key="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5" />
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+      </svg>
+      <svg v-else key="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+      </svg>
+    </button>
     <!-- 蜂巢粒子背景 -->
     <div class="interest-page__bg">
       <canvas ref="particleCanvas" class="interest-page__canvas"></canvas>
@@ -121,12 +136,14 @@ import {
   School, EditPen, Edit, Star, Van, Iphone
 } from '@element-plus/icons-vue'
 import { updateInterests } from '@/api/user'
+import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 
 // ============================================================
 // 路由与Store
 // ============================================================
 const router = useRouter()
+const appStore = useAppStore()
 const userStore = useUserStore()
 
 // ============================================================
@@ -349,7 +366,75 @@ onUnmounted(() => {
   width: 100%;
   min-height: 100vh;
   overflow-x: hidden;
-  background: $ink-900;
+  --ip-bg: #{$ink-900};
+  --ip-glow-mint: rgba(78, 205, 196, 0.12);
+  --ip-glow-amber: rgba(255, 182, 39, 0.08);
+  --ip-hex-grid: rgba(78, 205, 196, 0.03);
+  --ip-text-primary: #fff;
+  --ip-text-secondary: #{$ink-300};
+  --ip-text-muted: #{$ink-500};
+  --ip-divider: rgba(255, 255, 255, 0.06);
+  --ip-card-bg: rgba(255, 255, 255, 0.03);
+  --ip-card-border: rgba(255, 255, 255, 0.06);
+  --ip-dot-bg: rgba(255, 255, 255, 0.04);
+  --ip-dot-border: rgba(255, 255, 255, 0.1);
+  --ip-progress-bg: rgba(255, 255, 255, 0.08);
+  --ip-counter-bg: rgba(255, 255, 255, 0.06);
+  --ip-btn-border: rgba(255, 255, 255, 0.08);
+  --ip-btn-bg: rgba(255, 255, 255, 0.04);
+  background: var(--ip-bg);
+  transition: background-color 0.3s ease;
+}
+
+// ---------- 主题切换按钮 ----------
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 200;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: $ink-300;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all $dur-base $ease-out;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    transform: scale(1.08);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.4s $ease-spring;
+  }
+
+  &--light {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.08);
+    color: $ink-500;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.1);
+      color: $ink-700;
+    }
+  }
+
+  &:active svg {
+    transform: rotate(360deg);
+  }
 }
 
 // ---------- 背景层 ----------
@@ -370,7 +455,7 @@ onUnmounted(() => {
 .interest-page__hex-grid {
   position: absolute;
   inset: 0;
-  @include honeycomb-bg(rgba(78, 205, 196, 0.03), 40px);
+  @include honeycomb-bg(var(--ip-hex-grid), 40px);
 }
 
 .interest-page__glow {
@@ -383,7 +468,7 @@ onUnmounted(() => {
     height: 600px;
     top: -15%;
     left: 10%;
-    background: radial-gradient(circle, rgba(78, 205, 196, 0.12) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--ip-glow-mint) 0%, transparent 70%);
   }
 
   &--amber {
@@ -391,7 +476,7 @@ onUnmounted(() => {
     height: 400px;
     bottom: 5%;
     right: 5%;
-    background: radial-gradient(circle, rgba(255, 182, 39, 0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--ip-glow-amber) 0%, transparent 70%);
   }
 }
 
@@ -434,7 +519,7 @@ onUnmounted(() => {
       }
 
       .progress-bar__label {
-        color: #fff;
+        color: var(--ip-text-primary);
       }
     }
   }
@@ -448,15 +533,15 @@ onUnmounted(() => {
     border-radius: 50%;
     font-size: 13px;
     font-weight: 700;
-    color: $ink-500;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.04);
+    color: var(--ip-text-muted);
+    border: 2px solid var(--ip-dot-border);
+    background: var(--ip-dot-bg);
     transition: all $dur-base $ease-out;
   }
 
   &__label {
     font-size: 13px;
-    color: $ink-500;
+    color: var(--ip-text-muted);
     transition: color $dur-base $ease-out;
 
     @include mobile {
@@ -467,7 +552,7 @@ onUnmounted(() => {
   &__line {
     width: 60px;
     height: 2px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--ip-progress-bg);
     border-radius: 1px;
 
     &--done {
@@ -485,7 +570,7 @@ onUnmounted(() => {
     font-family: $font-heading;
     font-size: 28px;
     font-weight: 700;
-    color: #fff;
+    color: var(--ip-text-primary);
     margin-bottom: $space-3;
 
     @include mobile {
@@ -495,7 +580,7 @@ onUnmounted(() => {
 
   &__subtitle {
     font-size: 15px;
-    color: $ink-300;
+    color: var(--ip-text-secondary);
     line-height: 1.6;
   }
 
@@ -521,7 +606,7 @@ onUnmounted(() => {
   &__bar {
     flex: 1;
     height: 4px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--ip-counter-bg);
     border-radius: 2px;
     overflow: hidden;
   }
@@ -536,7 +621,7 @@ onUnmounted(() => {
 
   &__text {
     font-size: 13px;
-    color: $ink-300;
+    color: var(--ip-text-secondary);
     white-space: nowrap;
 
     strong {
@@ -569,8 +654,8 @@ onUnmounted(() => {
   gap: $space-1;
   padding: $space-4 $space-2;
   border-radius: $radius-md;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--ip-card-bg);
+  border: 1px solid var(--ip-card-border);
   cursor: pointer;
   transition: all $dur-base $ease-spring;
   overflow: hidden;
@@ -621,7 +706,7 @@ onUnmounted(() => {
     position: relative;
     z-index: 1;
     transition: transform $dur-base $ease-spring;
-    color: $ink-300;
+    color: var(--ip-text-secondary);
 
     .interest-tag--selected &,
     .interest-tag:hover:not(.interest-tag--disabled) & {
@@ -638,7 +723,7 @@ onUnmounted(() => {
 
   &__text {
     font-size: 13px;
-    color: $ink-300;
+    color: var(--ip-text-secondary);
     position: relative;
     z-index: 1;
     transition: all $dur-fast $ease-out;
@@ -692,20 +777,20 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: $space-4;
   padding-top: $space-6;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--ip-divider);
 
   &__skip {
     padding: $space-3 $space-6;
     font-size: 14px;
-    color: $ink-500;
+    color: var(--ip-text-muted);
     background: none;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--ip-btn-border);
     border-radius: $radius-sm;
     cursor: pointer;
     transition: all $dur-fast $ease-out;
 
     &:hover {
-      color: $ink-300;
+      color: var(--ip-text-secondary);
       border-color: rgba(255, 255, 255, 0.15);
       background: rgba(255, 255, 255, 0.03);
     }
@@ -715,9 +800,9 @@ onUnmounted(() => {
     padding: $space-3 $space-8;
     font-size: 15px;
     font-weight: 600;
-    color: $ink-500;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--ip-text-muted);
+    background: var(--ip-btn-bg);
+    border: 1px solid var(--ip-card-border);
     border-radius: $radius-sm;
     cursor: not-allowed;
     transition: all $dur-base $ease-out;
@@ -777,6 +862,34 @@ onUnmounted(() => {
 @include mobile {
   .interest-page {
     padding-top: env(safe-area-inset-top);
+  }
+}
+</style>
+
+<style lang="scss">
+@use '@/styles/variables.scss' as *;
+
+[data-theme="light"] .interest-page {
+  --ip-bg: #f8f9fb;
+  --ip-glow-mint: rgba(78, 205, 196, 0.08);
+  --ip-glow-amber: rgba(255, 182, 39, 0.06);
+  --ip-hex-grid: rgba(78, 205, 196, 0.02);
+  --ip-text-primary: #1a1d23;
+  --ip-text-secondary: #5a6071;
+  --ip-text-muted: #9298a8;
+  --ip-divider: rgba(0, 0, 0, 0.06);
+  --ip-card-bg: rgba(0, 0, 0, 0.02);
+  --ip-card-border: rgba(0, 0, 0, 0.06);
+  --ip-dot-bg: rgba(0, 0, 0, 0.03);
+  --ip-dot-border: rgba(0, 0, 0, 0.1);
+  --ip-progress-bg: rgba(0, 0, 0, 0.08);
+  --ip-counter-bg: rgba(0, 0, 0, 0.05);
+  --ip-btn-border: rgba(0, 0, 0, 0.08);
+  --ip-btn-bg: rgba(0, 0, 0, 0.03);
+
+  .interest-actions__skip:hover {
+    border-color: rgba(0, 0, 0, 0.12);
+    background: rgba(0, 0, 0, 0.02);
   }
 }
 </style>

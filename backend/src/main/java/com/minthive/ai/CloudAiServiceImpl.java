@@ -303,7 +303,14 @@ public class CloudAiServiceImpl implements AiService {
                     + "- get_stats：查平台统计数据（用户数、帖子数等），无需参数\n"
                     + "- search_posts：搜索帖子，参数 {\"keyword\": \"关键词\"}。当用户想搜索内容时使用\n"
                     + "- get_trending：查热门帖子，无需参数\n"
-                    + "- get_new_users：查新注册用户，无需参数";
+                    + "- get_new_users：查新注册用户，无需参数\n"
+                    + "- get_circle_posts：查某个圈子的帖子，参数 {\"circleId\": 数字}。当用户问某圈子里的帖子时使用\n"
+                    + "- get_hot_circles：查热门/推荐圈子，无需参数。当用户问有什么圈子时使用\n"
+                    + "- get_user_posts：查某个用户的帖子，参数 {\"userId\": 数字}\n"
+                    + "- search_circles：搜索圈子，参数 {\"keyword\": \"关键词\"}。当用户想找圈子时使用\n"
+                    + "- search_users：搜索用户，参数 {\"keyword\": \"关键词\"}。当用户想找人时使用\n"
+                    + "- get_comments：查帖子评论，参数 {\"postId\": 数字}。当用户问某帖子的评论时使用\n"
+                    + "- get_daily_stats：查今日数据（新帖子量、新用户数等），无需参数。当用户问今天的数据或统计时使用";
 
             String response = callChatApiWithSystem(systemPrompt, question).trim();
 
@@ -331,12 +338,11 @@ public class CloudAiServiceImpl implements AiService {
             Map<String, Object> params = new HashMap<>();
             JsonNode paramsNode = root.path("params");
             if (!paramsNode.isMissingNode()) {
-                if (paramsNode.has("id")) {
-                    params.put("id", paramsNode.get("id").asLong());
-                }
-                if (paramsNode.has("keyword")) {
-                    params.put("keyword", paramsNode.get("keyword").asText());
-                }
+                if (paramsNode.has("id")) params.put("id", paramsNode.get("id").asLong());
+                if (paramsNode.has("keyword")) params.put("keyword", paramsNode.get("keyword").asText());
+                if (paramsNode.has("circleId")) params.put("circleId", paramsNode.get("circleId").asLong());
+                if (paramsNode.has("userId")) params.put("userId", paramsNode.get("userId").asLong());
+                if (paramsNode.has("postId")) params.put("postId", paramsNode.get("postId").asLong());
             }
 
             return new IntentParser.ParsedIntent(type, params);
@@ -355,6 +361,13 @@ public class CloudAiServiceImpl implements AiService {
             case "search_posts" -> IntentParser.IntentType.SEARCH_POSTS;
             case "get_trending" -> IntentParser.IntentType.GET_TRENDING;
             case "get_new_users" -> IntentParser.IntentType.GET_NEW_USERS;
+            case "get_circle_posts" -> IntentParser.IntentType.GET_CIRCLE_POSTS;
+            case "get_hot_circles" -> IntentParser.IntentType.GET_HOT_CIRCLES;
+            case "get_user_posts" -> IntentParser.IntentType.GET_USER_POSTS;
+            case "search_circles" -> IntentParser.IntentType.SEARCH_CIRCLES;
+            case "search_users" -> IntentParser.IntentType.SEARCH_USERS;
+            case "get_comments" -> IntentParser.IntentType.GET_COMMENTS;
+            case "get_daily_stats" -> IntentParser.IntentType.GET_DAILY_STATS;
             default -> IntentParser.IntentType.NONE;
         };
     }

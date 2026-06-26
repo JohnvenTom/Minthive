@@ -23,6 +23,8 @@ public class AiToolService {
     private final CircleUserMapper circleUserMapper;
     private final CommentMapper commentMapper;
     private final LikeCollectMapper likeCollectMapper;
+    private final FollowMapper followMapper;
+    private final SystemMsgMapper systemMsgMapper;
 
     public ToolResult execute(IntentParser.ParsedIntent intent) {
         return switch (intent.getType()) {
@@ -33,8 +35,21 @@ public class AiToolService {
             case SEARCH_POSTS -> searchPosts((String) intent.getParams().get("keyword"));
             case GET_TRENDING -> getTrendingPosts();
             case GET_NEW_USERS -> getNewUsers();
+            case GET_CIRCLE_POSTS -> getCirclePosts(toLong(intent.getParams().get("circleId")));
+            case GET_HOT_CIRCLES -> getHotCircles();
+            case GET_USER_POSTS -> getUserPosts(toLong(intent.getParams().get("userId")));
+            case SEARCH_CIRCLES -> searchCircles((String) intent.getParams().get("keyword"));
+            case SEARCH_USERS -> searchUsers((String) intent.getParams().get("keyword"));
+            case GET_COMMENTS -> getComments(toLong(intent.getParams().get("postId")));
+            case GET_DAILY_STATS -> getDailyStats();
             default -> null;
         };
+    }
+
+    private Long toLong(Object v) {
+        if (v instanceof Number n) return n.longValue();
+        if (v instanceof String s) return Long.parseLong(s);
+        return (Long) v;
     }
 
     private ToolResult getPostDetail(Long id) {
@@ -314,6 +329,252 @@ public class AiToolService {
         } catch (Exception e) {
             log.error("[AiTool] getNewUsers error: ", e);
             return ToolResult.failure("get_new_users", "查询新用户失败");
+        }
+    }
+
+    private ToolResult getCirclePosts(Long circleId) {
+        try {
+            Circle circle = circleMapper.selectById(circleId);
+            if (circle == null) {
+                return ToolResult.failure("get_circle_posts", "未找到ID为 " + circleId + " 的圈子");
+            }
+            List<Post> posts = postMapper.selectPage(
+                    new Page<>(1, 5),
+                    new LambdaQueryWrapper<Post>()
+                            .eq(Post::getCircleId, circleId)
+                            .eq(Post::getDeleted, 0)
+                            .orderByDesc(Post::getCreateTime)
+            ).getRecords();
+
+            if (posts.isEmpty()) {
+                return ToolResult.failure("get_circle_posts", "圈子「" + circle.getName() + "」暂无帖子");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("圈子「").append(circle.getName()).append("」的最新帖子：\n");
+            for (int i = 0; i < posts.size(); i++) {
+                Post p = posts.get(i);
+                sb.append("• ").append(truncate(p.getContent(), 60)).append("\n");
+                nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post", truncate(p.getContent(), 30)));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_circle_posts")
+                    .toolDisplayName("圈子帖子")
+                    .data(Map.of("circleId", circleId, "circleName", circle.getName(), "count", posts.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getCirclePosts error: ", e);
+            return ToolResult.failure("get_circle_posts", "查询圈子帖子失败");
+        }
+    }
+
+    private ToolResult getHotCircles() {
+        try {
+            List<Circle> circles = circleMapper.selectList(
+                    new LambdaQueryWrapper<Circle>()
+                            .eq(Circle::getDeleted, 0)
+                            .eq(Circle::getStatus, 1)
+                            .orderByDesc(Circle::getMemberCount)
+                            .last("LIMIT 5"));
+
+            if (circles.isEmpty()) {
+                return ToolResult.failure("get_hot_circles", "暂无热门圈子");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("🔥 热门圈子 Top ").append(circles.size()).append("：\n");
+            for (int i = 0; i < circles.size(); i++) {
+                Circle c = circles.get(i);
+                sb.append("• ").append(c.getName()).append("（").append(c.getMemberCount()).append(" 人）\n");
+                nav.add(new NavigationAction("进入圈子", "/circle/" + c.getId(), "circle", c.getName()));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_hot_circles")
+                    .toolDisplayName("热门圈子")
+                    .data(Map.of("count", circles.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getHotCircles error: ", e);
+            return ToolResult.failure("get_hot_circles", "查询热门圈子失败");
+        }
+    }
+
+    private ToolResult getUserPosts(Long userId) {
+        try {
+            User user = userMapper.selectById(userId);
+            if (user == null) {
+                return ToolResult.failure("get_user_posts", "未找到ID为 " + userId + " 的用户");
+            }
+            List<Post> posts = postMapper.selectPage(
+                    new Page<>(1, 5),
+                    new LambdaQueryWrapper<Post>()
+                            .eq(Post::getUserId, userId)
+                            .eq(Post::getDeleted, 0)
+                            .orderByDesc(Post::getCreateTime)
+            ).getRecords();
+
+            if (posts.isEmpty()) {
+                return ToolResult.failure("get_user_posts", "用户「" + user.getNickname() + "」暂无帖子");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("用户「").append(user.getNickname()).append("」的最新帖子：\n");
+            for (int i = 0; i < posts.size(); i++) {
+                Post p = posts.get(i);
+                sb.append("• ").append(truncate(p.getContent(), 60)).append("\n");
+                nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post", truncate(p.getContent(), 30)));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_user_posts")
+                    .toolDisplayName("用户帖子")
+                    .data(Map.of("userId", userId, "nickname", user.getNickname(), "count", posts.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getUserPosts error: ", e);
+            return ToolResult.failure("get_user_posts", "查询用户帖子失败");
+        }
+    }
+
+    private ToolResult searchCircles(String keyword) {
+        try {
+            List<Circle> circles = circleMapper.selectList(
+                    new LambdaQueryWrapper<Circle>()
+                            .like(Circle::getName, keyword)
+                            .eq(Circle::getDeleted, 0)
+                            .eq(Circle::getStatus, 1)
+                            .orderByDesc(Circle::getMemberCount)
+                            .last("LIMIT 5"));
+
+            if (circles.isEmpty()) {
+                return ToolResult.failure("search_circles", "没有找到名称包含「" + keyword + "」的圈子");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("找到 ").append(circles.size()).append(" 个相关圈子：\n");
+            for (int i = 0; i < circles.size(); i++) {
+                Circle c = circles.get(i);
+                sb.append("• ").append(c.getName()).append("（").append(c.getMemberCount()).append(" 人）— ").append(truncate(c.getIntro(), 30)).append("\n");
+                nav.add(new NavigationAction("进入圈子", "/circle/" + c.getId(), "circle", c.getName()));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("search_circles")
+                    .toolDisplayName("圈子搜索结果")
+                    .data(Map.of("keyword", keyword, "count", circles.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] searchCircles error: ", e);
+            return ToolResult.failure("search_circles", "搜索圈子失败");
+        }
+    }
+
+    private ToolResult searchUsers(String keyword) {
+        try {
+            List<User> users = userMapper.selectList(
+                    new LambdaQueryWrapper<User>()
+                            .like(User::getNickname, keyword)
+                            .eq(User::getStatus, 1)
+                            .last("LIMIT 5"));
+
+            if (users.isEmpty()) {
+                return ToolResult.failure("search_users", "没有找到昵称包含「" + keyword + "」的用户");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("找到 ").append(users.size()).append(" 位相关用户：\n");
+            for (int i = 0; i < users.size(); i++) {
+                User u = users.get(i);
+                sb.append("• ").append(u.getNickname());
+                if (u.getBio() != null && !u.getBio().isEmpty()) {
+                    sb.append("—").append(truncate(u.getBio(), 30));
+                }
+                sb.append("\n");
+                nav.add(new NavigationAction("查看主页", "/profile/" + u.getId(), "user", u.getNickname()));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("search_users")
+                    .toolDisplayName("用户搜索结果")
+                    .data(Map.of("keyword", keyword, "count", users.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] searchUsers error: ", e);
+            return ToolResult.failure("search_users", "搜索用户失败");
+        }
+    }
+
+    private ToolResult getComments(Long postId) {
+        try {
+            Post post = postMapper.selectById(postId);
+            if (post == null) {
+                return ToolResult.failure("get_comments", "未找到ID为 " + postId + " 的帖子");
+            }
+            List<Comment> comments = commentMapper.selectList(
+                    new LambdaQueryWrapper<Comment>()
+                            .eq(Comment::getPostId, postId)
+                            .orderByDesc(Comment::getCreateTime)
+                            .last("LIMIT 5"));
+
+            if (comments.isEmpty()) {
+                return ToolResult.failure("get_comments", "该帖子暂无评论");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("帖子《").append(truncate(post.getContent(), 30)).append("》的最新评论：\n");
+            for (int i = 0; i < comments.size(); i++) {
+                Comment c = comments.get(i);
+                User commenter = userMapper.selectById(c.getUserId());
+                String name = commenter != null ? commenter.getNickname() : "用户";
+                sb.append("• ").append(name).append("：").append(truncate(c.getContent(), 50)).append("\n");
+            }
+            nav.add(new NavigationAction("查看帖子", "/post/" + postId, "post", truncate(post.getContent(), 30)));
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_comments")
+                    .toolDisplayName("评论列表")
+                    .data(Map.of("postId", postId, "count", comments.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getComments error: ", e);
+            return ToolResult.failure("get_comments", "查询评论失败");
+        }
+    }
+
+    private ToolResult getDailyStats() {
+        try {
+            LocalDateTime today = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
+            long todayPosts = postMapper.selectCount(
+                    new LambdaQueryWrapper<Post>().eq(Post::getDeleted, 0).ge(Post::getCreateTime, today));
+            long todayComments = commentMapper.selectCount(
+                    new LambdaQueryWrapper<Comment>().ge(Comment::getCreateTime, today));
+            long todayUsers = userMapper.selectCount(
+                    new LambdaQueryWrapper<User>().ge(User::getRegisterTime, today));
+            long todayCircles = circleMapper.selectCount(
+                    new LambdaQueryWrapper<Circle>().eq(Circle::getDeleted, 0).ge(Circle::getCreateTime, today));
+
+            String summary = String.format(
+                    "📅 今日数据：\n• 新帖子：%d 篇\n• 新评论：%d 条\n• 新用户：%d 人\n• 新圈子：%d 个",
+                    todayPosts, todayComments, todayUsers, todayCircles);
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_daily_stats")
+                    .toolDisplayName("今日数据")
+                    .data(Map.of("todayPosts", todayPosts, "todayComments", todayComments,
+                            "todayUsers", todayUsers, "todayCircles", todayCircles))
+                    .dataSummary(summary)
+                    .navigation(List.of()).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getDailyStats error: ", e);
+            return ToolResult.failure("get_daily_stats", "查询今日数据失败");
         }
     }
 

@@ -77,6 +77,19 @@ public interface AiService {
     SseEmitter smartQaStream(String question, List<String> history);
 
     /**
+     * AI 数据感知问答（流式输出）
+     *
+     * <p>自动识别用户提问中是否涉及数据查询需求，若有则调用工具查库获取真实数据，
+     * 将真实数据拼入 prompt 让 LLM 总结，最终流式返回带实时数据的回答。
+     * 同时携带导航建议（帖子卡片、圈子卡片等）供前端渲染。</p>
+     *
+     * @param question     用户提问
+     * @param history      对话历史（偶数索引为 user，奇数索引为 ai），可为 null
+     * @return SseEmitter 流式发射器，包含文本(navigation events)和导航(navigation events)
+     */
+    SseEmitter queryStream(String question, List<String> history);
+
+    /**
      * AI 内容检测结果封装
      */
     class AiDetectResult {

@@ -147,6 +147,26 @@ public class AiController {
     }
 
     /**
+     * AI 数据感知问答（流式输出）
+     *
+     * <p>自动识别用户提问中是否涉及数据查询需求（帖子详情、平台统计、热门帖子等），
+     * 若有则从数据库查询真实数据，将数据拼入提示词让 LLM 总结回答。
+     * 回答流式输出过程中，可能包含 {@code type: "navigation"} 事件（渲染导航卡片）
+     * 和 {@code type: "meta"} 事件（标记是否使用了实时数据）。</p>
+     *
+     * @param dto 请求参数（用户提问 + 对话历史）
+     * @return SseEmitter 流式发射器
+     */
+    @Operation(summary = "AI数据感知问答(流式)")
+    @PostMapping(value = "/query/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter queryStream(@RequestBody QaDto dto) {
+        aiRateLimiter.checkLimit();
+        SseEmitter emitter = aiContext.queryStream(dto.getQuestion(), dto.getHistory());
+        aiRateLimiter.increment();
+        return emitter;
+    }
+
+    /**
      * 查询今日剩余 AI 调用次数
      *
      * @return 剩余次数

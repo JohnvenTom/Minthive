@@ -115,4 +115,15 @@ public class AiContext {
     public SseEmitter smartQaStream(String question, List<String> history) {
         return getAiService().smartQaStream(question, history);
     }
+
+    /**
+     * AI 数据感知问答（流式输出）
+     *
+     * @param question 用户提问
+     * @param history  对话历史
+     * @return SseEmitter 流式发射器
+     */
+    public SseEmitter queryStream(String question, List<String> history) {
+        return getAiService().queryStream(question, history);
+    }
 }

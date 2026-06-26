@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minthive.config.AiConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -20,6 +21,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,6 +43,9 @@ public class CloudAiServiceImpl implements AiService {
     private final AiConfig aiConfig;
     private final AiFallback aiFallback;
     private final ObjectMapper objectMapper;
+
+    @Autowired
+    private AiToolService aiToolService;
 
     /** HTTP 客户端（复用连接池） */
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -207,6 +212,84 @@ public class CloudAiServiceImpl implements AiService {
         });
 
         return emitter;
+    }
+
+    @Override
+    public SseEmitter queryStream(String question, List<String> history) {
+        SseEmitter emitter = new SseEmitter(120_000L);
+        emitter.onError((e) -> log.warn("[CloudAI] queryStream SSE 连接异常: {}", e.getMessage()));
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 1. 解析意图
+                IntentParser intentParser = new IntentParser();
+                IntentParser.ParsedIntent intent = intentParser.parse(question);
+
+                ToolResult toolResult = null;
+                boolean hasRealData = false;
+
+                // 2. 如果有匹配的数据查询意图，执行工具
+                if (intent.getType() != IntentParser.IntentType.NONE) {
+                    toolResult = aiToolService.execute(intent);
+                    hasRealData = toolResult != null && toolResult.isSuccess();
+                }
+
+                // 3. 构建 system prompt（含工具数据上下文）
+                String systemPrompt = buildQuerySystemPrompt(toolResult);
+
+                // 4. 流式调用 LLM
+                callStreamingApiWithSystem(emitter, systemPrompt, question, history);
+
+                // 5. 发送导航建议（如果有）
+                if (hasRealData && toolResult.getNavigation() != null && !toolResult.getNavigation().isEmpty()) {
+                    String navJson = objectMapper.writeValueAsString(Map.of(
+                            "type", "navigation",
+                            "items", toolResult.getNavigation()
+                    ));
+                    emitter.send(SseEmitter.event()
+                            .name("message")
+                            .data(navJson, MediaType.APPLICATION_JSON));
+                    flushSseEmitter();
+                }
+
+                // 6. 发送元数据（标记是否使用了实时数据）
+                String metaJson = objectMapper.writeValueAsString(Map.of(
+                        "type", "meta",
+                        "hasRealData", hasRealData
+                ));
+                emitter.send(SseEmitter.event()
+                        .name("message")
+                        .data(metaJson, MediaType.APPLICATION_JSON));
+                flushSseEmitter();
+
+                emitter.complete();
+            } catch (Exception e) {
+                log.error("[CloudAI] queryStream 异常: ", e);
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name("error")
+                            .data(aiFallback.fallbackQa(), MediaType.APPLICATION_JSON));
+                    emitter.complete();
+                } catch (Exception ignored) {}
+            }
+        });
+
+        return emitter;
+    }
+
+    private String buildQuerySystemPrompt(ToolResult toolResult) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("你是MintHive兴趣社交平台的智能助手（代号MinthiveAI），一个面向户外运动和兴趣爱好者的社区平台。");
+        sb.append("你的职责是帮助用户了解平台功能、提供户外活动建议、兴趣圈子推荐等。");
+        sb.append("回答要简洁实用（100字以内），语气友好自然。");
+
+        if (toolResult != null && toolResult.isSuccess()) {
+            sb.append("\n\n【📊 实时数据 - ").append(toolResult.getToolDisplayName()).append("】\n");
+            sb.append(toolResult.getDataSummary());
+            sb.append("\n\n请基于以上真实数据回答用户的问题。如果数据中包含帖子或圈子，可以在描述中自然提及。");
+        }
+
+        return sb.toString();
     }
 
     // ==================== 私有方法 ====================

@@ -261,6 +261,144 @@ export function aiChatStream(
 }
 
 /**
+ * 导航动作
+ */
+export interface NavigationAction {
+  label: string
+  path: string
+  type: 'post' | 'circle' | 'user' | 'search' | 'page'
+  preview: string
+}
+
+/**
+ * AI 数据感知问答（流式输出）
+ *
+ * <p>自动识别提问是否需要查数据库获取真实数据，返回流式文本 + 导航卡片 + 元数据</p>
+ *
+ * @param question - 用户提问
+ * @param callbacks - 回调集
+ * @param callbacks.onChunk - 每收到一段文本的回调（纯文本内容）
+ * @param callbacks.onNavigation - 收到导航建议的回调（导航卡片列表）
+ * @param callbacks.onMeta - 收到元数据回调（如 hasRealData 标记）
+ * @param callbacks.onDone - 流结束回调
+ * @param callbacks.onError - 错误回调
+ * @param history - 对话历史
+ */
+export function aiQueryStream(
+  question: string,
+  callbacks: {
+    onChunk: (text: string) => void
+    onNavigation: (items: NavigationAction[]) => void
+    onMeta: (meta: { hasRealData: boolean }) => void
+    onDone: () => void
+    onError?: (err: Error) => void
+  },
+  history?: string[]
+): AbortController {
+  const controller = new AbortController()
+  const { onChunk, onNavigation, onMeta, onDone, onError } = callbacks
+
+  let settled = false
+  const settle = (fn: () => void) => {
+    if (settled) return
+    settled = true
+    fn()
+  }
+
+  const baseUrl = import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:8080` : '')
+
+  fetch(`${baseUrl}/api/ai/query/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+      ...(localStorage.getItem('minthive_token')
+        ? { Authorization: `Bearer ${localStorage.getItem('minthive_token')}` }
+        : {})
+    },
+    body: JSON.stringify({ question, history: history || [] }),
+    signal: controller.signal
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '')
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+      if (!response.body) {
+        throw new Error('response.body 为空')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder('utf-8')
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split(/\r?\n/)
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || trimmed.startsWith(':') || trimmed.startsWith('event:')) continue
+
+          if (trimmed.startsWith('data:')) {
+            const data = trimmed.slice(5).trimStart()
+
+            if (data.trim() === '[DONE]') {
+              settle(onDone)
+              return
+            }
+
+            if (settled) continue
+
+            try {
+              const parsed = JSON.parse(data)
+              // 导航事件
+              if (parsed.type === 'navigation' && Array.isArray(parsed.items)) {
+                onNavigation(parsed.items)
+                continue
+              }
+              // 元数据事件
+              if (parsed.type === 'meta') {
+                onMeta(parsed)
+                continue
+              }
+              // 文本事件（LLM delta text）
+              if (parsed.type === 'text' && parsed.content) {
+                onChunk(parsed.content)
+                continue
+              }
+              // 兼容旧格式（纯文本字符串或 choices delta）
+              const content = parsed?.choices?.[0]?.delta?.content ?? ''
+              if (content) {
+                onChunk(content)
+              }
+            } catch {
+              // 非 JSON 行（纯文本数据），直接作为文本
+              if (data) {
+                onChunk(data)
+              }
+            }
+          }
+        }
+      }
+
+      if (!settled) settle(onDone)
+    })
+    .catch((err) => {
+      if ((err as Error).name !== 'AbortError') {
+        settle(() => onError?.(err as Error))
+      }
+    })
+
+  return controller
+}
+
+/**
  * AI 兴趣推荐（圈子/好友）
  */
 export function aiRecommend() {

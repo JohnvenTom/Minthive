@@ -160,4 +160,9 @@ public class LocalAiServiceImpl implements AiService {
         });
         return emitter;
     }
+
+    @Override
+    public SseEmitter queryStream(String question, List<String> history) {
+        return smartQaStream(question, history);
+    }
 }

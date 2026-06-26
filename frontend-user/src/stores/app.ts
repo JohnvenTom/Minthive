@@ -11,7 +11,7 @@ export const useAppStore = defineStore('app', () => {
   // ---------- 状态 ----------
 
   /** 当前主题：light / dark */
-  const theme = ref<'light' | 'dark'>('light')
+  const theme = ref<'light' | 'dark'>('dark')
 
   /** 是否为移动端视图 */
   const isMobile = ref<boolean>(window.innerWidth <= 768)

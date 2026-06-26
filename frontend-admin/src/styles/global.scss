@@ -134,6 +134,21 @@ a {
   background-image: radial-gradient(circle at center, transparent 30%, $bg-base 70%);
 }
 
+// ============================================================
+// 主题切换 — 平滑过渡 + 浅色变量覆盖
+// ============================================================
+
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html[data-theme="light"] {
+  body {
+    background: #F5F5F4;
+    color: #18181b;
+  }
+}
+
 // 工具类
 .flex { display: flex; }
 .flex-center { display: flex; align-items: center; justify-content: center; }

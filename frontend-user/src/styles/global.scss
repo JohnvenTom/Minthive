@@ -172,3 +172,41 @@ ul, ol { list-style: none; }
   --van-dialog-confirm-button-color: #{$mint-500};
   --van-dialog-cancel-button-color: #{$ink-300};
 }
+
+// ============================================================
+// 主题切换 — 平滑过渡 + 浅色变量覆盖
+// ============================================================
+
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html[data-theme="dark"] {
+  body {
+    background: $ink-900;
+    color: #fff;
+  }
+}
+
+html[data-theme="light"] {
+  body {
+    background: $ink-50;
+    color: $ink-700;
+  }
+
+  // Element Plus 浅色覆盖
+  --el-bg-color: #fff;
+  --el-bg-color-page: #{$ink-50};
+  --el-text-color-primary: #{$ink-700};
+  --el-text-color-regular: #{$ink-500};
+  --el-border-color: #{$ink-100};
+  --el-fill-color: #{$ink-50};
+  --el-fill-color-light: #fff;
+
+  // Vant 浅色覆盖
+  --van-background: #fff;
+  --van-background-2: #{$ink-50};
+  --van-text-color: #{$ink-700};
+  --van-cell-background: #fff;
+  --van-cell-border-color: #{$ink-100};
+}

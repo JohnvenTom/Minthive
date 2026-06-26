@@ -1,5 +1,20 @@
 <template>
   <div class="login-page">
+    <!-- 主题切换按钮 -->
+    <button
+      class="theme-toggle"
+      :class="{ 'theme-toggle--light': appStore.theme === 'light' }"
+      @click="appStore.setTheme()"
+      :aria-label="appStore.theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
+    >
+      <svg v-if="appStore.theme === 'dark'" key="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5" />
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+      </svg>
+      <svg v-else key="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+      </svg>
+    </button>
     <!-- 蜂巢粒子背景 -->
     <div class="login-page__bg">
       <canvas ref="particleCanvas" class="login-page__canvas"></canvas>
@@ -336,6 +351,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Iphone, Message } from '@element-plus/icons-vue'
 import { loginByPassword, loginBySms, register, sendSmsCode } from '@/api/auth'
+import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import { setToken } from '@/utils/token'
 import wsClient from '@/utils/websocket'
@@ -346,6 +362,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 // ============================================================
 const router = useRouter()
 const route = useRoute()
+const appStore = useAppStore()
 const userStore = useUserStore()
 
 // ============================================================
@@ -746,7 +763,7 @@ onUnmounted(() => {
 @use '@/styles/mixins.scss' as *;
 
 // ============================================================
-// 登录注册页 - 暗色沉浸式 + 蜂巢装饰 + 粒子光效 + 毛玻璃
+// 登录注册页 — 暗色沉浸式 + 蜂巢装饰 + 粒子光效 + 毛玻璃
 // ============================================================
 
 .login-page {
@@ -755,7 +772,65 @@ onUnmounted(() => {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: $ink-900;
+  // 通过 CSS 变量实现主题切换，默认深色
+  --lp-bg: #{$ink-900};
+  --lp-glow-mint: rgba(78, 205, 196, 0.15);
+  --lp-glow-amber: rgba(255, 182, 39, 0.1);
+  --lp-hex-grid: rgba(78, 205, 196, 0.04);
+  background: var(--lp-bg);
+  transition: background-color 0.3s ease;
+}
+
+// ---------- 主题切换按钮 ----------
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 200;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: $ink-300;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all $dur-base $ease-out;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    transform: scale(1.08);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.4s $ease-spring;
+  }
+
+  &--light {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.08);
+    color: $ink-500;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.1);
+      color: $ink-700;
+    }
+  }
+
+  // 点击时 icon 旋转动画
+  &:active svg {
+    transform: rotate(360deg);
+  }
 }
 
 // ---------- 背景层 ----------
@@ -776,7 +851,7 @@ onUnmounted(() => {
 .login-page__hex-grid {
   position: absolute;
   inset: 0;
-  @include honeycomb-bg(rgba(78, 205, 196, 0.04), 40px);
+  @include honeycomb-bg(var(--lp-hex-grid), 40px);
 }
 
 .login-page__glow {
@@ -789,7 +864,7 @@ onUnmounted(() => {
     height: 500px;
     top: -10%;
     left: -5%;
-    background: radial-gradient(circle, rgba(78, 205, 196, 0.15) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--lp-glow-mint) 0%, transparent 70%);
   }
 
   &--amber {
@@ -797,7 +872,7 @@ onUnmounted(() => {
     height: 400px;
     bottom: -5%;
     right: -5%;
-    background: radial-gradient(circle, rgba(255, 182, 39, 0.1) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--lp-glow-amber) 0%, transparent 70%);
   }
 }
 
@@ -855,7 +930,7 @@ onUnmounted(() => {
   font-family: $font-heading;
   font-size: 36px;
   font-weight: 700;
-  color: #fff;
+  color: var(--lp-text-primary, #fff);
   line-height: 1.4;
   margin-bottom: $space-4;
 
@@ -869,7 +944,7 @@ onUnmounted(() => {
 
 .brand-desc {
   font-size: 16px;
-  color: $ink-300;
+  color: var(--lp-text-secondary, $ink-300);
   line-height: 1.7;
   margin-bottom: $space-10;
 }
@@ -887,8 +962,8 @@ onUnmounted(() => {
   gap: $space-4;
   padding: $space-4 $space-5;
   border-radius: $radius-md;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(78, 205, 196, 0.1);
+  background: var(--lp-card-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--lp-card-border, rgba(78, 205, 196, 0.1));
   backdrop-filter: blur(8px);
   transition: all $dur-base $ease-out;
 
@@ -920,13 +995,13 @@ onUnmounted(() => {
       font-family: $font-heading;
       font-size: 15px;
       font-weight: 600;
-      color: #fff;
+      color: var(--lp-text-primary, #fff);
       margin-bottom: 2px;
     }
 
     p {
       font-size: 13px;
-      color: $ink-300;
+      color: var(--lp-text-secondary, $ink-300);
     }
   }
 }
@@ -949,9 +1024,9 @@ onUnmounted(() => {
   max-width: 440px;
   padding: $space-8 $space-8 $space-6;
   border-radius: $radius-lg;
-  @include glass(20px, rgba(26, 29, 46, 0.75));
-  border: 1px solid rgba(78, 205, 196, 0.1);
-  box-shadow: $shadow-lg, 0 0 60px rgba(78, 205, 196, 0.05);
+  @include glass(20px, var(--lp-card-glass, rgba(26, 29, 46, 0.75)));
+  border: 1px solid var(--lp-card-border, rgba(78, 205, 196, 0.1));
+  box-shadow: $shadow-lg;
   animation: scale-in 0.5s $ease-spring both;
 
   @include mobile {
@@ -992,7 +1067,7 @@ onUnmounted(() => {
     position: relative;
     display: flex;
     margin-bottom: $space-6;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--lp-tabs-bg, rgba(255, 255, 255, 0.04));
     border-radius: $radius-sm;
     padding: 3px;
   }
@@ -1017,7 +1092,7 @@ onUnmounted(() => {
   padding: $space-2 $space-4;
   font-size: 15px;
   font-weight: 600;
-  color: $ink-300;
+  color: var(--lp-text-muted, $ink-300);
   background: none;
   border: none;
   cursor: pointer;
@@ -1025,7 +1100,7 @@ onUnmounted(() => {
   border-radius: $radius-xs;
 
   &--active {
-    color: $ink-900;
+    color: var(--lp-tab-active, $ink-900);
   }
 }
 
@@ -1063,8 +1138,8 @@ onUnmounted(() => {
   }
 
   :deep(.el-input__wrapper) {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(78, 205, 196, 0.1);
+    background: var(--lp-input-bg, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--lp-input-border, rgba(78, 205, 196, 0.1));
     border-radius: $radius-sm;
     box-shadow: none;
     transition: all $dur-fast $ease-out;
@@ -1080,15 +1155,15 @@ onUnmounted(() => {
   }
 
   :deep(.el-input__inner) {
-    color: #fff;
+    color: var(--lp-input-text, #fff);
 
     &::placeholder {
-      color: $ink-500;
+      color: var(--lp-input-placeholder, $ink-500);
     }
   }
 
   :deep(.el-input__prefix .el-icon) {
-    color: $ink-300;
+    color: var(--lp-text-muted, $ink-300);
   }
 }
 
@@ -1116,9 +1191,9 @@ onUnmounted(() => {
     }
 
     &:disabled {
-      color: $ink-500;
-      background: rgba(255, 255, 255, 0.03);
-      border-color: rgba(255, 255, 255, 0.06);
+      color: var(--lp-text-muted, $ink-500);
+      background: var(--lp-disabled-bg, rgba(255, 255, 255, 0.03));
+      border-color: var(--lp-disabled-border, rgba(255, 255, 255, 0.06));
     }
   }
 }
@@ -1132,7 +1207,7 @@ onUnmounted(() => {
 
   &__remember {
     :deep(.el-checkbox__label) {
-      color: $ink-300;
+      color: var(--lp-text-secondary, $ink-300);
       font-size: 13px;
     }
   }
@@ -1175,7 +1250,7 @@ onUnmounted(() => {
 // ---------- 用户协议 ----------
 .agreement-item {
   :deep(.el-checkbox__label) {
-    color: $ink-300;
+    color: var(--lp-text-secondary, $ink-300);
     font-size: 13px;
   }
 }
@@ -1203,13 +1278,13 @@ onUnmounted(() => {
       content: '';
       flex: 1;
       height: 1px;
-      background: rgba(255, 255, 255, 0.06);
+      background: var(--lp-divider, rgba(255, 255, 255, 0.06));
     }
 
     span {
       padding: 0 $space-4;
       font-size: 12px;
-      color: $ink-500;
+      color: var(--lp-text-muted, $ink-500);
       white-space: nowrap;
     }
   }
@@ -1227,8 +1302,8 @@ onUnmounted(() => {
     gap: $space-1;
     padding: $space-3;
     border-radius: $radius-sm;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--lp-third-bg, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--lp-third-border, rgba(255, 255, 255, 0.06));
     cursor: pointer;
     transition: all $dur-fast $ease-out;
 
@@ -1247,7 +1322,7 @@ onUnmounted(() => {
 
   &__label {
     font-size: 11px;
-    color: $ink-500;
+    color: var(--lp-text-muted, $ink-500);
   }
 }
 
@@ -1274,6 +1349,60 @@ onUnmounted(() => {
 @include mobile {
   .login-page {
     padding-top: env(safe-area-inset-top);
+  }
+}
+</style>
+
+// ============================================================
+// 非 scoped 样式 — 主题切换 CSS 变量覆盖
+// ============================================================
+<style lang="scss">
+@use '@/styles/variables.scss' as *;
+
+[data-theme="light"] .login-page {
+  --lp-bg: #{$ink-50};
+  --lp-text-primary: #{$ink-700};
+  --lp-text-secondary: #{$ink-500};
+  --lp-text-muted: #{$ink-300};
+  --lp-tab-active: #fff;
+  --lp-card-glass: rgba(255, 255, 255, 0.85);
+  --lp-card-border: rgba(78, 205, 196, 0.15);
+  --lp-input-bg: #fff;
+  --lp-input-border: #{$ink-100};
+  --lp-input-text: #{$ink-700};
+  --lp-input-placeholder: #{$ink-300};
+  --lp-card-bg: rgba(78, 205, 196, 0.04);
+  --lp-card-border: rgba(78, 205, 196, 0.08);
+  --lp-divider: rgba(0, 0, 0, 0.06);
+  --lp-third-bg: rgba(0, 0, 0, 0.03);
+  --lp-third-border: rgba(0, 0, 0, 0.06);
+  --lp-disabled-bg: rgba(0, 0, 0, 0.03);
+  --lp-disabled-border: rgba(0, 0, 0, 0.06);
+  --lp-glow-mint: rgba(78, 205, 196, 0.12);
+  --lp-glow-amber: rgba(255, 182, 39, 0.08);
+  --lp-hex-grid: rgba(78, 205, 196, 0.12);
+  --lp-tabs-bg: rgba(0, 0, 0, 0.04);
+
+  // 登录页 tab indicator 在浅色下改浅色文字
+  .tab-btn--active {
+    color: #fff;
+  }
+
+  // 表单 card 背景使用白色毛玻璃
+  .form-card {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  }
+
+  // Element Plus 输入框浅色覆盖（修复暗色 !important 残留）
+  .el-input__wrapper {
+    background: #fff !important;
+    border-color: #{$ink-100} !important;
+  }
+  .el-input__inner {
+    color: #{$ink-700} !important;
+  }
+  .el-input__prefix .el-icon {
+    color: #{$ink-300} !important;
   }
 }
 </style>

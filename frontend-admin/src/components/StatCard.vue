@@ -141,6 +141,14 @@ function formatNumber(num: number): string {
 }
 .stat-icon {
   font-size: 20px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(232, 121, 169, 0.15), rgba(245, 158, 11, 0.1));
+  flex-shrink: 0;
 }
 .stat-value {
   font-size: 32px;

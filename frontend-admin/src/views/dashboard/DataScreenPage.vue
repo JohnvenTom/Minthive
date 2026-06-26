@@ -291,7 +291,7 @@ function handleExportExcel() {
 }
 
 onMounted(() => {
-  loadAll()
+  loadData()
 })
 </script>
 

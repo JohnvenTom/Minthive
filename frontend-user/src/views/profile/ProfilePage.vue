@@ -1699,8 +1699,9 @@ watch(() => route.params.id, (newId) => {
   position: relative;
   overflow: hidden;
   animation: scale-in 0.35s $ease-spring both;
-  background: linear-gradient(160deg, #2A3D3C 0%, #2D3946 100%);
-  border: 1px solid rgba(78, 205, 196, 0.18);
+  background: #FFFFFF;
+  border: 1px solid rgba(26, 29, 46, 0.06);
+  box-shadow: 0 16px 48px rgba(26, 29, 46, 0.12);
 }
 
 .modal-deco {
@@ -1746,11 +1747,11 @@ watch(() => route.params.id, (newId) => {
   transition: all $dur-fast $ease-out;
 
   &.cancel {
-    background: $ink-700;
-    color: $ink-300;
+    background: $ink-50;
+    color: $ink-500;
 
     &:hover {
-      background: $ink-800;
+      background: $ink-100;
     }
   }
 

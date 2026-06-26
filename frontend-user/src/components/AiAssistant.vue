@@ -38,7 +38,24 @@
               </svg>
             </div>
             <div class="ai-assistant__msg-bubble">
-              {{ msg.content }}
+              <span v-if="msg.hasRealData" class="ai-assistant__data-badge">📊 实时数据</span>
+              <template v-for="(seg, si) in msg.segments || [{ type: 'text', content: msg.content }]" :key="si">
+                <span v-if="seg.type === 'text'">{{ seg.content }}</span>
+                <span
+                  v-else-if="seg.type === 'navigation'"
+                  v-for="(item, ni) in seg.items"
+                  :key="ni"
+                  class="ai-assistant__nav-chip"
+                  @click="navigateTo(item)"
+                >
+                  <span class="ai-assistant__nav-chip-icon">{{ navIcon(item.type) }}</span>
+                  <span class="ai-assistant__nav-chip-label">{{ item.label }}</span>
+                  <span class="ai-assistant__nav-chip-preview">{{ item.preview }}</span>
+                  <svg class="ai-assistant__nav-chip-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+              </template>
             </div>
           </div>
 
@@ -50,7 +67,25 @@
               </svg>
             </div>
             <div class="ai-assistant__msg-bubble">
-              {{ streamingText }}<span class="ai-assistant__cursor"></span>
+              <span v-if="streamMeta.hasRealData" class="ai-assistant__data-badge">📊 实时数据</span>
+              <template v-for="(seg, si) in streamSegments" :key="si">
+                <span v-if="seg.type === 'text'">{{ seg.content }}</span>
+                <span
+                  v-else-if="seg.type === 'navigation'"
+                  v-for="(item, ni) in seg.items"
+                  :key="ni"
+                  class="ai-assistant__nav-chip"
+                  @click="navigateTo(item)"
+                >
+                  <span class="ai-assistant__nav-chip-icon">{{ navIcon(item.type) }}</span>
+                  <span class="ai-assistant__nav-chip-label">{{ item.label }}</span>
+                  <span class="ai-assistant__nav-chip-preview">{{ item.preview }}</span>
+                  <svg class="ai-assistant__nav-chip-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+              </template>
+              <span class="ai-assistant__cursor"></span>
             </div>
           </div>
         </div>
@@ -86,11 +121,27 @@
  * @emits close - 用户点击关闭按钮时触发，通知父组件隐藏此组件
  */
 
-import { ref, nextTick } from 'vue'
-import { aiChatStream } from '@/api/ai'
+import { ref, nextTick, reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { aiQueryStream } from '@/api/ai'
+import type { NavigationAction } from '@/api/ai'
 import { useAppStore } from '@/stores/app'
 
+interface MessageSegment {
+  type: 'text' | 'navigation'
+  content?: string
+  items?: NavigationAction[]
+}
+
+interface AiMessage {
+  role: 'user' | 'ai'
+  content: string
+  segments?: MessageSegment[]
+  hasRealData?: boolean
+}
+
 const appStore = useAppStore()
+const router = useRouter()
 
 /** 面板是否可见（用于 v-show + Transition 动画） */
 const visible = ref(true)
@@ -104,18 +155,17 @@ const isLoading = ref(false)
 /** 流式输出控制器（用于中断请求） */
 let abortController: AbortController | null = null
 
-/** 消息列表（引用 appStore，组件销毁不丢失，页面刷新自动清空）
- *  注意：Pinia store 的 ref 在外部自动解包为纯数组，无需 .value */
-const messages = appStore.aiChatHistory
+/** 消息列表（引用 appStore，组件销毁不丢失，页面刷新自动清空） */
+const messages = appStore.aiChatHistory as AiMessage[]
 
 /** 消息列表DOM引用 */
 const messagesRef = ref<HTMLElement | null>(null)
 
-/**
- * 流式输出中的文本（独立于 messages 数组）
- * @description 流式接收期间实时追加内容，结束后推入 messages 并清空
- */
-const streamingText = ref('')
+/** 流式输出中的分段（文本 + 导航卡片混合） */
+const streamSegments = ref<MessageSegment[]>([])
+
+/** 流式元数据 */
+const streamMeta = reactive({ hasRealData: false })
 
 /** 流式文本缓冲区 */
 let streamBuffer = ''
@@ -152,44 +202,86 @@ async function sendMessage(): Promise<void> {
   messages.push({ role: 'user', content: text })
   inputText.value = ''
   isLoading.value = true
-  streamingText.value = ''
+  streamSegments.value = [{ type: 'text', content: '' }]
+  streamMeta.hasRealData = false
   streamBuffer = ''
 
   await scrollToBottom()
 
-  abortController = aiChatStream(
+  abortController = aiQueryStream(
     text,
-    // onChunk：每收到一段文本就追加到缓冲区
-    (chunk) => {
-      streamBuffer = streamBuffer + chunk
-      streamingText.value = streamBuffer
-      autoScroll()
-    },
-    // onDone：流结束
-    () => {
-      abortController = null
-      if (streamBuffer) {
-        messages.push({ role: 'ai', content: streamBuffer })
+    {
+      onChunk: (chunk) => {
+        streamBuffer += chunk
+        // 更新最后一个 text segment 的内容
+        const segs = streamSegments.value
+        const last = segs[segs.length - 1]
+        if (last && last.type === 'text') {
+          last.content = streamBuffer
+        } else {
+          segs.push({ type: 'text', content: streamBuffer })
+        }
+        autoScroll()
+      },
+      onNavigation: (items) => {
+        streamSegments.value.push({ type: 'navigation', items })
+        autoScroll()
+      },
+      onMeta: (meta) => {
+        streamMeta.hasRealData = meta.hasRealData
+      },
+      onDone: () => {
+        abortController = null
+        if (streamBuffer) {
+          messages.push({
+            role: 'ai',
+            content: streamBuffer,
+            segments: streamSegments.value.length > 1 ? streamSegments.value : undefined,
+            hasRealData: streamMeta.hasRealData
+          })
+        }
         streamBuffer = ''
-        streamingText.value = ''
+        streamSegments.value = []
+        streamMeta.hasRealData = false
+        isLoading.value = false
+        scrollToBottom()
+      },
+      onError: (err) => {
+        abortController = null
+        console.error('[AI] 流式请求失败:', err)
+        const finalText = streamBuffer || '抱歉，我暂时无法回答这个问题，请稍后再试。'
+        messages.push({ role: 'ai', content: finalText })
+        streamBuffer = ''
+        streamSegments.value = []
+        streamMeta.hasRealData = false
+        isLoading.value = false
+        scrollToBottom()
       }
-      isLoading.value = false
-      scrollToBottom()
     },
-    // onError：错误处理
-    (err) => {
-      abortController = null
-      console.error('[AI] 流式请求失败:', err)
-      const finalText = streamBuffer || '抱歉，我暂时无法回答这个问题，请稍后再试。'
-      messages.push({ role: 'ai', content: finalText })
-      streamBuffer = ''
-      streamingText.value = ''
-      isLoading.value = false
-      scrollToBottom()
-    },
-    // history：将已有消息列表作为上下文传入（偶数索引 user，奇数索引 ai）
-    messages.slice(0, -1).flatMap(m => [m.content])  // 排除刚 push 的 user 消息，只传之前的对话
+    // history：将已有消息列表作为上下文传入
+    (messages as AiMessage[]).slice(0, -1).flatMap(m => [m.content])
   )
+}
+
+/**
+ * 点击导航卡片跳转
+ */
+function navigateTo(item: NavigationAction): void {
+  router.push(item.path)
+}
+
+/**
+ * 导航卡片图标
+ */
+function navIcon(type: string): string {
+  const icons: Record<string, string> = {
+    post: '📝',
+    circle: '💬',
+    user: '👤',
+    search: '🔍',
+    page: '📄'
+  }
+  return icons[type] || '🔗'
 }
 
 /**
@@ -320,6 +412,69 @@ function autoScroll(): void {
     font-size: 13px;
     line-height: 1.6;
     word-break: break-word;
+  }
+
+  /** 实时数据标记 */
+  &__data-badge {
+    display: inline-block;
+    font-size: 11px;
+    color: $mint-600;
+    background: rgba(78, 205, 196, 0.1);
+    padding: 1px 8px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  /** 导航卡片 */
+  &__nav-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px 4px 6px;
+    margin: 2px 2px;
+    background: rgba(78, 205, 196, 0.08);
+    border: 1px solid rgba(78, 205, 196, 0.18);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.4;
+    transition: all 0.2s ease;
+    vertical-align: baseline;
+
+    &:hover {
+      background: rgba(78, 205, 196, 0.15);
+      border-color: rgba(78, 205, 196, 0.3);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  &__nav-chip-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  &__nav-chip-label {
+    font-weight: 600;
+    color: $mint-700;
+    white-space: nowrap;
+  }
+
+  &__nav-chip-preview {
+    color: $ink-500;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__nav-chip-arrow {
+    color: $mint-500;
+    flex-shrink: 0;
   }
 
   /** 流式输出时的闪烁光标 */

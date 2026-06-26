@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import { registerMintHiveTheme } from '@/styles/echarts-theme'
 
 /**
  * ChartCard 图表卡片组件
@@ -28,15 +29,11 @@ let chartInstance: echarts.ECharts | null = null
 /** 初始化图表 */
 function initChart() {
   if (!chartRef.value) return
-  chartInstance = echarts.init(chartRef.value, 'dark')
+  registerMintHiveTheme()
+  chartInstance = echarts.init(chartRef.value, 'minthive')
   chartInstance.setOption({
-    backgroundColor: 'transparent',
-    textStyle: { color: '#B5BDD4', fontFamily: 'JetBrains Mono, monospace' },
     grid: { top: 40, right: 24, bottom: 32, left: 48 },
-    axisLine: { lineStyle: { color: '#3A4270' } },
-    axisTick: { lineStyle: { color: '#3A4270' } },
-    axisLabel: { color: '#7A86B8' },
-    splitLine: { lineStyle: { color: '#2F3658', type: 'dashed' } },
+    textStyle: { fontFamily: 'JetBrains Mono, monospace' },
     ...props.option
   })
 }

@@ -225,6 +225,9 @@ public class CloudAiServiceImpl implements AiService {
 
         CompletableFuture.runAsync(() -> {
             try {
+                // 0. 发送状态：正在理解问题
+                sendStatusEvent(emitter, "thinking", "🤔 正在理解你的问题...");
+
                 // 1. LLM 意图识别（先用 LLM 判断，失败则降级到正则）
                 IntentParser.ParsedIntent intent = parseIntentWithLLM(question);
                 if (intent == null || intent.getType() == IntentParser.IntentType.NONE) {
@@ -236,6 +239,7 @@ public class CloudAiServiceImpl implements AiService {
 
                 // 2. 如果有匹配的数据查询意图，执行工具
                 if (intent != null && intent.getType() != IntentParser.IntentType.NONE) {
+                    sendStatusEvent(emitter, "querying", "🔍 正在查询数据库...");
                     toolResult = aiToolService.execute(intent);
                     hasRealData = toolResult != null && toolResult.isSuccess();
                 }
@@ -243,7 +247,8 @@ public class CloudAiServiceImpl implements AiService {
                 // 3. 构建 system prompt（含工具数据上下文）
                 String systemPrompt = buildQuerySystemPrompt(toolResult);
 
-                // 4. 流式调用 LLM
+                // 4. 发送状态：正在生成回答，然后流式调用 LLM
+                sendStatusEvent(emitter, "generating", "✍️ 正在生成回答...");
                 callStreamingApiWithSystem(emitter, systemPrompt, question, history);
 
                 // 5. 发送导航建议（如果有）
@@ -533,6 +538,21 @@ public class CloudAiServiceImpl implements AiService {
             }
         }
         log.info("[CloudAI] 流式API调用完成");
+    }
+
+    /**
+     * 发送状态事件（用于在 LLM 流式输出前展示进度）
+     */
+    private void sendStatusEvent(SseEmitter emitter, String status, String message) throws Exception {
+        String json = objectMapper.writeValueAsString(Map.of(
+                "type", "status",
+                "status", status,
+                "message", message
+        ));
+        emitter.send(SseEmitter.event()
+                .name("message")
+                .data(json, MediaType.APPLICATION_JSON));
+        flushSseEmitter();
     }
 
     /**

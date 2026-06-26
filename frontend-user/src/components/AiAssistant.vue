@@ -67,6 +67,13 @@
               </svg>
             </div>
             <div class="ai-assistant__msg-bubble">
+              <!-- 进度状态（LLM 流式输出前显示） -->
+              <div v-if="streamStatus && !streamBuffer" class="ai-assistant__status">
+                <span class="ai-assistant__status-text">{{ streamStatus.message }}</span>
+                <span class="ai-assistant__status-dots">
+                  <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+                </span>
+              </div>
               <span v-if="streamMeta.hasRealData" class="ai-assistant__data-badge">📊 实时数据</span>
               <template v-for="(seg, si) in streamSegments" :key="si">
                 <span v-if="seg.type === 'text'" v-html="renderMarkdown(seg.content || '')" class="ai-assistant__text"></span>
@@ -85,7 +92,7 @@
                   </svg>
                 </span>
               </template>
-              <span class="ai-assistant__cursor"></span>
+              <span v-if="!streamStatus" class="ai-assistant__cursor"></span>
             </div>
           </div>
         </div>
@@ -171,6 +178,9 @@ const streamMeta = reactive({ hasRealData: false })
 /** 流式文本缓冲区 */
 let streamBuffer = ''
 
+/** 当前进度状态 */
+const streamStatus = ref<{ status: string; message: string } | null>(null)
+
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
@@ -206,13 +216,21 @@ async function sendMessage(): Promise<void> {
   streamSegments.value = [{ type: 'text', content: '' }]
   streamMeta.hasRealData = false
   streamBuffer = ''
+  streamStatus.value = null
 
   await scrollToBottom()
 
   abortController = aiQueryStream(
     text,
     {
+      onStatus: (status) => {
+        streamStatus.value = status
+      },
       onChunk: (chunk) => {
+        // 收到第一个文本片段时清除状态提示
+        if (streamBuffer === '' && streamStatus.value) {
+          streamStatus.value = null
+        }
         streamBuffer += chunk
         // 更新最后一个 text segment 的内容
         const segs = streamSegments.value
@@ -481,7 +499,7 @@ function autoScroll(): void {
     blockquote {
       margin: 6px 0;
       padding-left: 10px;
-      border-left: 3px solid $mint-400;
+      border-left: 3px solid $mint-300;
       color: $ink-500;
     }
   }
@@ -535,6 +553,44 @@ function autoScroll(): void {
   &__nav-chip-arrow {
     color: $mint-500;
     flex-shrink: 0;
+  }
+
+  /** 进度状态指示器 */
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, rgba(78, 205, 196, 0.08), rgba(107, 203, 119, 0.08));
+    border-radius: 8px;
+    font-size: 12px;
+    color: $mint-700;
+  }
+
+  &__status-text {
+    font-weight: 500;
+  }
+
+  &__status-dots {
+    display: inline-flex;
+    gap: 1px;
+    margin-left: 2px;
+
+    .dot {
+      animation: status-dot-bounce 1.4s ease-in-out infinite;
+      font-size: 16px;
+      line-height: 1;
+      color: $mint-500;
+
+      &:nth-child(2) { animation-delay: 0.2s; }
+      &:nth-child(3) { animation-delay: 0.4s; }
+    }
+  }
+
+  @keyframes status-dot-bounce {
+    0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-2px); }
   }
 
   /** 流式输出时的闪烁光标 */

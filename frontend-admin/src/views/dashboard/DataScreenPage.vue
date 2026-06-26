@@ -227,7 +227,16 @@ const reportChartOption = computed<echarts.EChartsOption>(() => ({
  */
 async function loadData() {
   try {
-    await statsStore.loadAll(timeRange.value)
+    await statsStore.loadData(timeRange.value)
+  } catch (e) {
+    // 错误已由拦截器提示
+  }
+}
+
+async function loadAll() {
+  try {
+    await statsStore.loadData(timeRange.value)
+    await statsStore.loadAiReport()
   } catch (e) {
     // 错误已由拦截器提示
   }
@@ -282,7 +291,7 @@ function handleExportExcel() {
 }
 
 onMounted(() => {
-  loadData()
+  loadAll()
 })
 </script>
 
@@ -310,7 +319,7 @@ onMounted(() => {
           <el-button type="primary" :icon="'Download'" @click="handleExportExcel">
             导出 Excel
           </el-button>
-          <el-button :icon="'Refresh'" @click="loadData" :loading="statsStore.loading">
+          <el-button :icon="'Refresh'" @click="loadAll" :loading="statsStore.loading">
             刷新
           </el-button>
         </div>

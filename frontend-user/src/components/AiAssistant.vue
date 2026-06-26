@@ -39,8 +39,8 @@
             </div>
             <div class="ai-assistant__msg-bubble">
               <span v-if="msg.hasRealData" class="ai-assistant__data-badge">📊 实时数据</span>
-              <template v-for="(seg, si) in msg.segments || [{ type: 'text', content: msg.content }]" :key="si">
-                <span v-if="seg.type === 'text'">{{ seg.content }}</span>
+              <template v-for="(seg, si) in (msg.segments as MessageSegment[]) || [{ type: 'text', content: msg.content } as MessageSegment]" :key="si">
+                <span v-if="seg.type === 'text'" v-html="renderMarkdown(seg.content || '')" class="ai-assistant__text"></span>
                 <span
                   v-else-if="seg.type === 'navigation'"
                   v-for="(item, ni) in seg.items"
@@ -69,7 +69,7 @@
             <div class="ai-assistant__msg-bubble">
               <span v-if="streamMeta.hasRealData" class="ai-assistant__data-badge">📊 实时数据</span>
               <template v-for="(seg, si) in streamSegments" :key="si">
-                <span v-if="seg.type === 'text'">{{ seg.content }}</span>
+                <span v-if="seg.type === 'text'" v-html="renderMarkdown(seg.content || '')" class="ai-assistant__text"></span>
                 <span
                   v-else-if="seg.type === 'navigation'"
                   v-for="(item, ni) in seg.items"
@@ -126,6 +126,7 @@ import { useRouter } from 'vue-router'
 import { aiQueryStream } from '@/api/ai'
 import type { NavigationAction } from '@/api/ai'
 import { useAppStore } from '@/stores/app'
+import { marked } from 'marked'
 
 interface MessageSegment {
   type: 'text' | 'navigation'
@@ -273,6 +274,10 @@ function navigateTo(item: NavigationAction): void {
 /**
  * 导航卡片图标
  */
+function renderMarkdown(text: string): string {
+  return marked.parse(text, { async: false }) as string
+}
+
 function navIcon(type: string): string {
   const icons: Record<string, string> = {
     post: '📝',
@@ -424,6 +429,61 @@ function autoScroll(): void {
     border-radius: 10px;
     margin-bottom: 6px;
     font-weight: 600;
+  }
+
+  /** Markdown 渲染文本 */
+  &__text {
+    line-height: 1.6;
+
+    p {
+      margin: 0 0 6px;
+      &:last-child { margin-bottom: 0; }
+    }
+
+    ul, ol {
+      margin: 4px 0;
+      padding-left: 18px;
+    }
+
+    li {
+      margin-bottom: 2px;
+    }
+
+    strong { font-weight: 700; }
+    em { font-style: italic; }
+
+    code {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 12px;
+      background: rgba(0,0,0,0.06);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    pre {
+      margin: 6px 0;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.04);
+      border-radius: 6px;
+      overflow-x: auto;
+
+      code {
+        background: none;
+        padding: 0;
+      }
+    }
+
+    a {
+      color: $mint-600;
+      text-decoration: underline;
+    }
+
+    blockquote {
+      margin: 6px 0;
+      padding-left: 10px;
+      border-left: 3px solid $mint-400;
+      color: $ink-500;
+    }
   }
 
   /** 导航卡片 */

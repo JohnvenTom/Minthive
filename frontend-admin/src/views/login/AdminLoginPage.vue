@@ -7,6 +7,8 @@ import { clearToken } from '@/api/request'
 import { useAdminStore } from '@/stores/admin'
 import HexagonLogo from '@/components/HexagonLogo.vue'
 
+const adminStore = useAdminStore()
+
 /**
  * AdminLoginPage 管理员登录页
  * 功能：深色专业风登录，账号密码登录，登录成功跳转后台
@@ -15,7 +17,6 @@ import HexagonLogo from '@/components/HexagonLogo.vue'
  */
 const route = useRoute()
 const router = useRouter()
-const adminStore = useAdminStore()
 
 const loginFormRef = ref<FormInstance>()
 const loading = ref(false)
@@ -72,6 +73,21 @@ async function handleLogin(formEl: FormInstance | undefined) {
 
 <template>
   <div class="login-page">
+    <!-- 主题切换按钮 -->
+    <button
+      class="theme-toggle"
+      :class="{ 'theme-toggle--light': adminStore.theme === 'light' }"
+      @click="adminStore.setTheme()"
+      :aria-label="adminStore.theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
+    >
+      <svg v-if="adminStore.theme === 'dark'" key="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5" />
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+      </svg>
+      <svg v-else key="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+      </svg>
+    </button>
     <!-- 背景蜂巢装饰 -->
     <div class="bg-hex-grid"></div>
     <div class="bg-glow glow-1"></div>
@@ -158,11 +174,72 @@ async function handleLogin(formEl: FormInstance | undefined) {
   position: relative;
   width: 100%;
   height: 100%;
-  background: $bg-base;
+  // CSS 变量，默认暗色值
+  --lp-bg: #{$bg-base};
+  --lp-elevated: #{$bg-elevated};
+  --lp-border: #{$border-base};
+  --lp-text-primary: #{$text-primary};
+  --lp-text-secondary: #{$text-secondary};
+  --lp-text-regular: #{$text-regular};
+  --lp-text-placeholder: #{$text-placeholder};
+  --lp-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  background: var(--lp-bg);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.3s ease;
+}
+
+// 主题切换按钮
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 200;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #A1A1AA;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    transform: scale(1.08);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  &--light {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.08);
+    color: #71717A;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.1);
+      color: #18181b;
+    }
+  }
+
+  &:active svg {
+    transform: rotate(360deg);
+  }
 }
 
 // 背景蜂巢网格 — 暮光玫瑰色调
@@ -182,7 +259,7 @@ async function handleLogin(formEl: FormInstance | undefined) {
   position: absolute;
   border-radius: 50%;
   filter: blur(80px);
-  opacity: 0.3;
+  opacity: 0.18;
 }
 .glow-1 {
   width: 400px; height: 400px;
@@ -193,7 +270,7 @@ async function handleLogin(formEl: FormInstance | undefined) {
   width: 500px; height: 500px;
   background: $color-warning;
   bottom: -150px; right: -150px;
-  opacity: 0.15;
+  opacity: 0.1;
 }
 
 .login-container {
@@ -202,23 +279,23 @@ async function handleLogin(formEl: FormInstance | undefined) {
   width: 880px;
   max-width: 92%;
   height: 520px;
-  background: $bg-elevated;
-  border: 1px solid $border-base;
+  background: var(--lp-elevated);
+  border: 1px solid var(--lp-border);
   border-radius: $radius-xl;
   overflow: hidden;
   display: flex;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--lp-shadow);
 }
 
 // 品牌区 — 暮光玫瑰深灰底座
 .brand-panel {
   width: 44%;
-  background: linear-gradient(160deg, $bg-elevated 0%, $bg-base 100%);
+  background: linear-gradient(160deg, var(--lp-elevated) 0%, var(--lp-bg) 100%);
   padding: 48px 40px;
   display: flex;
   flex-direction: column;
   position: relative;
-  border-right: 1px solid $border-base;
+  border-right: 1px solid var(--lp-border);
 
   &::before {
     content: '';
@@ -233,12 +310,12 @@ async function handleLogin(formEl: FormInstance | undefined) {
   font-size: 28px;
   font-weight: 700;
   margin-top: 24px;
-  color: $text-primary;
+  color: var(--lp-text-primary);
   letter-spacing: 1px;
 }
 .brand-subtitle {
   font-size: 13px;
-  color: $text-secondary;
+  color: var(--lp-text-secondary);
   margin-top: 8px;
   letter-spacing: 1px;
 }
@@ -252,7 +329,7 @@ async function handleLogin(formEl: FormInstance | undefined) {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: $text-regular;
+  color: var(--lp-text-regular);
   font-size: 14px;
   .el-icon {
     color: $color-primary;
@@ -262,7 +339,7 @@ async function handleLogin(formEl: FormInstance | undefined) {
 .brand-footer {
   margin-top: auto;
   font-size: 11px;
-  color: $text-placeholder;
+  color: var(--lp-text-placeholder);
   letter-spacing: 1px;
 }
 
@@ -281,11 +358,11 @@ async function handleLogin(formEl: FormInstance | undefined) {
 .form-title {
   font-size: 24px;
   font-weight: 600;
-  color: $text-primary;
+  color: var(--lp-text-primary);
 }
 .form-desc {
   font-size: 13px;
-  color: $text-secondary;
+  color: var(--lp-text-secondary);
   margin-top: 6px;
   margin-bottom: 32px;
 }
@@ -303,11 +380,61 @@ async function handleLogin(formEl: FormInstance | undefined) {
   align-items: flex-start;
   gap: 6px;
   font-size: 11px;
-  color: $text-placeholder;
+  color: var(--lp-text-placeholder);
   line-height: 1.5;
   .el-icon {
     flex-shrink: 0;
     margin-top: 1px;
+  }
+}
+</style>
+
+<style lang="scss">
+// ============================================================
+// 非 scoped 样式 — 登录页主题切换 CSS 变量覆盖
+// ============================================================
+
+[data-theme="light"] .login-page {
+  --lp-bg: #F5F5F4;
+  --lp-elevated: #FFFFFF;
+  --lp-border: #E4E4E7;
+  --lp-text-primary: #18181b;
+  --lp-text-secondary: #52525b;
+  --lp-text-regular: #3f3f46;
+  --lp-text-placeholder: #A1A1AA;
+  --lp-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+
+  // 登录容器卡片阴影在浅色下更轻
+  .login-container {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  }
+
+  // 背景发光在浅色下仍然可见
+  .bg-glow {
+    opacity: 0.25;
+  }
+
+  // 蜂巢网格在浅色背景下提高可见度
+  .bg-hex-grid {
+    opacity: 0.3;
+  }
+
+  // Element Plus 输入框浅色覆盖（修复暗色 !important 残留）
+  .el-input__wrapper {
+    background: #fff !important;
+    box-shadow: 0 0 0 1px #E4E4E7 inset !important;
+  }
+  .el-input__wrapper.is-focus {
+    box-shadow: 0 0 0 1px #E879A9 inset !important;
+  }
+  .el-input__inner {
+    color: #18181b !important;
+  }
+  .el-input__inner::placeholder {
+    color: #A1A1AA !important;
+  }
+  .el-input__prefix .el-icon {
+    color: #A1A1AA !important;
   }
 }
 </style>

@@ -16,6 +16,7 @@ import com.minthive.mapper.CircleMemberMapper;
 import com.minthive.mapper.CircleUserMapper;
 import com.minthive.mapper.PostMapper;
 import com.minthive.service.CircleService;
+import com.minthive.service.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,8 @@ public class CircleServiceImpl implements CircleService {
     private final CircleMemberMapper circleMemberMapper;
 
     private final PostMapper postMapper;
+
+    private final PostService postService;
 
     private final CircleCategoryMapper circleCategoryMapper;
 
@@ -202,7 +205,9 @@ public class CircleServiceImpl implements CircleService {
                 .eq(Post::getCircleId, id)
                 .eq(Post::getAuditStatus, 1)
                 .orderByDesc(Post::getCreateTime);
-        return postMapper.selectPage(new Page<>(current, size), wrapper);
+        Page<Post> result = postMapper.selectPage(new Page<>(current, size), wrapper);
+        postService.enrichPageCounts(result);
+        return result;
     }
 
     /**

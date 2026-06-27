@@ -21,10 +21,11 @@ public class JwtUtil {
      *
      * @param userId  用户ID
      * @param account 账号
+     * @param role    角色
      * @return Token 字符串
      */
-    public String generateToken(Long userId, String account) {
-        return jwtUtils.generateToken(userId, account);
+    public String generateToken(Long userId, String account, Integer role) {
+        return jwtUtils.generateToken(userId, account, role);
     }
 
     /**

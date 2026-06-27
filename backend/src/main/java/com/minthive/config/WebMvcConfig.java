@@ -1,5 +1,6 @@
 package com.minthive.config;
 
+import com.minthive.security.AdminAuthInterceptor;
 import com.minthive.security.JwtInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final JwtInterceptor jwtInterceptor;
 
+    private final AdminAuthInterceptor adminAuthInterceptor;
+
     /**
      * 注册拦截器，配置拦截规则
      *
@@ -25,6 +28,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // 第一层：JWT 认证（校验 token，设置 UserContext）
         registry.addInterceptor(jwtInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
@@ -63,5 +67,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         // WebSocket 端点放行(连接时单独校验 token)
                         "/ws/**"
                 );
+        // 第二层：管理员权限校验（UserContext 中 role >= ROLE_ADMIN 才放行）
+        registry.addInterceptor(adminAuthInterceptor)
+                .addPathPatterns("/api/admin/**");
     }
 }

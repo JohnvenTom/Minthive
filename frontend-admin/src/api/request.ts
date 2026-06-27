@@ -66,6 +66,15 @@ service.interceptors.response.use(
       }, 1000)
       return Promise.reject(new Error(res.msg || '未登录'))
     }
+    // 403 无权限
+    if (res.code === 403) {
+      clearToken()
+      ElMessage.error('无权限访问后台')
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 1000)
+      return Promise.reject(new Error(res.msg || '无权限'))
+    }
     ElMessage.error(res.msg || '请求失败')
     return Promise.reject(new Error(res.msg || '请求失败'))
   },
@@ -74,6 +83,15 @@ service.interceptors.response.use(
     if (error.response?.status === 401) {
       clearToken()
       ElMessage.error('登录已过期，请重新登录')
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 1000)
+      return Promise.reject(error)
+    }
+    // HTTP 层面 403：无权限
+    if (error.response?.status === 403) {
+      clearToken()
+      ElMessage.error('无权限访问后台')
       setTimeout(() => {
         window.location.href = '/login'
       }, 1000)

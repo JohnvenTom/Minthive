@@ -18,6 +18,7 @@ import com.minthive.mapper.UserMapper;
 import com.minthive.config.JwtConfig;
 import com.minthive.security.JwtUtils;
 import com.minthive.security.UserContext;
+import com.minthive.ai.AiContext;
 import com.minthive.service.PostService;
 import com.minthive.service.SensitiveWordService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +43,8 @@ public class PostServiceImpl implements PostService {
     private final UserMapper userMapper;
 
     private final SensitiveWordService sensitiveWordService;
+
+    private final AiContext aiContext;
 
     private final CommentMapper commentMapper;
 
@@ -71,9 +74,21 @@ public class PostServiceImpl implements PostService {
             throw new BusinessException(ResultCode.SENSITIVE_WORD, "帖子内容包含敏感词，请修改后发布");
         }
         post.setContent(sensitiveWordService.replace(post.getContent()));
-        post.setAuditStatus(Constants.AUDIT_PASS);
+        // AI 内容检测
+        try {
+            var detectResult = aiContext.detectContent(post.getContent(), null);
+            if (detectResult.violation) {
+                post.setAuditStatus(Constants.AUDIT_PENDING);
+                log.info("AI检测违规，进入待审核: content={}", post.getContent());
+            } else {
+                post.setAuditStatus(Constants.AUDIT_PASS);
+            }
+        } catch (Exception e) {
+            log.error("AI检测异常，默认放行: ", e);
+            post.setAuditStatus(Constants.AUDIT_PASS);
+        }
         postMapper.insert(post);
-        log.info("帖子发布成功: id={}, userId={}", post.getId(), post.getUserId());
+        log.info("帖子发布成功: id={}, userId={}, auditStatus={}", post.getId(), post.getUserId(), post.getAuditStatus());
         return post;
     }
 
@@ -87,6 +102,10 @@ public class PostServiceImpl implements PostService {
     public Post getById(Long id) {
         Post post = postMapper.selectById(id);
         if (post == null) {
+            throw new BusinessException(ResultCode.POST_NOT_EXISTS);
+        }
+        // 未通过审核的帖子对所有人不可见（包括作者）
+        if (post.getAuditStatus() == null || post.getAuditStatus() != Constants.AUDIT_PASS) {
             throw new BusinessException(ResultCode.POST_NOT_EXISTS);
         }
         enrichPostCounts(post);

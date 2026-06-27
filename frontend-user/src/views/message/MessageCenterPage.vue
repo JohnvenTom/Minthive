@@ -276,16 +276,20 @@ const unreadData = ref<{
   like: number
   comment: number
   message: number
+  follow: number
   circle: number
   system: number
   report: number
+  audit: number
 }>({
   like: 0,
   comment: 0,
   message: 0,
+  follow: 0,
   circle: 0,
   system: 0,
-  report: 0
+  report: 0,
+  audit: 0
 })
 
 // ---------- 通知类型筛选配置 ----------
@@ -295,7 +299,8 @@ const notifyFilters = [
   { label: '评论', value: 'comment', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="2"/></svg>' },
   { label: '关注', value: 'follow', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' },
   { label: '圈子', value: 'circle', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L22 8.5V15.5L12 22L2 15.5V8.5L12 2Z" stroke="currentColor" stroke-width="2"/></svg>' },
-  { label: '举报结果', value: 'report', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>' }
+  { label: '举报结果', value: 'report', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>' },
+  { label: '审核结果', value: 'audit', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>' }
 ]
 
 // ---------- 计算属性 ----------
@@ -306,7 +311,7 @@ const notifyFilters = [
  */
 const notifyUnread = computed(() => {
   return unreadData.value.like + unreadData.value.comment +
-    unreadData.value.follow + unreadData.value.circle + unreadData.value.system + unreadData.value.report
+    unreadData.value.follow + unreadData.value.circle + unreadData.value.system + unreadData.value.report + unreadData.value.audit
 })
 
 /**
@@ -454,6 +459,8 @@ function onNotifyClick(notify: Notification): void {
     router.push(`/profile/${notify.fromUserId}`)
   } else if (notify.type === 'circle') {
     router.push(`/circle/${notify.targetId}`)
+  } else if (notify.type === 'audit') {
+    router.push(`/post/${notify.targetId}`)
   }
 }
 
@@ -462,7 +469,7 @@ function onNotifyClick(notify: Notification): void {
  * @param {'like' | 'comment' | 'follow' | 'circle' | 'system' | 'report'} type - 通知类型
  * @returns {string} 动作描述文本
  */
-function getNotifyAction(type: 'like' | 'comment' | 'reply' | 'follow' | 'circle' | 'system' | 'report'): string {
+function getNotifyAction(type: string): string {
   const map: Record<string, string> = {
     like: '赞了你的动态',
     comment: '评论了你的动态',
@@ -470,7 +477,8 @@ function getNotifyAction(type: 'like' | 'comment' | 'reply' | 'follow' | 'circle
     follow: '关注了你',
     circle: '圈子有新动态',
     system: '系统通知',
-    report: '举报结果通知'
+    report: '举报结果通知',
+    audit: '审核结果通知'
   }
   return map[type] || '通知'
 }

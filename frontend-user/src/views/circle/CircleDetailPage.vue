@@ -199,6 +199,7 @@
             v-for="post in postList"
             :key="post.id"
             :post="post"
+            :is-circle-owner="isOwner"
             @click="goPostDetail(post.id)"
             @click-user="router.push(`/profile/${$event}`)"
             @like="onLike"

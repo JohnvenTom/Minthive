@@ -322,6 +322,7 @@ import ShareChainDialog from '@/components/ShareChainDialog.vue'
 import EditPostDialog from '@/components/EditPostDialog.vue'
 import { useUserStore } from '@/stores/user'
 import { getPostDetail, toggleLike, toggleCollect, sharePost, deletePost, updatePost, togglePostVisibility } from '@/api/post'
+import { getCircleDetail } from '@/api/circle'
 import { getComments, createComment, toggleCommentLike } from '@/api/comment'
 import { aiGenerateComment } from '@/api/ai'
 import { report } from '@/api/report'
@@ -390,24 +391,39 @@ const showShareChain = ref(false)
 /** 编辑帖子弹窗是否显示 */
 const showEditDialog = ref(false)
 
+/** 当前用户是否是该帖子所属圈子的圈主 */
+const isCircleOwner = ref(false)
+
 /**
  * 判断当前用户是否为帖子作者
  * @returns {boolean} 是作者返回 true
  */
-const isOwner = computed(() => {
+const isPostAuthor = computed(() => {
   return !!userStore.userInfo && post.value && userStore.userInfo.id === post.value.userId
 })
 
 /**
+ * 判断当前用户是否有权操作该帖子（作者或圈主）
+ */
+const isOwner = computed(() => {
+  return isPostAuthor.value || isCircleOwner.value
+})
+
+/**
  * 帖子操作选项（根据身份动态生成）
- * @description 作者：编辑/隐藏或公开/删除；其他人：举报/复制链接
+ * @description 作者：编辑/隐藏或公开/删除；圈主：删除；其他人：举报/复制链接
  */
 const postActions = computed(() => {
-  if (isOwner.value) {
+  if (isPostAuthor.value) {
     const hidden = post.value?.visibility === 2
     return [
       { name: '编辑帖子', color: '#2D3142' },
       { name: hidden ? '重新公开' : '隐藏帖子', color: '#2D3142' },
+      { name: '删除帖子', color: '#FF6B6B' }
+    ]
+  }
+  if (isCircleOwner.value) {
+    return [
       { name: '删除帖子', color: '#FF6B6B' }
     ]
   }
@@ -451,14 +467,24 @@ async function fetchPostDetail(): Promise<void> {
   try {
     const res = await getPostDetail(postId.value)
     const p = res.data
-    // 对 liked/collected 做布尔值兜底，确保 null/undefined → false
     if (p) {
       p.liked = !!p.liked
       p.collected = !!p.collected
     }
     post.value = p
+
+    if (p?.circleId && userStore.userInfo) {
+      try {
+        const circleRes = await getCircleDetail(p.circleId)
+        const circle = circleRes.data
+        if (circle && String(circle.ownerId) === String(userStore.userInfo.id)) {
+          isCircleOwner.value = true
+        }
+      } catch {
+        // 圈子不存在或无权访问，静默处理
+      }
+    }
   } catch (err) {
-    // 业务异常(如帖子不存在)已由响应拦截器弹过 toast，此处静默并展示空状态页
     console.warn('[PostDetail] 加载帖子失败:', err)
   } finally {
     loading.value = false

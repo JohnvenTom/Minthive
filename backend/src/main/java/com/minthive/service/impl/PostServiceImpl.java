@@ -163,10 +163,18 @@ public class PostServiceImpl implements PostService {
     @Override
     public void delete(Long id, Long userId) {
         Post post = getById(id);
-        if (!post.getUserId().equals(userId)) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "无权删除他人帖子");
+        if (post.getUserId().equals(userId)) {
+            postMapper.deleteById(id);
+            return;
         }
-        postMapper.deleteById(id);
+        if (post.getCircleId() != null) {
+            Circle circle = circleMapper.selectById(post.getCircleId());
+            if (circle != null && userId.equals(circle.getOwnerId())) {
+                postMapper.deleteById(id);
+                return;
+            }
+        }
+        throw new BusinessException(ResultCode.FORBIDDEN, "无权删除他人帖子");
     }
 
     /**

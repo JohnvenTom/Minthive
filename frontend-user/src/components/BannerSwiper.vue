@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import Swiper from 'swiper/bundle'
 import { Autoplay, Pagination, EffectFade } from 'swiper/modules'
@@ -44,7 +44,8 @@ async function loadBanners(): Promise<void> {
     const list: Banner[] = res.data || []
     banners.value = list
     hasBanners.value = list.length > 0
-    // 数据更新后重新初始化 Swiper
+    // 等待 DOM 更新后再初始化 Swiper
+    await nextTick()
     await initSwiper()
   } catch {
     // 静默失败，不显示轮播
@@ -96,11 +97,10 @@ async function initSwiper(): Promise<void> {
  */
 function handleBannerClick(banner: Banner): void {
   if (!banner.linkUrl) return
-  // 判断是否为站内路由（以 / 开头）
   if (banner.linkUrl.startsWith('/')) {
     router.push(banner.linkUrl)
   } else {
-    window.open(banner.linkUrl, '_blank')
+    window.location.href = banner.linkUrl
   }
 }
 
@@ -231,11 +231,12 @@ watch(hasBanners, () => {
 // ---------- 分页指示器 ----------
 .banner-swiper-pagination {
   position: absolute;
-  right: $space-4;
+  left: 50%;
   bottom: $space-3;
-  left: auto;
+  transform: translateX(-50%);
   z-index: 10;
   display: flex;
+  justify-content: center;
   gap: 6px;
 
   :deep(.swiper-pagination-bullet) {

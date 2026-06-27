@@ -229,6 +229,8 @@ import { showToast } from 'vant'
 const props = defineProps<{
   /** 帖子数据 */
   post: Post
+  /** 当前用户是否为该帖子所属圈子的圈主 */
+  isCircleOwner?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -261,10 +263,16 @@ const userStore = useUserStore()
 
 /**
  * 判断当前用户是否为帖子作者
- * @returns {boolean} 是作者返回 true
+ */
+const isPostAuthor = computed(() => {
+  return !!userStore.userInfo && userStore.userInfo.id === props.post.userId
+})
+
+/**
+ * 判断当前用户是否为帖子作者或圈主（可操作该帖子）
  */
 const isOwner = computed(() => {
-  return !!userStore.userInfo && userStore.userInfo.id === props.post.userId
+  return isPostAuthor.value || props.isCircleOwner
 })
 
 /** 默认头像 */
@@ -300,15 +308,17 @@ const contextMenuStyle = ref({})
 const showOwnerActions = ref(false)
 
 /**
- * 作者操作选项列表（根据当前可见性动态生成）
+ * 操作选项列表（根据身份动态生成）
  */
 const ownerActions = computed(() => {
-  const isHidden = props.post.visibility === 2
-  return [
-    { name: '编辑帖子', icon: 'edit', color: '#2D3142' },
-    { name: isHidden ? '重新公开' : '隐藏帖子', icon: isHidden ? 'eye-o' : 'closed-eye', color: '#2D3142' },
-    { name: '删除帖子', icon: 'delete-o', color: '#FF6B6B' }
-  ]
+  const actions: { name: string; icon: string; color: string }[] = []
+  if (isPostAuthor.value) {
+    const isHidden = props.post.visibility === 2
+    actions.push({ name: '编辑帖子', icon: 'edit', color: '#2D3142' })
+    actions.push({ name: isHidden ? '重新公开' : '隐藏帖子', icon: isHidden ? 'eye-o' : 'closed-eye', color: '#2D3142' })
+  }
+  actions.push({ name: '删除帖子', icon: 'delete-o', color: '#FF6B6B' })
+  return actions
 })
 
 /** 点赞 +1 动画是否显示 */

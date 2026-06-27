@@ -3,6 +3,7 @@ package com.minthive.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minthive.config.AiConfig;
+import com.minthive.security.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -223,16 +224,19 @@ public class CloudAiServiceImpl implements AiService {
         SseEmitter emitter = new SseEmitter(120_000L);
         emitter.onError((e) -> log.warn("[CloudAI] queryStream SSE 连接异常: {}", e.getMessage()));
 
+        // 在 HTTP 线程捕获当前用户（ForkJoinPool 线程无权访问 UserContext ThreadLocal）
+        java.util.Optional<Long> currentUserId = java.util.Optional.ofNullable(UserContext.get())
+                .map(u -> u.getUserId());
+
         CompletableFuture.runAsync(() -> {
             try {
                 // 0. 发送状态：正在理解问题
                 sendStatusEvent(emitter, "thinking", "🤔 正在理解你的问题...");
 
                 // 1. LLM 意图识别（先用 LLM 判断，失败则降级到正则）
-                IntentParser.ParsedIntent intent = parseIntentWithLLM(question);
-                if (intent == null || intent.getType() == IntentParser.IntentType.NONE) {
-                    intent = intentParser.parse(question);
-                }
+                IntentParser.ParsedIntent llmIntent = parseIntentWithLLM(question);
+                IntentParser.ParsedIntent intent = (llmIntent == null || llmIntent.getType() == IntentParser.IntentType.NONE)
+                        ? intentParser.parse(question) : llmIntent;
 
                 ToolResult toolResult = null;
                 boolean hasRealData = false;
@@ -240,7 +244,17 @@ public class CloudAiServiceImpl implements AiService {
                 // 2. 如果有匹配的数据查询意图，执行工具
                 if (intent != null && intent.getType() != IntentParser.IntentType.NONE) {
                     sendStatusEvent(emitter, "querying", "🔍 正在查询数据库...");
-                    toolResult = aiToolService.execute(intent);
+                    // 为需要当前用户的工具注入 userId（ForkJoinPool 线程无权访问 UserContext）
+                    if ((intent.getType() == IntentParser.IntentType.GET_MESSAGES
+                            || intent.getType() == IntentParser.IntentType.GET_MESSAGE_CENTER
+                            || intent.getType() == IntentParser.IntentType.GET_NOTIFICATIONS)
+                            && (intent.getParams() == null || !intent.getParams().containsKey("userId"))) {
+                        Map<String, Object> enrichedParams = intent.getParams() != null ? intent.getParams() : new HashMap<>();
+                        enrichedParams.put("userId", currentUserId.orElse(null));
+                        toolResult = aiToolService.execute(new IntentParser.ParsedIntent(intent.getType(), enrichedParams));
+                    } else {
+                        toolResult = aiToolService.execute(intent);
+                    }
                     hasRealData = toolResult != null && toolResult.isSuccess();
                 }
 
@@ -307,7 +321,8 @@ public class CloudAiServiceImpl implements AiService {
                     + "- get_user：查用户信息，参数 {\"id\": 数字}。当用户提到某个具体用户时使用\n"
                     + "- get_stats：查平台统计数据（用户数、帖子数等），无需参数\n"
                     + "- search_posts：搜索帖子，参数 {\"keyword\": \"关键词\"}。当用户想搜索内容时使用\n"
-                    + "- get_trending：查热门帖子，无需参数\n"
+                    + "- get_latest_posts：查最新帖子（按时间倒序），无需参数\n"
+                    + "- get_trending：查热门帖子（按热度排序），无需参数\n"
                     + "- get_new_users：查新注册用户，无需参数\n"
                     + "- get_circle_posts：查某个圈子的帖子，参数 {\"circleId\": 数字}。当用户问某圈子里的帖子时使用\n"
                     + "- get_hot_circles：查热门/推荐圈子，无需参数。当用户问有什么圈子时使用\n"
@@ -315,7 +330,18 @@ public class CloudAiServiceImpl implements AiService {
                     + "- search_circles：搜索圈子，参数 {\"keyword\": \"关键词\"}。当用户想找圈子时使用\n"
                     + "- search_users：搜索用户，参数 {\"keyword\": \"关键词\"}。当用户想找人时使用\n"
                     + "- get_comments：查帖子评论，参数 {\"postId\": 数字}。当用户问某帖子的评论时使用\n"
-                    + "- get_daily_stats：查今日数据（新帖子量、新用户数等），无需参数。当用户问今天的数据或统计时使用";
+                    + "- get_daily_stats：查今日数据（新帖子量、新用户数等），无需参数。当用户问今天的数据或统计时使用\n"
+                    + "- get_recommend：推荐帖子，无需参数。当用户想看推荐内容或随便看看时使用\n"
+                    + "- get_notifications：查用户通知，参数 {\"userId\": 数字}。当用户问通知或系统消息时使用\n"
+                    + "- get_announcements：查平台公告，无需参数。当用户问有什么公告时使用\n"
+                    + "- get_followers：查用户的粉丝列表，参数 {\"userId\": 数字}。当用户问某人的粉丝时使用\n"
+                    + "- get_following：查用户的关注列表，参数 {\"userId\": 数字}。当用户问某人关注了谁时使用\n"
+                    + "- get_post_likes：查帖子点赞用户，参数 {\"postId\": 数字}。当用户问谁赞了帖子时使用\n"
+                    + "- get_collections：查用户收藏的帖子，参数 {\"userId\": 数字}。当用户问某人收藏了什么时使用\n"
+                    + "- get_messages：查当前登录用户的私信消息，无需参数。当用户问我的消息或私信时使用\n"
+                    + "- search_posts_by_tags：按标签搜索帖子，参数 {\"keyword\": \"标签名\"}。当用户想按标签找帖子时使用\n"
+                    + "- search_circles_by_category：按分类搜索圈子，参数 {\"keyword\": \"分类名\"}。当用户想找某分类的圈子时使用\n"
+                    + "- get_message_center：查消息中心（私信+通知+公告），无需参数。当用户问消息中心、inbox或想总览所有消息时使用";
 
             String response = callChatApiWithSystem(systemPrompt, question).trim();
 
@@ -365,6 +391,7 @@ public class CloudAiServiceImpl implements AiService {
             case "get_stats" -> IntentParser.IntentType.GET_STATS;
             case "search_posts" -> IntentParser.IntentType.SEARCH_POSTS;
             case "get_trending" -> IntentParser.IntentType.GET_TRENDING;
+            case "get_latest_posts" -> IntentParser.IntentType.GET_LATEST_POSTS;
             case "get_new_users" -> IntentParser.IntentType.GET_NEW_USERS;
             case "get_circle_posts" -> IntentParser.IntentType.GET_CIRCLE_POSTS;
             case "get_hot_circles" -> IntentParser.IntentType.GET_HOT_CIRCLES;
@@ -373,6 +400,17 @@ public class CloudAiServiceImpl implements AiService {
             case "search_users" -> IntentParser.IntentType.SEARCH_USERS;
             case "get_comments" -> IntentParser.IntentType.GET_COMMENTS;
             case "get_daily_stats" -> IntentParser.IntentType.GET_DAILY_STATS;
+            case "get_recommend" -> IntentParser.IntentType.GET_RECOMMEND;
+            case "get_notifications" -> IntentParser.IntentType.GET_NOTIFICATIONS;
+            case "get_announcements" -> IntentParser.IntentType.GET_ANNOUNCEMENTS;
+            case "get_followers" -> IntentParser.IntentType.GET_FOLLOWERS;
+            case "get_following" -> IntentParser.IntentType.GET_FOLLOWING;
+            case "get_post_likes" -> IntentParser.IntentType.GET_POST_LIKES;
+            case "get_collections" -> IntentParser.IntentType.GET_COLLECTIONS;
+            case "get_messages" -> IntentParser.IntentType.GET_MESSAGES;
+            case "search_posts_by_tags" -> IntentParser.IntentType.SEARCH_POSTS_BY_TAGS;
+            case "search_circles_by_category" -> IntentParser.IntentType.SEARCH_CIRCLES_BY_CATEGORY;
+            case "get_message_center" -> IntentParser.IntentType.GET_MESSAGE_CENTER;
             default -> IntentParser.IntentType.NONE;
         };
     }

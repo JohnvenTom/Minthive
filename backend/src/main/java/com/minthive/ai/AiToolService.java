@@ -25,6 +25,9 @@ public class AiToolService {
     private final LikeCollectMapper likeCollectMapper;
     private final FollowMapper followMapper;
     private final SystemMsgMapper systemMsgMapper;
+    private final AnnouncementMapper announcementMapper;
+    private final CircleCategoryMapper circleCategoryMapper;
+    private final MessageMapper messageMapper;
 
     public ToolResult execute(IntentParser.ParsedIntent intent) {
         return switch (intent.getType()) {
@@ -34,6 +37,18 @@ public class AiToolService {
             case GET_STATS -> getPlatformStats();
             case SEARCH_POSTS -> searchPosts((String) intent.getParams().get("keyword"));
             case GET_TRENDING -> getTrendingPosts();
+            case GET_LATEST_POSTS -> getLatestPosts();
+            case GET_RECOMMEND -> getRecommendPosts();
+            case GET_NOTIFICATIONS -> getNotifications(toLong(intent.getParams().get("userId")));
+            case GET_ANNOUNCEMENTS -> getAnnouncements();
+            case GET_FOLLOWERS -> getFollowers(toLong(intent.getParams().get("userId")));
+            case GET_FOLLOWING -> getFollowing(toLong(intent.getParams().get("userId")));
+            case GET_POST_LIKES -> getPostLikes(toLong(intent.getParams().get("postId")));
+            case GET_COLLECTIONS -> getCollections(toLong(intent.getParams().get("userId")));
+            case SEARCH_POSTS_BY_TAGS -> searchPostsByTags((String) intent.getParams().get("keyword"));
+            case SEARCH_CIRCLES_BY_CATEGORY -> searchCirclesByCategory((String) intent.getParams().get("keyword"));
+            case GET_MESSAGES -> getMessages(toLong(intent.getParams().get("userId")));
+            case GET_MESSAGE_CENTER -> getMessageCenter(toLong(intent.getParams().get("userId")));
             case GET_NEW_USERS -> getNewUsers();
             case GET_CIRCLE_POSTS -> getCirclePosts(toLong(intent.getParams().get("circleId")));
             case GET_HOT_CIRCLES -> getHotCircles();
@@ -77,8 +92,10 @@ public class AiToolService {
             data.put("commentCount", commentCount);
             data.put("createTime", post.getCreateTime() != null ? post.getCreateTime().toString() : "");
 
-            String summary = String.format("找到帖子《%s》——作者：%s，点赞 %d，评论 %d",
+            String mediaTag = postMediaIndicator(post);
+            String summary = String.format("找到帖子《%s》%s——作者：%s，点赞 %d，评论 %d",
                     truncate(post.getContent(), 50),
+                    mediaTag,
                     author != null ? author.getNickname() : "未知",
                     likeCount, commentCount);
 
@@ -116,8 +133,9 @@ public class AiToolService {
             data.put("postCount", postCount);
             data.put("avatar", circle.getAvatar());
 
-            String summary = String.format("圈子「%s」—— %s，成员 %d 人，帖子 %d 篇",
+            String summary = String.format("圈子「%s」%s—— %s，成员 %d 人，帖子 %d 篇",
                     circle.getName(),
+                    circleMediaIndicator(circle),
                     circle.getIntro() != null ? truncate(circle.getIntro(), 40) : "暂无简介",
                     memberCount, postCount);
 
@@ -227,7 +245,7 @@ public class AiToolService {
             StringBuilder sb = new StringBuilder("找到 ").append(posts.size()).append(" 篇相关帖子：\n");
             for (int i = 0; i < posts.size(); i++) {
                 Post p = posts.get(i);
-                sb.append("• ").append(truncate(p.getContent(), 60)).append("\n");
+                sb.append("• ").append(truncate(p.getContent(), 60)).append(postMediaIndicator(p)).append("\n");
                 nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post",
                         truncate(p.getContent(), 30)));
             }
@@ -265,7 +283,7 @@ public class AiToolService {
             StringBuilder sb = new StringBuilder("🔥 热门帖子 Top ").append(posts.size()).append("：\n");
             for (int i = 0; i < posts.size(); i++) {
                 Post p = posts.get(i);
-                sb.append("• ").append(truncate(p.getContent(), 60)).append("\n");
+                sb.append("• ").append(truncate(p.getContent(), 60)).append(postMediaIndicator(p)).append("\n");
                 nav.add(new NavigationAction("查看热门" + (i + 1), "/post/" + p.getId(), "post",
                         truncate(p.getContent(), 30)));
             }
@@ -289,6 +307,547 @@ public class AiToolService {
         }
     }
 
+    private ToolResult getLatestPosts() {
+        try {
+            List<Post> posts = postMapper.selectPage(
+                    new Page<>(1, 5),
+                    new LambdaQueryWrapper<Post>()
+                            .eq(Post::getDeleted, 0)
+                            .eq(Post::getAuditStatus, 1)
+                            .eq(Post::getVisibility, 0)
+                            .orderByDesc(Post::getCreateTime)
+            ).getRecords();
+
+            if (posts.isEmpty()) {
+                return ToolResult.failure("get_latest_posts", "暂无最新帖子");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("📰 最新帖子 Top ").append(posts.size()).append("：\n");
+            for (int i = 0; i < posts.size(); i++) {
+                Post p = posts.get(i);
+                sb.append("• ").append(truncate(p.getContent(), 60)).append(postMediaIndicator(p)).append("\n");
+                nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post",
+                        truncate(p.getContent(), 30)));
+            }
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("count", posts.size());
+            data.put("posts", posts.stream().map(p -> Map.of(
+                    "id", p.getId(),
+                    "content", truncate(p.getContent(), 60),
+                    "createTime", p.getCreateTime() != null ? p.getCreateTime().toString() : ""
+            )).toList());
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_latest_posts")
+                    .toolDisplayName("最新帖子")
+                    .data(data).dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getLatestPosts error: ", e);
+            return ToolResult.failure("get_latest_posts", "查询最新帖子失败");
+        }
+    }
+
+    private ToolResult getRecommendPosts() {
+        try {
+            Page<Post> page = postMapper.selectRecommendFeed(new Page<>(1, 5));
+            List<Post> posts = page.getRecords();
+
+            if (posts.isEmpty()) {
+                return ToolResult.failure("get_recommend", "暂无推荐帖子");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("⭐ 推荐帖子 Top ").append(posts.size()).append("：\n");
+            for (int i = 0; i < posts.size(); i++) {
+                Post p = posts.get(i);
+                sb.append("• ").append(truncate(p.getContent(), 60)).append(postMediaIndicator(p)).append("\n");
+                nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post",
+                        truncate(p.getContent(), 30)));
+            }
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("count", posts.size());
+            data.put("posts", posts.stream().map(p -> Map.of(
+                    "id", p.getId(),
+                    "content", truncate(p.getContent(), 60),
+                    "createTime", p.getCreateTime() != null ? p.getCreateTime().toString() : ""
+            )).toList());
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_recommend")
+                    .toolDisplayName("推荐帖子")
+                    .data(data).dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getRecommendPosts error: ", e);
+            return ToolResult.failure("get_recommend", "查询推荐帖子失败");
+        }
+    }
+
+    private ToolResult getNotifications(Long userId) {
+        try {
+            if (userId == null) {
+                return ToolResult.failure("get_notifications", "请指定用户ID");
+            }
+            List<SystemMsg> msgs = systemMsgMapper.selectPage(
+                    new Page<>(1, 10),
+                    new LambdaQueryWrapper<SystemMsg>()
+                            .eq(SystemMsg::getUserId, userId)
+                            .orderByDesc(SystemMsg::getCreateTime)
+            ).getRecords();
+
+            if (msgs.isEmpty()) {
+                return ToolResult.failure("get_notifications", "用户暂无通知消息");
+            }
+
+            long unreadCount = msgs.stream().filter(m -> m.getIsRead() == 0).count();
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("🔔 用户 ").append(userId).append(" 的通知（共 ").append(msgs.size()).append(" 条，未读 ").append(unreadCount).append(" 条）：\n");
+            Map<Integer, String> typeNames = Map.of(1, "点赞", 2, "评论", 3, "私信", 4, "圈子公告", 5, "系统公告");
+            int navIdx = 0;
+            for (SystemMsg m : msgs) {
+                String typeName = typeNames.getOrDefault(m.getMsgType(), "其他");
+                String readTag = (m.getIsRead() == 0 ? "【未读】" : "");
+                sb.append("• ").append(readTag).append("[").append(typeName).append("] ").append(truncate(m.getContent(), 50)).append("\n");
+                if (m.getTargetId() != null) {
+                    if (m.getMsgType() == 1 || m.getMsgType() == 2) {
+                        nav.add(new NavigationAction("查看帖子", "/post/" + m.getTargetId(), "post", truncate(m.getContent(), 30)));
+                    } else if (m.getMsgType() == 4) {
+                        nav.add(new NavigationAction("查看圈子", "/circle/" + m.getTargetId(), "circle", truncate(m.getContent(), 30)));
+                    }
+                }
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_notifications")
+                    .toolDisplayName("用户通知")
+                    .data(Map.of("userId", userId, "count", msgs.size(), "unreadCount", unreadCount))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getNotifications error: ", e);
+            return ToolResult.failure("get_notifications", "查询通知失败");
+        }
+    }
+
+    private ToolResult getAnnouncements() {
+        try {
+            List<Announcement> announcements = announcementMapper.selectList(
+                    new LambdaQueryWrapper<Announcement>()
+                            .eq(Announcement::getStatus, 1)
+                            .orderByDesc(Announcement::getPublishTime)
+                            .last("LIMIT 5"));
+
+            if (announcements.isEmpty()) {
+                return ToolResult.failure("get_announcements", "暂无系统公告");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("📢 平台公告（共 ").append(announcements.size()).append(" 条）：\n");
+            for (int i = 0; i < announcements.size(); i++) {
+                Announcement a = announcements.get(i);
+                sb.append("• ").append(a.getTitle()).append("：").append(truncate(a.getContent(), 60)).append("\n");
+                nav.add(new NavigationAction(a.getTitle(), "/chat?tab=announce", "announce", truncate(a.getContent(), 40)));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_announcements")
+                    .toolDisplayName("平台公告")
+                    .data(Map.of("count", announcements.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getAnnouncements error: ", e);
+            return ToolResult.failure("get_announcements", "查询公告失败");
+        }
+    }
+
+    private ToolResult getFollowers(Long userId) {
+        try {
+            if (userId == null) {
+                return ToolResult.failure("get_followers", "请指定用户ID");
+            }
+            List<Follow> follows = followMapper.selectList(
+                    new LambdaQueryWrapper<Follow>()
+                            .eq(Follow::getFollowUserId, userId)
+                            .orderByDesc(Follow::getCreateTime)
+                            .last("LIMIT 10"));
+
+            if (follows.isEmpty()) {
+                return ToolResult.failure("get_followers", "该用户暂无粉丝");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("👥 用户 ").append(userId).append(" 的粉丝（共 ").append(follows.size()).append(" 人）：\n");
+            for (int i = 0; i < follows.size(); i++) {
+                Follow f = follows.get(i);
+                User u = userMapper.selectById(f.getUserId());
+                String name = u != null ? u.getNickname() : ("用户" + f.getUserId());
+                sb.append("• ").append(name).append("\n");
+                nav.add(new NavigationAction("查看主页", "/profile/" + f.getUserId(), "user", name));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_followers")
+                    .toolDisplayName("粉丝列表")
+                    .data(Map.of("userId", userId, "count", follows.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getFollowers error: ", e);
+            return ToolResult.failure("get_followers", "查询粉丝失败");
+        }
+    }
+
+    private ToolResult getFollowing(Long userId) {
+        try {
+            if (userId == null) {
+                return ToolResult.failure("get_following", "请指定用户ID");
+            }
+            List<Follow> follows = followMapper.selectList(
+                    new LambdaQueryWrapper<Follow>()
+                            .eq(Follow::getUserId, userId)
+                            .orderByDesc(Follow::getCreateTime)
+                            .last("LIMIT 10"));
+
+            if (follows.isEmpty()) {
+                return ToolResult.failure("get_following", "该用户暂无关注的人");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("👤 用户 ").append(userId).append(" 的关注（共 ").append(follows.size()).append(" 人）：\n");
+            for (int i = 0; i < follows.size(); i++) {
+                Follow f = follows.get(i);
+                User u = userMapper.selectById(f.getFollowUserId());
+                String name = u != null ? u.getNickname() : ("用户" + f.getFollowUserId());
+                sb.append("• ").append(name).append("\n");
+                nav.add(new NavigationAction("查看主页", "/profile/" + f.getFollowUserId(), "user", name));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_following")
+                    .toolDisplayName("关注列表")
+                    .data(Map.of("userId", userId, "count", follows.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getFollowing error: ", e);
+            return ToolResult.failure("get_following", "查询关注列表失败");
+        }
+    }
+
+    private ToolResult getPostLikes(Long postId) {
+        try {
+            if (postId == null) {
+                return ToolResult.failure("get_post_likes", "请指定帖子ID");
+            }
+            Post post = postMapper.selectById(postId);
+            if (post == null) {
+                return ToolResult.failure("get_post_likes", "未找到该帖子");
+            }
+            List<LikeCollect> likes = likeCollectMapper.selectList(
+                    new LambdaQueryWrapper<LikeCollect>()
+                            .eq(LikeCollect::getTargetId, postId)
+                            .eq(LikeCollect::getType, 1)
+                            .orderByDesc(LikeCollect::getCreateTime)
+                            .last("LIMIT 10"));
+
+            if (likes.isEmpty()) {
+                return ToolResult.failure("get_post_likes", "该帖子暂无点赞");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("❤️ 帖子《").append(truncate(post.getContent(), 30)).append("》的点赞用户（共 ").append(likes.size()).append(" 人）：\n");
+            for (int i = 0; i < likes.size(); i++) {
+                LikeCollect lc = likes.get(i);
+                User u = userMapper.selectById(lc.getUserId());
+                String name = u != null ? u.getNickname() : ("用户" + lc.getUserId());
+                sb.append("• ").append(name).append("\n");
+                nav.add(new NavigationAction("查看用户" + (i + 1), "/profile/" + lc.getUserId(), "user", name));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_post_likes")
+                    .toolDisplayName("点赞列表")
+                    .data(Map.of("postId", postId, "count", likes.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getPostLikes error: ", e);
+            return ToolResult.failure("get_post_likes", "查询点赞失败");
+        }
+    }
+
+    private ToolResult getCollections(Long userId) {
+        try {
+            if (userId == null) {
+                return ToolResult.failure("get_collections", "请指定用户ID");
+            }
+            List<LikeCollect> collects = likeCollectMapper.selectList(
+                    new LambdaQueryWrapper<LikeCollect>()
+                            .eq(LikeCollect::getUserId, userId)
+                            .eq(LikeCollect::getType, 3)
+                            .orderByDesc(LikeCollect::getCreateTime)
+                            .last("LIMIT 10"));
+
+            if (collects.isEmpty()) {
+                return ToolResult.failure("get_collections", "该用户暂无收藏");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("📑 用户 ").append(userId).append(" 的收藏（共 ").append(collects.size()).append(" 篇）：\n");
+            for (int i = 0; i < collects.size(); i++) {
+                LikeCollect lc = collects.get(i);
+                Post p = postMapper.selectById(lc.getTargetId());
+                String content = p != null ? truncate(p.getContent(), 50) : ("帖子" + lc.getTargetId());
+                sb.append("• ").append(content).append("\n");
+                if (p != null) {
+                    nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post", truncate(p.getContent(), 30)));
+                }
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_collections")
+                    .toolDisplayName("用户收藏")
+                    .data(Map.of("userId", userId, "count", collects.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getCollections error: ", e);
+            return ToolResult.failure("get_collections", "查询收藏失败");
+        }
+    }
+
+    private ToolResult getMessages(Long userId) {
+        try {
+            if (userId == null) {
+                return ToolResult.failure("get_messages", "无法获取当前用户信息");
+            }
+            List<Message> msgs = messageMapper.selectList(
+                    new LambdaQueryWrapper<Message>()
+                            .eq(Message::getDeleted, 0)
+                            .and(w -> w.eq(Message::getFromUserId, userId)
+                                    .or().eq(Message::getToUserId, userId))
+                            .orderByDesc(Message::getCreateTime)
+                            .last("LIMIT 10"));
+
+            if (msgs.isEmpty()) {
+                return ToolResult.failure("get_messages", "该用户暂无私信消息");
+            }
+
+            long unreadCount = msgs.stream().filter(m -> m.getIsRead() == 0
+                    && m.getToUserId().equals(userId)).count();
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("💬 用户 ").append(userId).append(" 的消息（共 ").append(msgs.size()).append(" 条，未读 ").append(unreadCount).append(" 条）：\n");
+            for (int i = 0; i < msgs.size(); i++) {
+                Message m = msgs.get(i);
+                User sender = userMapper.selectById(m.getFromUserId());
+                String senderName = sender != null ? sender.getNickname() : ("用户" + m.getFromUserId());
+                boolean isIncoming = m.getToUserId().equals(userId);
+                String direction = isIncoming ? "←" : "→";
+                String readTag = (isIncoming && m.getIsRead() == 0 ? "【未读】" : "");
+                sb.append("• ").append(direction).append(" ").append(senderName).append(readTag).append("：").append(truncate(m.getContent(), 50)).append("\n");
+                Long chatPartnerId = isIncoming ? m.getFromUserId() : m.getToUserId();
+                nav.add(new NavigationAction("打开对话", "/chat/" + chatPartnerId, "chat", senderName));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("get_messages")
+                    .toolDisplayName("用户私信")
+                    .data(Map.of("userId", userId, "count", msgs.size(), "unreadCount", unreadCount))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getMessages error: ", e);
+            return ToolResult.failure("get_messages", "查询私信失败");
+        }
+    }
+
+    private ToolResult getMessageCenter(Long userId) {
+        try {
+            if (userId == null) {
+                return ToolResult.failure("get_message_center", "无法获取当前用户信息");
+            }
+
+            // 1. 私信
+            List<Message> msgs = messageMapper.selectList(
+                    new LambdaQueryWrapper<Message>()
+                            .eq(Message::getDeleted, 0)
+                            .and(w -> w.eq(Message::getFromUserId, userId)
+                                    .or().eq(Message::getToUserId, userId))
+                            .orderByDesc(Message::getCreateTime)
+                            .last("LIMIT 5"));
+            long msgUnread = msgs.stream().filter(m -> m.getIsRead() == 0
+                    && m.getToUserId().equals(userId)).count();
+
+            // 2. 通知
+            List<SystemMsg> sysMsgs = systemMsgMapper.selectPage(
+                    new Page<>(1, 5),
+                    new LambdaQueryWrapper<SystemMsg>()
+                            .eq(SystemMsg::getUserId, userId)
+                            .orderByDesc(SystemMsg::getCreateTime)
+            ).getRecords();
+            long sysUnread = sysMsgs.stream().filter(m -> m.getIsRead() == 0).count();
+
+            // 3. 公告
+            List<Announcement> announcements = announcementMapper.selectList(
+                    new LambdaQueryWrapper<Announcement>()
+                            .eq(Announcement::getStatus, 1)
+                            .orderByDesc(Announcement::getPublishTime)
+                            .last("LIMIT 3"));
+
+            // 构建摘要
+            Map<Integer, String> typeNames = Map.of(1, "点赞", 2, "评论", 3, "私信", 4, "圈子公告", 5, "系统公告");
+            StringBuilder sb = new StringBuilder("📬 消息中心\n");
+            sb.append("💬 私信（").append(msgs.size()).append(" 条，未读 ").append(msgUnread).append("）\n");
+            for (Message m : msgs) {
+                User sender = userMapper.selectById(m.getFromUserId());
+                String senderName = sender != null ? sender.getNickname() : ("用户" + m.getFromUserId());
+                boolean incoming = m.getToUserId().equals(userId);
+                sb.append("  ").append(incoming ? "←" : "→").append(" ").append(senderName)
+                        .append(incoming && m.getIsRead() == 0 ? "【未读】" : "")
+                        .append("：").append(truncate(m.getContent(), 40)).append("\n");
+            }
+            sb.append("🔔 通知（").append(sysMsgs.size()).append(" 条，未读 ").append(sysUnread).append("）\n");
+            for (SystemMsg m : sysMsgs) {
+                String typeName = typeNames.getOrDefault(m.getMsgType(), "其他");
+                sb.append("  ").append(m.getIsRead() == 0 ? "【未读】" : "").append("[").append(typeName).append("] ")
+                        .append(truncate(m.getContent(), 40)).append("\n");
+            }
+            sb.append("📢 公告（").append(announcements.size()).append(" 条）\n");
+            for (Announcement a : announcements) {
+                sb.append("  ").append(a.getTitle()).append("：").append(truncate(a.getContent(), 40)).append("\n");
+            }
+
+            // 导航卡片
+            List<NavigationAction> nav = new ArrayList<>();
+            nav.add(new NavigationAction("消息中心", "/messages", "message_center", "查看所有消息"));
+            for (Message m : msgs) {
+                boolean incoming = m.getToUserId().equals(userId);
+                Long partnerId = incoming ? m.getFromUserId() : m.getToUserId();
+                User sender = userMapper.selectById(m.getFromUserId());
+                String label = sender != null ? sender.getNickname() : ("用户" + m.getFromUserId());
+                nav.add(new NavigationAction("私信: " + label, "/chat/" + partnerId, "chat", label));
+            }
+            for (SystemMsg m : sysMsgs) {
+                if (m.getTargetId() != null) {
+                    if (m.getMsgType() == 1 || m.getMsgType() == 2) {
+                        nav.add(new NavigationAction("查看帖子", "/post/" + m.getTargetId(), "post", truncate(m.getContent(), 30)));
+                    } else if (m.getMsgType() == 4) {
+                        nav.add(new NavigationAction("查看圈子", "/circle/" + m.getTargetId(), "circle", truncate(m.getContent(), 30)));
+                    }
+                }
+            }
+            for (Announcement a : announcements) {
+                nav.add(new NavigationAction(a.getTitle(), "/chat?tab=announce", "announce", truncate(a.getContent(), 40)));
+            }
+
+            long totalUnread = msgUnread + sysUnread;
+            return ToolResult.builder()
+                    .success(true).toolName("get_message_center")
+                    .toolDisplayName("消息中心")
+                    .data(Map.of("userId", userId, "messages", msgs.size(), "notifications", sysMsgs.size(),
+                            "announcements", announcements.size(), "unreadCount", totalUnread))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] getMessageCenter error: ", e);
+            return ToolResult.failure("get_message_center", "查询消息中心失败");
+        }
+    }
+
+    private ToolResult searchPostsByTags(String keyword) {
+        try {
+            if (keyword == null || keyword.isBlank()) {
+                return ToolResult.failure("search_posts_by_tags", "请指定标签关键词");
+            }
+            List<Post> posts = postMapper.selectPage(
+                    new Page<>(1, 5),
+                    new LambdaQueryWrapper<Post>()
+                            .like(Post::getTags, keyword)
+                            .eq(Post::getDeleted, 0)
+                            .eq(Post::getAuditStatus, 1)
+                            .eq(Post::getVisibility, 0)
+                            .orderByDesc(Post::getCreateTime)
+            ).getRecords();
+
+            if (posts.isEmpty()) {
+                return ToolResult.failure("search_posts_by_tags", "没有找到标签包含「" + keyword + "」的帖子");
+            }
+
+            List<NavigationAction> nav = new ArrayList<>();
+            StringBuilder sb = new StringBuilder("🏷️ 标签「").append(keyword).append("」的帖子（共 ").append(posts.size()).append(" 篇）：\n");
+            for (int i = 0; i < posts.size(); i++) {
+                Post p = posts.get(i);
+                sb.append("• ").append(truncate(p.getContent(), 60)).append(postMediaIndicator(p)).append("\n");
+                nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post", truncate(p.getContent(), 30)));
+            }
+
+            return ToolResult.builder()
+                    .success(true).toolName("search_posts_by_tags")
+                    .toolDisplayName("标签搜索结果")
+                    .data(Map.of("keyword", keyword, "count", posts.size()))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] searchPostsByTags error: ", e);
+            return ToolResult.failure("search_posts_by_tags", "按标签搜索帖子失败");
+        }
+    }
+
+    private ToolResult searchCirclesByCategory(String keyword) {
+        try {
+            if (keyword == null || keyword.isBlank()) {
+                return ToolResult.failure("search_circles_by_category", "请指定分类关键词");
+            }
+            List<CircleCategory> categories = circleCategoryMapper.selectList(
+                    new LambdaQueryWrapper<CircleCategory>()
+                            .like(CircleCategory::getName, keyword)
+                            .eq(CircleCategory::getStatus, 1));
+
+            if (categories.isEmpty()) {
+                return ToolResult.failure("search_circles_by_category", "没有找到分类「" + keyword + "」");
+            }
+
+            StringBuilder sb = new StringBuilder("📂 分类「").append(keyword).append("」下的圈子：\n");
+            List<NavigationAction> nav = new ArrayList<>();
+            int total = 0;
+            for (CircleCategory cat : categories) {
+                List<Circle> circles = circleMapper.selectList(
+                        new LambdaQueryWrapper<Circle>()
+                                .eq(Circle::getCategoryId, cat.getId())
+                                .eq(Circle::getDeleted, 0)
+                                .eq(Circle::getStatus, 1)
+                                .orderByDesc(Circle::getMemberCount)
+                                .last("LIMIT 3"));
+                for (Circle c : circles) {
+                    total++;
+                    sb.append("• ").append(c.getName()).append(circleMediaIndicator(c)).append("（").append(c.getMemberCount()).append(" 人）\n");
+                    nav.add(new NavigationAction("进入圈子", "/circle/" + c.getId(), "circle", c.getName()));
+                }
+            }
+
+            if (total == 0) {
+                return ToolResult.failure("search_circles_by_category", "分类「" + keyword + "」下暂无圈子");
+            }
+
+            sb.insert(0, "共 " + total + " 个圈子：\n");
+
+            return ToolResult.builder()
+                    .success(true).toolName("search_circles_by_category")
+                    .toolDisplayName("分类搜索")
+                    .data(Map.of("keyword", keyword, "count", total))
+                    .dataSummary(sb.toString())
+                    .navigation(nav).build();
+        } catch (Exception e) {
+            log.error("[AiTool] searchCirclesByCategory error: ", e);
+            return ToolResult.failure("search_circles_by_category", "按分类搜索圈子失败");
+        }
+    }
+
     private ToolResult getNewUsers() {
         try {
             LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
@@ -301,15 +860,18 @@ public class AiToolService {
                             .orderByDesc(User::getRegisterTime)
                             .last("LIMIT 5"));
 
+            List<NavigationAction> nav = new ArrayList<>();
             StringBuilder sb = new StringBuilder("📅 近 7 天新增 ").append(count).append(" 位用户");
             if (!recentUsers.isEmpty()) {
                 sb.append("，最近注册：\n");
-                for (User u : recentUsers) {
+                for (int i = 0; i < recentUsers.size(); i++) {
+                    User u = recentUsers.get(i);
                     sb.append("• ").append(u.getNickname());
                     if (u.getRegisterTime() != null) {
                         sb.append("（").append(u.getRegisterTime().toLocalDate()).append("）");
                     }
                     sb.append("\n");
+                    nav.add(new NavigationAction("查看主页" + (i + 1), "/profile/" + u.getId(), "user", u.getNickname()));
                 }
             }
 
@@ -325,7 +887,7 @@ public class AiToolService {
                     .success(true).toolName("get_new_users")
                     .toolDisplayName("新用户统计")
                     .data(data).dataSummary(sb.toString())
-                    .navigation(List.of()).build();
+                    .navigation(nav).build();
         } catch (Exception e) {
             log.error("[AiTool] getNewUsers error: ", e);
             return ToolResult.failure("get_new_users", "查询新用户失败");
@@ -354,7 +916,7 @@ public class AiToolService {
             StringBuilder sb = new StringBuilder("圈子「").append(circle.getName()).append("」的最新帖子：\n");
             for (int i = 0; i < posts.size(); i++) {
                 Post p = posts.get(i);
-                sb.append("• ").append(truncate(p.getContent(), 60)).append("\n");
+                sb.append("• ").append(truncate(p.getContent(), 60)).append(postMediaIndicator(p)).append("\n");
                 nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post", truncate(p.getContent(), 30)));
             }
 
@@ -387,7 +949,7 @@ public class AiToolService {
             StringBuilder sb = new StringBuilder("🔥 热门圈子 Top ").append(circles.size()).append("：\n");
             for (int i = 0; i < circles.size(); i++) {
                 Circle c = circles.get(i);
-                sb.append("• ").append(c.getName()).append("（").append(c.getMemberCount()).append(" 人）\n");
+                sb.append("• ").append(c.getName()).append(circleMediaIndicator(c)).append("（").append(c.getMemberCount()).append(" 人）\n");
                 nav.add(new NavigationAction("进入圈子", "/circle/" + c.getId(), "circle", c.getName()));
             }
 
@@ -425,7 +987,7 @@ public class AiToolService {
             StringBuilder sb = new StringBuilder("用户「").append(user.getNickname()).append("」的最新帖子：\n");
             for (int i = 0; i < posts.size(); i++) {
                 Post p = posts.get(i);
-                sb.append("• ").append(truncate(p.getContent(), 60)).append("\n");
+                sb.append("• ").append(truncate(p.getContent(), 60)).append(postMediaIndicator(p)).append("\n");
                 nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post", truncate(p.getContent(), 30)));
             }
 
@@ -459,7 +1021,7 @@ public class AiToolService {
             StringBuilder sb = new StringBuilder("找到 ").append(circles.size()).append(" 个相关圈子：\n");
             for (int i = 0; i < circles.size(); i++) {
                 Circle c = circles.get(i);
-                sb.append("• ").append(c.getName()).append("（").append(c.getMemberCount()).append(" 人）— ").append(truncate(c.getIntro(), 30)).append("\n");
+                sb.append("• ").append(c.getName()).append(circleMediaIndicator(c)).append("（").append(c.getMemberCount()).append(" 人）— ").append(truncate(c.getIntro(), 30)).append("\n");
                 nav.add(new NavigationAction("进入圈子", "/circle/" + c.getId(), "circle", c.getName()));
             }
 
@@ -582,4 +1144,27 @@ public class AiToolService {
         if (s == null) return "";
         return s.length() <= maxLen ? s : s.substring(0, maxLen) + "…";
     }
+
+    private String postMediaIndicator(Post p) {
+        StringBuilder sb = new StringBuilder();
+        if (p.getImages() != null && !p.getImages().isEmpty() && !p.getImages().equals("[]")) {
+            sb.append(" 📷");
+        }
+        if (p.getVideo() != null && !p.getVideo().isEmpty()) {
+            sb.append(" 📹");
+        }
+        return sb.toString();
+    }
+
+    private String circleMediaIndicator(Circle c) {
+        StringBuilder sb = new StringBuilder();
+        if (c.getAvatar() != null && !c.getAvatar().isEmpty()) {
+            sb.append(" 🖼️");
+        }
+        if (c.getBanner() != null && !c.getBanner().isEmpty()) {
+            sb.append(" 🖼️");
+        }
+        return sb.toString();
+    }
+
 }

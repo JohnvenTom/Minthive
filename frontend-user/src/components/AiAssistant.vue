@@ -67,13 +67,15 @@
               </svg>
             </div>
             <div class="ai-assistant__msg-bubble">
-              <!-- 进度状态（LLM 流式输出前显示） -->
-              <div v-if="streamStatus && !streamBuffer" class="ai-assistant__status">
-                <span class="ai-assistant__status-text">{{ streamStatus.message }}</span>
-                <span class="ai-assistant__status-dots">
-                  <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
-                </span>
-              </div>
+              <!-- 进度状态（LLM 流式输出前显示，切换时有向上淡出动画） -->
+              <Transition name="status-fade">
+                <div v-if="streamStatus && !streamBuffer" :key="streamStatus.message" class="ai-assistant__status">
+                  <span class="ai-assistant__status-text">{{ streamStatus.message }}</span>
+                  <span class="ai-assistant__status-dots">
+                    <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+                  </span>
+                </div>
+              </Transition>
               <span v-if="streamMeta.hasRealData" class="ai-assistant__data-badge">📊 实时数据</span>
               <template v-for="(seg, si) in streamSegments" :key="si">
                 <span v-if="seg.type === 'text'" v-html="renderMarkdown(seg.content || '')" class="ai-assistant__text"></span>
@@ -591,6 +593,20 @@ function autoScroll(): void {
   @keyframes status-dot-bounce {
     0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
     40% { opacity: 1; transform: translateY(-2px); }
+  }
+
+  /** 状态切换过渡动画（向上淡出 + 从下淡入） */
+  :deep(.status-fade-leave-active),
+  :deep(.status-fade-enter-active) {
+    transition: all 0.25s ease;
+  }
+  :deep(.status-fade-enter-from) {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  :deep(.status-fade-leave-to) {
+    opacity: 0;
+    transform: translateY(-8px);
   }
 
   /** 流式输出时的闪烁光标 */

@@ -239,7 +239,7 @@
  *   支持Tab切换、未读红点、WebSocket实时推送、通知类型筛选
  */
 
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import EmptyState from '@/components/EmptyState.vue'
@@ -508,6 +508,14 @@ function onWsNotify(data: any): void {
   }
   fetchUnreadCount()
 }
+
+// 监听路由 tab 参数变更（支持 AI 导航卡片点击后自动切换标签页）
+watch(() => router.currentRoute.value.query.tab, (newTab) => {
+  if (newTab === 'announce') {
+    activeTab.value = 'announce'
+    fetchAnnouncements()
+  }
+})
 
 // ---------- 生命周期 ----------
 onMounted(() => {

@@ -1,41 +1,6 @@
 <div align="center">
 
-<svg xmlns="http://www.w3.org/2000/svg" width="260" height="72" viewBox="0 0 260 72">
-  <defs>
-    <linearGradient id="hiveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4ECDC4"/>
-      <stop offset="100%" stop-color="#2CB5AC"/>
-    </linearGradient>
-    <linearGradient id="amberDot" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFB627"/>
-      <stop offset="100%" stop-color="#F5A623"/>
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="2" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-  <polygon points="36,4 64,20 64,52 36,68 8,52 8,20"
-           fill="url(#hiveGrad)" stroke="#3BB8B0" stroke-width="1.5" filter="url(#glow)"/>
-  <polygon points="36,16 50,26 50,46 36,56 22,46 22,26"
-           fill="#0D1117" stroke="none"/>
-  <circle cx="36" cy="36" r="5" fill="url(#amberDot)" filter="url(#glow)"/>
-  <polygon points="12,10 18,7 18,13 12,16 6,13 6,7"
-           fill="#4ECDC4" opacity="0.3"/>
-  <polygon points="60,58 66,55 66,61 60,64 54,61 54,55"
-           fill="#4ECDC4" opacity="0.3"/>
-  <text x="80" y="44" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
-        font-size="32" font-weight="700" fill="#4ECDC4" letter-spacing="1.5">
-    Mint<tspan fill="#FFB627">Hive</tspan>
-  </text>
-  <text x="82" y="60" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
-        font-size="10" fill="#7A86B8" letter-spacing="3">
-    INTEREST SOCIAL PLATFORM
-  </text>
-</svg>
+<img src="img/logo.svg" width="260" height="72" alt="MintHive"/>
 
 <br/>
 

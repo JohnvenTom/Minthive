@@ -258,9 +258,11 @@ public class UserServiceImpl implements UserService {
             return;
         }
         Long userId = user.getId();
-        // 帖子数
+        // 帖子数（仅统计审核通过的）
         long postCount = postMapper.selectCount(
-                new LambdaQueryWrapper<Post>().eq(Post::getUserId, userId));
+                new LambdaQueryWrapper<Post>()
+                        .eq(Post::getUserId, userId)
+                        .eq(Post::getAuditStatus, Constants.AUDIT_PASS));
         // 关注数（我关注了谁）
         long followCount = followMapper.selectCount(
                 new LambdaQueryWrapper<Follow>().eq(Follow::getUserId, userId));

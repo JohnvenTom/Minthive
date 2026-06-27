@@ -60,7 +60,15 @@
                 AND r.report_type = #{type}
             </if>
             <if test="keyword != null and keyword != ''">
-                AND r.reason LIKE CONCAT('%', #{keyword}, '%')
+                AND (
+                    r.reason LIKE CONCAT('%', #{keyword}, '%')
+                    OR ru.nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR pu.nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR cu.nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR au.nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR p.content LIKE CONCAT('%', #{keyword}, '%')
+                    OR c.content LIKE CONCAT('%', #{keyword}, '%')
+                )
             </if>
         </where>
         ORDER BY r.ai_risk_level DESC, r.create_time DESC

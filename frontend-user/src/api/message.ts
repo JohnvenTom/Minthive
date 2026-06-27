@@ -81,7 +81,7 @@ export function getNotifications(type?: string, page = 1, pageSize = 20) {
  * 未读消息统计
  */
 export function getUnreadCount() {
-  return request<{ like: number; comment: number; message: number; circle: number; system: number }>({
+  return request<{ like: number; comment: number; message: number; follow: number; circle: number; system: number; report: number; audit: number }>({
     url: '/message/unread',
     method: 'get'
   })

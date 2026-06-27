@@ -80,6 +80,8 @@ public final class Constants {
     public static final int SYS_MSG_TYPE_REPLY = 6;
     /** 系统消息类型: 举报结果通知 */
     public static final int SYS_MSG_TYPE_REPORT = 7;
+    /** 系统消息类型: 审核结果通知 */
+    public static final int SYS_MSG_TYPE_AUDIT = 8;
 
     /** 已读状态: 未读 */
     public static final int READ_STATUS_UNREAD = 0;

@@ -2,10 +2,13 @@ package com.minthive.controller.admin;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.minthive.common.Constants;
 import com.minthive.common.Result;
+import com.minthive.entity.Post;
 import com.minthive.mapper.AdminPostMapper;
 import com.minthive.mapper.PostMapper;
 import com.minthive.service.PostService;
+import com.minthive.service.SystemMsgService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,7 @@ public class AdminPostController {
     private final PostMapper postMapper;
     private final AdminPostMapper adminPostMapper;
     private final PostService postService;
+    private final SystemMsgService systemMsgService;
 
     /**
      * 待审核帖子列表（关联用户+圈子，字段对齐前端 PostInfo）
@@ -90,7 +94,14 @@ public class AdminPostController {
     @PostMapping("/approve")
     public Result<Void> approve(@RequestBody Map<String, Object> params) {
         Long postId = Long.valueOf(params.get("postId").toString());
+        Post post = postMapper.selectById(postId);
         postService.audit(postId, 1); // 通过
+        if (post != null) {
+            String preview = post.getContent();
+            if (preview != null && preview.length() > 30) preview = preview.substring(0, 30) + "...";
+            systemMsgService.push(post.getUserId(), Constants.SYS_MSG_TYPE_AUDIT,
+                    "你的帖子「" + preview + "」已通过审核", postId);
+        }
         return Result.success();
     }
 
@@ -105,7 +116,14 @@ public class AdminPostController {
     public Result<Void> reject(@RequestBody Map<String, Object> params) {
         Long postId = Long.valueOf(params.get("postId").toString());
         String reason = (String) params.getOrDefault("reason", "内容违规");
+        Post post = postMapper.selectById(postId);
         postService.audit(postId, 2); // 驳回
+        if (post != null) {
+            String preview = post.getContent();
+            if (preview != null && preview.length() > 30) preview = preview.substring(0, 30) + "...";
+            systemMsgService.push(post.getUserId(), Constants.SYS_MSG_TYPE_AUDIT,
+                    "你的帖子「" + preview + "」被驳回，原因：" + reason, postId);
+        }
         return Result.success();
     }
 

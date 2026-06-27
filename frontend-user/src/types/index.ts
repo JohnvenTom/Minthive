@@ -57,6 +57,8 @@ export interface Post {
   liked: boolean
   collected: boolean
   aiGenerated: boolean
+  /** 审核状态：0待审 1通过 2驳回 */
+  auditStatus?: number
   /** 转发原帖ID（非空时表示这是转发帖） */
   sharePostId: number | null
   /** 原帖完整信息（仅转发帖时有值，由后端填充） */
@@ -141,7 +143,7 @@ export interface Message {
 
 export interface Notification {
   id: number
-  type: 'like' | 'comment' | 'follow' | 'circle' | 'system'
+  type: 'like' | 'comment' | 'reply' | 'follow' | 'circle' | 'system' | 'report' | 'audit'
   fromUserId: number
   fromNickname: string
   fromAvatar: string

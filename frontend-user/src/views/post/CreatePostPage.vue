@@ -719,7 +719,11 @@ async function onAiCheck(): Promise<void> {
     showToast({ message: 'AI 检测中...', duration: 0, forbidClick: true })
     const res = await aiCheckContent(content)
     closeToast()
-    checkResult.value = res.data || { violated: false }
+    checkResult.value = {
+      violated: res.data?.violation ?? false,
+      type: res.data?.violationType,
+      level: res.data?.riskLevel
+    }
     showCheckResult.value = true
   } catch {
     closeToast()
@@ -764,7 +768,7 @@ async function onPublish(): Promise<void> {
   try {
     // 先上传图片到 MinIO
     let imageUrls: string[] = form.value.images
-    if (imageUploaderRef.value) {
+    if (imageUploaderRef.value && form.value.images.length > 0) {
       showToast({ message: '图片上传中...', duration: 0, forbidClick: true })
       imageUrls = await imageUploaderRef.value.uploadAll()
       form.value.images = imageUrls
@@ -778,9 +782,13 @@ async function onPublish(): Promise<void> {
       visibility: { public: 0, fans: 1, self: 2 }[form.value.visibility] ?? 0,
       circleId: form.value.circleId
     }
-    await createPost(postData)
+    const res = await createPost(postData)
 
-    showToast('发布成功')
+    if (res.data?.auditStatus === 0) {
+      showToast('内容有争议，等待审核通过')
+    } else {
+      showToast('发布成功')
+    }
     router.replace('/')
   } catch {
     showToast('发布失败，请重试')

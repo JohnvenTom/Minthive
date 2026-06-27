@@ -214,6 +214,11 @@ public class MessageServiceImpl implements MessageService {
             allNotifications.addAll(buildSystemMsgNotifications(userId, Constants.SYS_MSG_TYPE_REPORT, "report"));
         }
 
+        // ---------- 7. 审核结果通知：来自 system_msg (msgType=8) ----------
+        if (type == null || type.isEmpty() || "audit".equals(type)) {
+            allNotifications.addAll(buildSystemMsgNotifications(userId, Constants.SYS_MSG_TYPE_AUDIT, "audit"));
+        }
+
         // ---------- 全局排序（按时间倒序）----------
         allNotifications.sort((a, b) -> {
             LocalDateTime ta = (LocalDateTime) a.get("createTime");
@@ -302,13 +307,29 @@ public class MessageServiceImpl implements MessageService {
                         .eq(SystemMsg::getIsRead, Constants.READ_STATUS_UNREAD));
         unreadMap.put("circle", (int) circleUnread);
 
-        // 6. 系统通知未读：system_msg 中 msgType=5 或 msgType=7(举报结果) 且 isRead=0
+        // 6. 系统通知未读：system_msg 中 msgType=5 且 isRead=0
         long systemUnread = systemMsgMapper.selectCount(
                 new LambdaQueryWrapper<SystemMsg>()
                         .eq(SystemMsg::getUserId, userId)
-                        .in(SystemMsg::getMsgType, 5, Constants.SYS_MSG_TYPE_REPORT)
+                        .eq(SystemMsg::getMsgType, 5)
                         .eq(SystemMsg::getIsRead, Constants.READ_STATUS_UNREAD));
         unreadMap.put("system", (int) systemUnread);
+
+        // 7. 举报结果未读：system_msg 中 msgType=7 且 isRead=0
+        long reportUnread = systemMsgMapper.selectCount(
+                new LambdaQueryWrapper<SystemMsg>()
+                        .eq(SystemMsg::getUserId, userId)
+                        .eq(SystemMsg::getMsgType, Constants.SYS_MSG_TYPE_REPORT)
+                        .eq(SystemMsg::getIsRead, Constants.READ_STATUS_UNREAD));
+        unreadMap.put("report", (int) reportUnread);
+
+        // 8. 审核结果未读：system_msg 中 msgType=8 且 isRead=0
+        long auditUnread = systemMsgMapper.selectCount(
+                new LambdaQueryWrapper<SystemMsg>()
+                        .eq(SystemMsg::getUserId, userId)
+                        .eq(SystemMsg::getMsgType, Constants.SYS_MSG_TYPE_AUDIT)
+                        .eq(SystemMsg::getIsRead, Constants.READ_STATUS_UNREAD));
+        unreadMap.put("audit", (int) auditUnread);
 
         return unreadMap;
     }

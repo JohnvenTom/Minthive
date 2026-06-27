@@ -145,10 +145,34 @@ public class CloudAiServiceImpl implements AiService {
     @Override
     public AiDetectResult detectContent(String text, String imageBase64) {
         try {
-            String prompt = "请判断以下文本是否包含违规内容（广告、暴力、色情、政治敏感等）。只回答：safe 或 unsafe。\n文本：" + text;
+            String prompt = "你是一个内容审核助手。判断以下文本是否违规（广告、暴力、色情、政治敏感、人身攻击、违法信息等）。"
+                    + "按 JSON 格式回答，不要有其他文字：{\"safe\": true/false, \"type\": \"违规类型/无\", \"level\": \"low/medium/high\"}\n文本："
+                    + text;
             String result = callChatApi(prompt);
-            boolean unsafe = result.toLowerCase().contains("unsafe");
-            return new AiDetectResult(unsafe, unsafe ? "疑似违规内容" : "无", unsafe ? "high" : "low");
+            boolean safe = result.contains("\"safe\": true") || result.contains("\"safe\":true");
+            String violationType = "无";
+            String riskLevel = "low";
+            if (!safe) {
+                if (result.contains("\"type\"")) {
+                    int start = result.indexOf("\"type\"");
+                    int colon = result.indexOf(':', start);
+                    int quote1 = result.indexOf('"', colon + 1);
+                    int quote2 = result.indexOf('"', quote1 + 1);
+                    if (quote1 >= 0 && quote2 > quote1) {
+                        violationType = result.substring(quote1 + 1, quote2);
+                    }
+                }
+                if (result.contains("\"level\"")) {
+                    int start = result.indexOf("\"level\"");
+                    int colon = result.indexOf(':', start);
+                    int quote1 = result.indexOf('"', colon + 1);
+                    int quote2 = result.indexOf('"', quote1 + 1);
+                    if (quote1 >= 0 && quote2 > quote1) {
+                        riskLevel = result.substring(quote1 + 1, quote2);
+                    }
+                }
+            }
+            return new AiDetectResult(!safe, violationType, riskLevel);
         } catch (Exception e) {
             log.error("[CloudAI] 内容检测异常: ", e);
             return new AiDetectResult(false, "检测异常", "low");

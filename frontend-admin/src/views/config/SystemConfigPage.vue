@@ -22,6 +22,7 @@ import {
   type Operator,
   type AiSwitchConfig
 } from '@/api/config'
+import ImageSelector from '@/components/ImageSelector.vue'
 
 /**
  * SystemConfigPage 系统配置页
@@ -581,7 +582,7 @@ onMounted(() => {
           <el-input v-model="bannerForm.title" />
         </el-form-item>
         <el-form-item label="图片地址">
-          <el-input v-model="bannerForm.imageUrl" placeholder="图片 URL" />
+          <ImageSelector v-model="bannerForm.imageUrl" dialog-width="520px" />
         </el-form-item>
         <el-form-item label="跳转链接">
           <el-input v-model="bannerForm.linkUrl" placeholder="点击跳转地址" />

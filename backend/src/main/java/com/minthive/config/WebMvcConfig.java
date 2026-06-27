@@ -1,5 +1,6 @@
 package com.minthive.config;
 
+import com.minthive.security.AdminAuthInterceptor;
 import com.minthive.security.JwtInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final JwtInterceptor jwtInterceptor;
 
+    private final AdminAuthInterceptor adminAuthInterceptor;
+
     /**
      * 注册拦截器，配置拦截规则
      *
@@ -25,6 +28,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // 第一层：JWT 认证（校验 token，设置 UserContext）
         registry.addInterceptor(jwtInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
@@ -43,13 +47,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/circle/categories",      // 圈子分类列表（公开）
                         "/api/circle/recommend",       // 推荐圈子（公开）
                         "/api/circle/*/posts",         // 圈内动态列表（公开浏览）
-                        "/api/circle/{id}",             // 圈子详情（公开浏览）
                         // 用户主页公开浏览（Spring AntPathMatcher 支持 {id} 通配匹配 /api/user/123）
                         "/api/user/{id}",
                         "/api/user/{id}/posts",
                         "/api/comment/page",           // 评论分页列表（公开浏览）
-                        // 帖子详情公开浏览
-                        "/api/post/{id}",
                         // 系统公告公开接口（首页横幅 + 消息中心公告列表）
                         "/api/announcement/**",
                         // 首页轮播图公开接口
@@ -66,5 +67,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         // WebSocket 端点放行(连接时单独校验 token)
                         "/ws/**"
                 );
+        // 第二层：管理员权限校验（UserContext 中 role >= ROLE_ADMIN 才放行）
+        registry.addInterceptor(adminAuthInterceptor)
+                .addPathPatterns("/api/admin/**");
     }
 }

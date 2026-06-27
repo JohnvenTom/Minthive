@@ -519,7 +519,7 @@ public class MessageServiceImpl implements MessageService {
             notice.put("fromUserId", 0);
             notice.put("fromNickname", "系统");
             notice.put("fromAvatar", "");
-            notice.put("targetId", 0);
+            notice.put("targetId", msg.getTargetId() != null ? msg.getTargetId() : 0);
             notice.put("content", msg.getContent());
             notice.put("read", Objects.equals(msg.getIsRead(), Constants.READ_STATUS_READ));
             notice.put("createTime", msg.getCreateTime());

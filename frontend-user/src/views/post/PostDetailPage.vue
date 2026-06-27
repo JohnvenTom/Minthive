@@ -3,6 +3,23 @@
     <!-- 蜂巢装饰背景 -->
     <div class="hex-bg" />
 
+    <!-- 驳回印章水印（独立于 v-if 链，避免打断加载态/内容/不存在的判断） -->
+    <div v-if="isRejected" class="reject-stamp-overlay">
+      <svg class="reject-stamp" viewBox="0 0 200 200">
+        <defs>
+          <filter id="stamp-ink">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" seed="3" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+        <circle cx="100" cy="100" r="88" fill="none" stroke="#D32F2F" stroke-width="4" opacity="0.85" />
+        <circle cx="100" cy="100" r="82" fill="none" stroke="#D32F2F" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.7" />
+        <text x="100" y="108" text-anchor="middle" fill="#D32F2F" font-size="44" font-weight="900" font-family="'SimSun','STSong','Noto Serif SC',serif" opacity="0.88">驳回</text>
+        <text x="100" y="140" text-anchor="middle" fill="#D32F2F" font-size="16" font-weight="700" font-family="'SimSun','STSong','Noto Serif SC',serif" opacity="0.75">REJECTED</text>
+        <circle cx="100" cy="100" r="88" fill="none" stroke="#D32F2F" stroke-width="4" stroke-dasharray="2,10" opacity="0.25" />
+      </svg>
+    </div>
+
     <!-- 顶部导航 -->
     <header class="detail-header">
       <button class="back-btn" @click="goBack">
@@ -20,9 +37,10 @@
     </div>
 
     <!-- 帖子内容区 -->
-    <main v-else-if="post" class="detail-main">
+    <main v-else-if="post" :class="['detail-main', { shaking: showShake }]">
+
       <!-- 帖子卡片 -->
-      <article class="post-content-card glass-card">
+      <article ref="postCardRef" class="post-content-card glass-card">
         <!-- 作者信息 -->
         <div class="author-row">
           <img
@@ -292,7 +310,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 import CommentItem from '@/components/CommentItem.vue'
@@ -404,6 +422,19 @@ const postActions = computed(() => {
 const showLikeAnim = ref(false)
 /** 收藏 +1 动画是否显示 */
 const showCollectAnim = ref(false)
+
+// ---------- 驳回印章动画 ----------
+const isRejected = computed(() => post.value?.auditStatus === 2)
+const showShake = ref(false)
+const postCardRef = ref<HTMLElement | null>(null)
+
+watch(isRejected, (val) => {
+  if (val) {
+    // stamp-press 动画 ~50% 处（scale(1.08) 最大形变 = 盖下去的瞬间）触发震动
+    setTimeout(() => { showShake.value = true }, 280)
+    setTimeout(() => { showShake.value = false }, 680)
+  }
+})
 
 // ---------- DOM引用 ----------
 const commentSectionRef = ref<HTMLElement | null>(null)
@@ -1525,6 +1556,67 @@ onUnmounted(() => {
 
 .slide-up-leave-active {
   animation: fade-up 0.25s $ease-out reverse both;
+}
+
+/**
+ * 驳回印章动画
+ * @description 帖子审核被拒（auditStatus === 2）时显示红色 REJECT 印章盖下动画 + 页面震动
+ */
+.reject-stamp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.reject-stamp {
+  width: 360px;
+  height: 360px;
+  animation: stamp-press 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes stamp-press {
+  0% {
+    transform: scale(0.65) rotate(-12deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.08) rotate(-8deg) translateY(4px);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.97) rotate(-10deg) translateY(-1px);
+    opacity: 1;
+  }
+  85% {
+    transform: scale(1.01) rotate(-9deg) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(-9deg) translateY(0);
+    opacity: 1;
+  }
+}
+
+/** 页面震动 */
+.detail-main.shaking {
+  animation: page-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes page-shake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-6px) rotate(-0.3deg); }
+  20% { transform: translateX(5px) rotate(0.2deg); }
+  30% { transform: translateX(-4px) rotate(-0.2deg); }
+  40% { transform: translateX(3px) rotate(0.15deg); }
+  50% { transform: translateX(-2px) rotate(-0.1deg); }
+  60% { transform: translateX(1px) rotate(0.05deg); }
+  70% { transform: translateX(-1px) rotate(-0.05deg); }
+  80% { transform: translateX(0); }
+  90% { transform: translateX(0); }
 }
 
 /**

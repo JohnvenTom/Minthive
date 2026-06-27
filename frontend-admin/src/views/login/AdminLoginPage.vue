@@ -53,9 +53,17 @@ async function handleLogin(formEl: FormInstance | undefined) {
       const res = await login(loginForm)
       // 2. 存储 Token
       adminStore.setAdminToken(res.token)
-      // 3. 用 Token 拉取管理员信息（验证 Token 有效性）
-      await adminStore.fetchAdminInfo()
-      // 4. 全部成功后跳转
+      // 3. 用 Token 拉取管理员信息（含角色）
+      const info = await adminStore.fetchAdminInfo()
+      // 4. 校验角色：仅 ROLE_ADMIN(2) 及以上可进入后台
+      if (info && Number(info.role) < 2) {
+        adminStore.setAdminToken('')
+        adminStore.adminInfo = null
+        clearToken()
+        ElMessage.error('该账号无管理员权限')
+        return
+      }
+      // 5. 全部成功后跳转
       ElMessage.success('登录成功，欢迎回来')
       const redirect = (route.query.redirect as string) || '/dashboard'
       router.push(redirect)

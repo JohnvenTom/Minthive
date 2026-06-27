@@ -34,12 +34,14 @@ public class JwtUtils {
      *
      * @param userId   用户ID
      * @param account  账号
+     * @param role     角色（0普通 1圈主 2管理员）
      * @return JWT Token 字符串
      */
-    public String generateToken(Long userId, String account) {
+    public String generateToken(Long userId, String account, Integer role) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("account", account);
+        claims.put("role", role);
         Date now = new Date();
         Date expiration = new Date(now.getTime() + jwtConfig.getExpire() * 1000);
         return Jwts.builder()

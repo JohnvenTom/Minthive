@@ -104,7 +104,7 @@ public class UserServiceImpl implements UserService {
         if (!BcryptUtil.matches(password, user.getPassword())) {
             throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
-        String token = jwtUtils.generateToken(user.getId(), user.getAccount());
+        String token = jwtUtils.generateToken(user.getId(), user.getAccount(), user.getRole());
         // 缓存登录态
         redisUtil.cacheLoginToken(user.getId(), token);
         // 更新最近登录时间
@@ -112,7 +112,7 @@ public class UserServiceImpl implements UserService {
         loginUpdate.setId(user.getId());
         loginUpdate.setLastLoginTime(LocalDateTime.now());
         userMapper.updateById(loginUpdate);
-        log.info("用户登录成功: account={}, id={}", account, user.getId());
+        log.info("用户登录成功: account={}, id={}, role={}", account, user.getId(), user.getRole());
         return token;
     }
 
@@ -300,14 +300,14 @@ public class UserServiceImpl implements UserService {
         if (Constants.USER_STATUS_BANNED == user.getStatus()) {
             throw new BusinessException(ResultCode.USER_BANNED);
         }
-        String token = jwtUtils.generateToken(user.getId(), user.getAccount());
+        String token = jwtUtils.generateToken(user.getId(), user.getAccount(), user.getRole());
         redisUtil.cacheLoginToken(user.getId(), token);
         // 更新最近登录时间
         User loginUpdate = new User();
         loginUpdate.setId(user.getId());
         loginUpdate.setLastLoginTime(LocalDateTime.now());
         userMapper.updateById(loginUpdate);
-        log.info("用户验证码登录成功: phone={}, id={}", phone, user.getId());
+        log.info("用户验证码登录成功: phone={}, id={}, role={}", phone, user.getId(), user.getRole());
         return token;
     }
 

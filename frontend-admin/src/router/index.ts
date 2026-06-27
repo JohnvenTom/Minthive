@@ -92,10 +92,16 @@ router.beforeEach((to, _from, next) => {
     next({ path: '/login', query: { redirect: to.fullPath } })
     return
   }
-  // 拉取管理员信息（仅首次）
+  // 拉取管理员信息（仅首次）并校验角色
   const adminStore = useAdminStore()
   if (!adminStore.adminInfo) {
-    adminStore.fetchAdminInfo().catch(() => {
+    adminStore.fetchAdminInfo().then((info) => {
+      if (info && Number(info.role) < 2) {
+        adminStore.logout()
+        next({ path: '/login' })
+        return
+      }
+    }).catch(() => {
       // 拉取失败不阻塞，由请求拦截器处理 401
     })
   }

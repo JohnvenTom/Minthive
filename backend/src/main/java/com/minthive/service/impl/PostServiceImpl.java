@@ -113,6 +113,29 @@ public class PostServiceImpl implements PostService {
     }
 
     /**
+     * 根据ID查询帖子（带当前用户）
+     *
+     * @param id             帖子ID
+     * @param currentUserId  当前登录用户ID（可能为 null）
+     * @return 帖子实体
+     */
+    @Override
+    public Post getById(Long id, Long currentUserId) {
+        Post post = postMapper.selectById(id);
+        if (post == null) {
+            throw new BusinessException(ResultCode.POST_NOT_EXISTS);
+        }
+        // 未通过审核的帖子仅作者可查看
+        if (post.getAuditStatus() == null || post.getAuditStatus() != Constants.AUDIT_PASS) {
+            if (currentUserId == null || !currentUserId.equals(post.getUserId())) {
+                throw new BusinessException(ResultCode.POST_NOT_EXISTS);
+            }
+        }
+        enrichPostCounts(post);
+        return post;
+    }
+
+    /**
      * 分页查询帖子
      *
      * @param current  当前页

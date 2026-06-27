@@ -17,6 +17,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.minthive.common.RedisConstants;
 
+import java.util.List;
+
 /**
  * JWT 拦截器
  *
@@ -36,8 +38,17 @@ public class JwtInterceptor implements HandlerInterceptor {
 
     private final ObjectMapper objectMapper;
 
+    private static final org.springframework.util.AntPathMatcher PATH_MATCHER = new org.springframework.util.AntPathMatcher();
+
+    private static final List<String> PUBLIC_GET_PATTERNS = List.of(
+            "/api/post/{id}",
+            "/api/circle/{id}"
+    );
+
     /**
      * 请求前置处理：校验 Token
+     * <p>GET 请求的公开路径（帖子详情、圈子详情等）允许无 token 访问；
+     * 其他方法或非公开路径必须携带有效 token。</p>
      *
      * @param request  HTTP 请求
      * @param response HTTP 响应
@@ -54,6 +65,15 @@ public class JwtInterceptor implements HandlerInterceptor {
         // 从请求头获取 Token
         String header = request.getHeader(jwtConfig.getHeader());
         if (!StringUtils.hasText(header) || !header.startsWith(jwtConfig.getPrefix())) {
+            // 无 token 时，允许已声明的公开 GET 路径放行（公开展示无需登录）
+            if ("GET".equalsIgnoreCase(request.getMethod())) {
+                String path = request.getRequestURI();
+                for (String pattern : PUBLIC_GET_PATTERNS) {
+                    if (PATH_MATCHER.match(pattern, path)) {
+                        return true;
+                    }
+                }
+            }
             return writeUnauthorized(response, ResultCode.UNAUTHORIZED);
         }
         // 去除前缀

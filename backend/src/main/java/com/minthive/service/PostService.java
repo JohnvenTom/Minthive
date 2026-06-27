@@ -19,12 +19,21 @@ public interface PostService {
     Post publish(Post post);
 
     /**
-     * 根据ID查询帖子
+     * 根据ID查询帖子（公开访问）
      *
      * @param id 帖子ID
      * @return 帖子实体
      */
     Post getById(Long id);
+
+    /**
+     * 根据ID查询帖子（带当前用户）
+     *
+     * @param id             帖子ID
+     * @param currentUserId  当前登录用户ID（可空）
+     * @return 帖子实体
+     */
+    Post getById(Long id, Long currentUserId);
 
     /**
      * 分页查询帖子

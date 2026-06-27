@@ -3,7 +3,9 @@ package com.minthive.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
 import com.minthive.common.Constants;
+import com.minthive.common.ResultCode;
 import com.minthive.entity.Post;
+import com.minthive.security.LoginUser;
 import com.minthive.security.UserContext;
 import com.minthive.service.LikeCollectService;
 import com.minthive.service.PostService;
@@ -57,7 +59,9 @@ public class PostController {
     @Operation(summary = "查询帖子详情")
     @GetMapping("/{id}")
     public Result<Post> get(@PathVariable Long id) {
-        return Result.success(postService.getById(id));
+        LoginUser user = UserContext.get();
+        Long currentUserId = user != null ? user.getUserId() : null;
+        return Result.success(postService.getById(id, currentUserId));
     }
 
     /**

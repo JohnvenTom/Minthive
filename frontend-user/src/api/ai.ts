@@ -74,9 +74,9 @@ export function aiReplyMessage(context: string, incomingMessage: string) {
  */
 export function aiCheckContent(text?: string, imageBase64?: string) {
   return request<{
-    violated: boolean
-    type?: string
-    level?: 'low' | 'mid' | 'high'
+    violation: boolean
+    violationType: string
+    riskLevel: string
   }>({
     url: '/ai/detect',
     method: 'post',

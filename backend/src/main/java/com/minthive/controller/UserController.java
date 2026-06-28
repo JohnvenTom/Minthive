@@ -50,8 +50,23 @@ public class UserController {
      */
     @Operation(summary = "查询当前用户信息")
     @GetMapping("/me")
-    public Result<User> me() {
-        User user = userService.getById(UserContext.getUserId());
+    public Result<User> me(HttpServletRequest request) {
+        Long userId;
+        try {
+            userId = UserContext.getUserId();
+        } catch (Exception e) {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                try {
+                    userId = jwtUtil.getUserIdFromToken(authHeader.substring(7));
+                } catch (Exception ignored) {
+                    return Result.error(401, "未登录或 Token 已过期");
+                }
+            } else {
+                return Result.error(401, "未登录");
+            }
+        }
+        User user = userService.getById(userId);
         enrichUserStats(user);
         return Result.success(user);
     }

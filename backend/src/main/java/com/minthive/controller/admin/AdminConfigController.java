@@ -2,7 +2,9 @@ package com.minthive.controller.admin;
 
 import com.minthive.common.Result;
 import com.minthive.entity.Announcement;
+import com.minthive.entity.Banner;
 import com.minthive.service.AnnouncementService;
+import com.minthive.service.BannerService;
 import com.minthive.service.SensitiveWordService;
 import com.minthive.service.SystemMsgService;
 import com.minthive.websocket.WebSocketServer;
@@ -27,10 +29,10 @@ public class AdminConfigController {
     private final SensitiveWordService sensitiveWordService;
     private final SystemMsgService systemMsgService;
     private final AnnouncementService announcementService;
+    private final BannerService bannerService;
     private final WebSocketServer webSocketServer;
 
-    /** 内存存储Banner/规则/AI开关（公告已迁移至数据库） */
-    private static final List<Map<String, Object>> BANNERS = Collections.synchronizedList(new ArrayList<>());
+    /** 内存存储规则/AI开关（Banner已迁移至数据库） */
     private static Map<String, Object> PLATFORM_RULES = Collections.synchronizedMap(new LinkedHashMap<>());
     private static Map<String, Object> AI_SWITCH = Collections.synchronizedMap(new LinkedHashMap<>());
 
@@ -90,53 +92,24 @@ public class AdminConfigController {
         return Result.success();
     }
 
-    // ==================== Banner管理 ====================
+    // ==================== Banner管理（持久化至数据库）====================
 
-    /**
-     * Banner列表
-     *
-     * @return Banner数组
-     */
     @Operation(summary = "Banner列表")
     @GetMapping("/banners")
-    public Result<List<Map<String, Object>>> getBanners() {
-        return Result.success(BANNERS);
+    public Result<List<Banner>> getBanners() {
+        return Result.success(bannerService.listAll());
     }
 
-    /**
-     * 创建/更新Banner
-     *
-     * @param data Banner数据
-     * @return 操作结果
-     */
     @Operation(summary = "保存Banner")
     @PostMapping("/banner")
-    public Result<Map<String, Object>> saveBanner(@RequestBody Map<String, Object> data) {
-        if (data.containsKey("id")) {
-            for (int i = 0; i < BANNERS.size(); i++) {
-                if (Objects.equals(BANNERS.get(i).get("id"), data.get("id"))) {
-                    BANNERS.set(i, data);
-                    return Result.success(data);
-                }
-            }
-        } else {
-            data.put("id", System.currentTimeMillis());
-            data.put("sort", BANNERS.size());
-            BANNERS.add(data);
-        }
-        return Result.success(data);
+    public Result<Banner> saveBanner(@RequestBody Banner banner) {
+        return Result.success(bannerService.save(banner));
     }
 
-    /**
-     * 删除Banner
-     *
-     * @param id Banner ID
-     * @return 操作结果
-     */
     @Operation(summary = "删除Banner")
     @DeleteMapping("/banner")
     public Result<Void> deleteBanner(@RequestParam Long id) {
-        BANNERS.removeIf(b -> Objects.equals(b.get("id"), id));
+        bannerService.deleteById(id);
         return Result.success();
     }
 

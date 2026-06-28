@@ -45,6 +45,18 @@
         </div>
       </section>
 
+      <!-- 性别 -->
+      <section class="section form-section">
+        <label class="field-label">性别</label>
+        <div class="field-gender-wrap">
+          <el-radio-group v-model="form.gender">
+            <el-radio :value="0">保密</el-radio>
+            <el-radio :value="1">男</el-radio>
+            <el-radio :value="2">女</el-radio>
+          </el-radio-group>
+        </div>
+      </section>
+
       <!-- 兴趣标签入口 -->
       <section class="section link-section" @click="goInterestSelect">
         <div class="link-left">
@@ -142,11 +154,12 @@ const defaultAvatar = 'https://api.dicebear.com/7.x/initials/svg?seed=MH&backgro
 const form = ref({
   nickname: '',
   bio: '',
-  avatar: ''
+  avatar: '',
+  gender: 0
 })
 
 /** 初始值（用于判断是否有变更） */
-const initialValues = ref({ nickname: '', bio: '', avatar: '' })
+const initialValues = ref({ nickname: '', bio: '', avatar: '', gender: 0 })
 
 /** 头像上传状态 */
 const avatarUploading = ref(false)
@@ -173,7 +186,8 @@ const hasChanges = computed(() => {
   return (
     form.value.nickname !== initialValues.value.nickname ||
     form.value.bio !== initialValues.value.bio ||
-    form.value.avatar !== initialValues.value.avatar
+    form.value.avatar !== initialValues.value.avatar ||
+    form.value.gender !== initialValues.value.gender
   )
 })
 
@@ -200,7 +214,8 @@ function initForm(): void {
   form.value = {
     nickname: user.nickname || '',
     bio: user.bio || '',
-    avatar: user.avatar || ''
+    avatar: user.avatar || '',
+    gender: user.gender ?? 0
   }
   initialValues.value = { ...form.value }
 }
@@ -378,6 +393,7 @@ async function onSave(): Promise<void> {
     await updateProfile({
       nickname: form.value.nickname,
       bio: form.value.bio,
+      gender: form.value.gender,
       ...(isNewAvatar ? { avatar: avatarUrl } : {})
     })
 
@@ -541,6 +557,32 @@ onMounted(initForm)
 
 .field-textarea-wrap {
   position: relative;
+}
+
+.field-gender-wrap {
+  :deep(.el-radio-group) {
+    display: flex;
+    gap: 0;
+    width: 100%;
+    border: 1px solid $ink-100;
+    border-radius: $radius-md;
+    overflow: hidden;
+  }
+  :deep(.el-radio) {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    margin-right: 0;
+    border-right: 1px solid $ink-100;
+    &:last-child { border-right: none; }
+    .el-radio__label { font-size: 14px; }
+  }
+  :deep(.el-radio.is-checked) {
+    background: $mint-50;
+    .el-radio__label { color: $mint-700; font-weight: 600; }
+  }
 }
 
 .field-textarea {

@@ -274,6 +274,24 @@ CREATE TABLE `announcement` (
     KEY `idx_publish_time` (`publish_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统公告表';
 
+-- ============================================================
+-- 13. 轮播图表 banner
+-- ============================================================
+DROP TABLE IF EXISTS `banner`;
+CREATE TABLE `banner` (
+    `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT 'Banner ID',
+    `title`       VARCHAR(128) NOT NULL COMMENT '标题',
+    `image_url`   VARCHAR(500) NOT NULL COMMENT '图片地址',
+    `link_url`    VARCHAR(500) DEFAULT NULL COMMENT '跳转链接',
+    `sort`        INT          NOT NULL DEFAULT 0 COMMENT '排序(越小越前)',
+    `status`      VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE' COMMENT '状态:ACTIVE启用 INACTIVE禁用',
+    `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_status` (`status`),
+    KEY `idx_sort` (`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='首页轮播图表';
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================

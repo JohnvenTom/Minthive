@@ -171,6 +171,48 @@ public class AdminUserController {
         return Result.success(data);
     }
 
+    /**
+     * 创建新用户（普通用户，role=0）
+     *
+     * @param data 包含 account/password/nickname/phone（phone 选填）
+     * @return 操作结果
+     */
+    @Operation(summary = "创建新用户")
+    @PostMapping("/create")
+    public Result<Map<String, Object>> create(@RequestBody Map<String, Object> data) {
+        String account = (String) data.get("account");
+        String password = (String) data.get("password");
+        String nickname = (String) data.get("nickname");
+        String phone = (String) data.get("phone");
+        if (account == null || account.isBlank() || password == null || password.isBlank()) {
+            return Result.error(ResultCode.PARAM_ERROR, "账号和密码不能为空");
+        }
+        Long exist = userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getAccount, account));
+        if (exist > 0) {
+            return Result.error(ResultCode.PARAM_ERROR, "账号已存在");
+        }
+        if (phone != null && !phone.isBlank()) {
+            Long phoneExist = userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getPhone, phone));
+            if (phoneExist > 0) {
+                return Result.error(ResultCode.PARAM_ERROR, "手机号已存在");
+            }
+        }
+        User user = new User();
+        user.setAccount(account);
+        user.setPassword(BcryptUtil.encode(password));
+        user.setNickname(nickname != null && !nickname.isBlank() ? nickname : account);
+        user.setPhone(phone != null && !phone.isBlank() ? phone : null);
+        user.setRole(Constants.ROLE_USER);
+        user.setStatus(Constants.USER_STATUS_NORMAL);
+        user.setRegisterTime(java.time.LocalDateTime.now());
+        userMapper.insert(user);
+        Map<String, Object> result = new HashMap<>(4);
+        result.put("userId", user.getId());
+        result.put("account", user.getAccount());
+        result.put("nickname", user.getNickname());
+        return Result.success(result);
+    }
+
     // ==================== 角色管理（圈主/管理员） ====================
 
     /**

@@ -30,6 +30,14 @@ export interface UserInfo {
   interests: string[]
 }
 
+/** 创建用户入参 */
+export interface CreateUserParams {
+  account: string
+  password: string
+  nickname: string
+  phone?: string
+}
+
 /** 封禁入参 */
 export interface BanParams {
   userId: number
@@ -76,6 +84,14 @@ export function unbanUser(userId: number) {
  */
 export function resetPassword(userId: number, newPassword: string) {
   return post('/user/reset-password', { userId, newPassword })
+}
+
+/**
+ * 创建新用户（普通用户）
+ * @param params 用户信息
+ */
+export function createUser(params: CreateUserParams) {
+  return post('/user/create', params)
 }
 
 /**

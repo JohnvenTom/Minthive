@@ -9,9 +9,11 @@ import {
   banUser,
   unbanUser,
   resetPassword,
+  createUser,
   cleanZombieUsers,
   type UserInfo,
-  type UserQuery
+  type UserQuery,
+  type CreateUserParams
 } from '@/api/user'
 
 /**
@@ -57,6 +59,41 @@ const banForm = reactive({
   duration: 24,
   reason: ''
 })
+
+/** 创建用户弹窗 */
+const createVisible = ref(false)
+const createForm = reactive<CreateUserParams>({
+  account: '',
+  password: '',
+  nickname: '',
+  phone: ''
+})
+const createLoading = ref(false)
+
+function handleCreate() {
+  createForm.account = ''
+  createForm.password = ''
+  createForm.nickname = ''
+  createForm.phone = ''
+  createVisible.value = true
+}
+
+async function confirmCreate() {
+  if (!createForm.account) { ElMessage.warning('请输入账号'); return }
+  if (!createForm.password || createForm.password.length < 6) { ElMessage.warning('密码至少 6 位'); return }
+  if (!createForm.nickname) { ElMessage.warning('请输入昵称'); return }
+  createLoading.value = true
+  try {
+    await createUser(createForm)
+    ElMessage.success('用户创建成功')
+    createVisible.value = false
+    loadList()
+  } catch (e) {
+    // 拦截器已提示
+  } finally {
+    createLoading.value = false
+  }
+}
 
 /** 重置密码弹窗 */
 const resetVisible = ref(false)
@@ -230,6 +267,7 @@ onMounted(() => {
         <el-form-item>
           <el-button type="primary" :icon="'Search'" @click="handleSearch">查询</el-button>
           <el-button :icon="'Refresh'" @click="handleReset">重置</el-button>
+          <el-button type="primary" :icon="'Plus'" @click="handleCreate">添加用户</el-button>
           <el-button type="warning" :icon="'Delete'" @click="handleCleanZombie">清理僵尸号</el-button>
         </el-form-item>
       </el-form>
@@ -290,6 +328,28 @@ onMounted(() => {
           </el-descriptions-item>
         </el-descriptions>
       </div>
+    </el-dialog>
+
+    <!-- 创建用户弹窗 -->
+    <el-dialog v-model="createVisible" title="添加用户" width="440px">
+      <el-form label-width="80px">
+        <el-form-item label="账号" required>
+          <el-input v-model="createForm.account" placeholder="登录账号" />
+        </el-form-item>
+        <el-form-item label="密码" required>
+          <el-input v-model="createForm.password" type="password" show-password placeholder="至少 6 位" />
+        </el-form-item>
+        <el-form-item label="昵称" required>
+          <el-input v-model="createForm.nickname" placeholder="显示昵称" />
+        </el-form-item>
+        <el-form-item label="手机号">
+          <el-input v-model="createForm.phone" placeholder="选填" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createVisible = false">取消</el-button>
+        <el-button type="primary" :loading="createLoading" @click="confirmCreate">确认创建</el-button>
+      </template>
     </el-dialog>
 
     <!-- 封禁弹窗 -->

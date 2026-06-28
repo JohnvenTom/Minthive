@@ -351,6 +351,7 @@ public class AdminStatsController {
     private List<String> generateAiSuggestions(int healthScore, long totalUsers, long dau,
                                                long todayPosts, long pendingReports,
                                                long totalPosts, long totalInteractions) {
+        String fallbackMessage = aiConfig.getFallback().getMessage();
         try {
             // 构建包含真实运营数据的提示词
             String prompt = String.format(
@@ -367,6 +368,12 @@ public class AdminStatsController {
             );
 
             String aiResponse = aiContext.smartQa(prompt);
+
+            // AI 服务内部降级（cloud 调用失败返回配置的 fallback 消息），视为未生成
+            if (aiResponse == null || aiResponse.equals(fallbackMessage)) {
+                log.warn("[AI日报] AI 返回降级消息，使用规则建议");
+                return fallbackSuggestions(healthScore, todayPosts, pendingReports, totalUsers);
+            }
 
             // 解析 AI 回复为建议列表（按换行或序号分割）
             List<String> result = new ArrayList<>();
@@ -387,7 +394,6 @@ public class AdminStatsController {
             log.warn("[AI日报] AI 生成建议失败，降级为规则建议: {}", e.getMessage());
         }
 
-        // AI 调用失败的降级方案：基于规则的通用建议
         return fallbackSuggestions(healthScore, todayPosts, pendingReports, totalUsers);
     }
 

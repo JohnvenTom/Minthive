@@ -147,7 +147,7 @@ public class FollowServiceImpl implements FollowService {
         // 3. 查询用户详情
         List<User> users = userMapper.selectBatchIds(followerIds);
         // 4. 标记当前登录用户是否已回关每个粉丝
-        if (currentUserId != null && !currentUserId.equals(userId)) {
+        if (currentUserId != null) {
             List<Long> followedIds = followMapper.selectList(
                     new LambdaQueryWrapper<Follow>()
                             .eq(Follow::getUserId, currentUserId)

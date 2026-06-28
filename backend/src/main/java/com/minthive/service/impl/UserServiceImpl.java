@@ -26,8 +26,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 用户服务实现
@@ -397,6 +399,22 @@ public class UserServiceImpl implements UserService {
         // 防御性编程：处理 interests 为 null 或空列表的情况，避免 NullPointerException
         String tags = (interests == null || interests.isEmpty()) ? null : String.join(",", interests);
         update.setInterestTags(tags);
+        // 同步初始化兴趣向量，保证选择兴趣后立即获得个性化推荐
+        if (interests != null && !interests.isEmpty()) {
+            Map<String, Double> vector = new LinkedHashMap<>();
+            for (String tag : interests) {
+                vector.put(tag, 1.0);
+            }
+            try {
+                String vectorJson = OBJECT_MAPPER.writeValueAsString(vector);
+                update.setAiInterestVector(vectorJson);
+                // 预热 Redis 缓存
+                String key = RedisConstants.AI_INTEREST_VECTOR_PREFIX + userId;
+                redisUtil.set(key, vectorJson, 1, TimeUnit.HOURS);
+            } catch (Exception e) {
+                log.warn("初始化兴趣向量序列化失败 userId={}", userId, e);
+            }
+        }
         userMapper.updateById(update);
         log.info("用户兴趣标签更新: userId={}, tags={}", userId, tags);
     }

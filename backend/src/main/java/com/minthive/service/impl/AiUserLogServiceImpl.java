@@ -5,6 +5,7 @@ import com.minthive.entity.User;
 import com.minthive.mapper.AiUserLogMapper;
 import com.minthive.mapper.UserMapper;
 import com.minthive.service.AiUserLogService;
+import com.minthive.service.InterestVectorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -22,6 +23,8 @@ public class AiUserLogServiceImpl implements AiUserLogService {
 
     private final UserMapper userMapper;
 
+    private final InterestVectorService interestVectorService;
+
     /**
      * 记录用户行为日志
      *
@@ -31,6 +34,8 @@ public class AiUserLogServiceImpl implements AiUserLogService {
     @Override
     public void record(AiUserLog log) {
         aiUserLogMapper.insert(log);
+        // 行为发生后立即刷新兴趣向量，保证推荐近实时
+        interestVectorService.refreshVector(log.getUserId());
     }
 
     /**

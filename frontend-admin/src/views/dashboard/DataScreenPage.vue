@@ -214,7 +214,7 @@ onMounted(() => {
         <div class="chart-grid-item fade-in-up" style="animation-delay: 0.6s">
           <ChartCard title="互动量趋势" :option="interactionChartOption" :loading="statsStore.loading" :height="260" />
         </div>
-        <div class="chart-grid-item fade-in-up" style="animation-delay: 0.7s">
+        <div class="chart-grid-item chart-grid-item--wide fade-in-up" style="animation-delay: 0.7s">
           <ChartCard title="圈子活跃度分布" :option="circleRankChartOption" :loading="statsStore.loading" :height="260" />
         </div>
         <div class="chart-grid-item fade-in-up" style="animation-delay: 0.8s">
@@ -338,6 +338,9 @@ onMounted(() => {
 .chart-grid-item {
   min-width: 0;
   overflow: visible;
+}
+.chart-grid-item--wide {
+  grid-column: span 2;
 }
 
 .ai-section {

@@ -20,6 +20,8 @@ declare module 'vue' {
     ElFormItem: typeof import('element-plus/es')['ElFormItem']
     ElIcon: typeof import('element-plus/es')['ElIcon']
     ElInput: typeof import('element-plus/es')['ElInput']
+    ElRadio: typeof import('element-plus/es')['ElRadio']
+    ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
     EmptyState: typeof import('./src/components/EmptyState.vue')['default']
     ImageUploader: typeof import('./src/components/ImageUploader.vue')['default']
     LoadingSpinner: typeof import('./src/components/LoadingSpinner.vue')['default']

@@ -161,6 +161,7 @@ html[data-theme="light"] {
     &::before { opacity: 0.15 !important; }
   }
   .sidebar-logo { border-bottom-color: #E4E4E7 !important; }
+  .sidebar-logo .hex-text.light .brand { color: #18181b !important; }
   .menu-item {
     color: #52525b !important;
     &:hover {
@@ -243,6 +244,9 @@ html[data-theme="light"] {
     color: #3f3f46 !important;
   }
   .ai-footer { color: #A1A1AA !important; }
+  .ai-date { color: #71717A !important; }
+  .score-label { color: #71717A !important; }
+  .section-title { color: #71717A !important; }
 
   // Config page
   .tab-bar { border-bottom-color: #E4E4E7 !important; }
@@ -266,12 +270,14 @@ html[data-theme="light"] {
   .ai-item-title { color: #18181b !important; }
   .ai-item-desc { color: #52525b !important; }
   .form-tip { color: #52525b !important; }
+  .chart-title { color: #18181b !important; }
 
   // User / Content / Circle / Report shared
   .search-bar { padding: 16px 20px; }
   .detail-header { border-bottom-color: #E4E4E7 !important; }
   .detail-name { color: #18181b !important; }
   .detail-account { color: #52525b !important; }
+  .header-tip { color: #71717A !important; }
 
   // Element Plus overrides for light theme
   .el-table {
@@ -527,6 +533,26 @@ html[data-theme="light"] {
   .el-dialog__title {
     color: #18181b !important;
   }
+
+  // Pick user dialog
+  .pick-user-item {
+    border-color: #E4E4E7 !important;
+    &:hover { border-color: #E879A9 !important; }
+  }
+  .pick-user-nickname { color: #18181b !important; }
+  .pick-user-account { color: #71717A !important; }
+  .pick-empty { color: #A1A1AA !important; }
+
+  // Content audit detail dialog
+  .author-name { color: #18181b !important; }
+  .author-time { color: #71717A !important; }
+  .post-content { color: #3f3f46 !important; }
+  .post-meta {
+    color: #71717A !important;
+    border-top-color: #E4E4E7 !important;
+  }
+  .text-secondary { color: #71717A !important; }
+  .content-cell { color: #3f3f46 !important; }
 }
 
 // 工具类

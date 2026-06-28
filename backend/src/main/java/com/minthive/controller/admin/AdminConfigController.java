@@ -16,7 +16,7 @@ import java.util.*;
 
 /**
  * 管理后台-系统配置控制器
- * <p>功能描述：公告管理、Banner管理、平台规则、运营人员管理、AI开关、敏感词检测等</p>
+ * <p>功能描述：公告管理、Banner管理、平台规则、AI开关、敏感词检测等</p>
  */
 @Tag(name = "管理后台-系统配置")
 @RestController
@@ -29,10 +29,9 @@ public class AdminConfigController {
     private final AnnouncementService announcementService;
     private final WebSocketServer webSocketServer;
 
-    /** 内存存储Banner/规则/运营人员/AI开关（公告已迁移至数据库） */
+    /** 内存存储Banner/规则/AI开关（公告已迁移至数据库） */
     private static final List<Map<String, Object>> BANNERS = Collections.synchronizedList(new ArrayList<>());
     private static Map<String, Object> PLATFORM_RULES = Collections.synchronizedMap(new LinkedHashMap<>());
-    private static final List<Map<String, Object>> OPERATORS = Collections.synchronizedList(new ArrayList<>());
     private static Map<String, Object> AI_SWITCH = Collections.synchronizedMap(new LinkedHashMap<>());
 
     static {
@@ -166,66 +165,6 @@ public class AdminConfigController {
         PLATFORM_RULES.clear();
         PLATFORM_RULES.putAll(data);
         return Result.success(data);
-    }
-
-    // ==================== 运营人员管理 ====================
-
-    /**
-     * 运营人员列表
-     *
-     * @return 人员数组
-     */
-    @Operation(summary = "运营人员列表")
-    @GetMapping("/operators")
-    public Result<List<Map<String, Object>>> getOperators() {
-        return Result.success(OPERATORS);
-    }
-
-    /**
-     * 创建运营人员
-     *
-     * @param data 包含 account/password/nickname/role
-     * @return 操作结果
-     */
-    @Operation(summary = "创建运营人员")
-    @PostMapping("/operator")
-    public Result<Map<String, Object>> createOperator(@RequestBody Map<String, Object> data) {
-        data.put("id", System.currentTimeMillis());
-        data.put("status", 1);
-        data.put("createTime", new Date());
-        OPERATORS.add(data);
-        return Result.success(data);
-    }
-
-    /**
-     * 更新运营人员
-     *
-     * @param data 人员数据
-     * @return 操作结果
-     */
-    @Operation(summary = "更新运营人员")
-    @PutMapping("/operator")
-    public Result<Map<String, Object>> updateOperator(@RequestBody Map<String, Object> data) {
-        for (int i = 0; i < OPERATORS.size(); i++) {
-            if (Objects.equals(OPERATORS.get(i).get("id"), data.get("id"))) {
-                OPERATORS.set(i, data);
-                return Result.success(data);
-            }
-        }
-        return Result.success(data);
-    }
-
-    /**
-     * 删除运营人员
-     *
-     * @param adminId 人员ID
-     * @return 操作结果
-     */
-    @Operation(summary = "删除运营人员")
-    @DeleteMapping("/operator")
-    public Result<Void> deleteOperator(@RequestParam Long adminId) {
-        OPERATORS.removeIf(o -> Objects.equals(o.get("id"), adminId));
-        return Result.success();
     }
 
     // ==================== AI 开关 ====================

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getAnnouncements,
@@ -10,27 +10,29 @@ import {
   deleteBanner,
   getPlatformRules,
   updatePlatformRules,
-  getOperators,
-  createOperator,
-  updateOperator,
-  deleteOperator,
+  getRoleList,
+  searchNormalUser,
+  createUserWithRole,
+  setUserRole,
+  removeUserRole,
   getAiSwitch,
   updateAiSwitch,
   type Announcement,
   type Banner,
   type PlatformRule,
-  type Operator,
+  type RoleUser,
+  type NormalUser,
   type AiSwitchConfig
 } from '@/api/config'
 import ImageSelector from '@/components/ImageSelector.vue'
 
 /**
  * SystemConfigPage 系统配置页
- * 功能：公告、轮播图、平台规则、操作员管理、AI 开关
+ * 功能：公告、轮播图、平台规则、圈主·管理员管理、AI 开关
  * 参数：无
  * 注意事项：通过 Tab 切换五个配置模块
  */
-const activeTab = ref<'announce' | 'banner' | 'rule' | 'operator' | 'ai'>('announce')
+const activeTab = ref<'announce' | 'banner' | 'rule' | 'role' | 'ai'>('announce')
 
 // 公告
 const announcements = ref<Announcement[]>([])
@@ -54,17 +56,20 @@ const rulesForm = reactive<PlatformRule>({
   aiDailyLimit: 50
 })
 
-// 操作员
-const operators = ref<Operator[]>([])
-const operatorLoading = ref(false)
-const operatorVisible = ref(false)
-const operatorForm = reactive<Partial<Operator> & { password: string }>({
-  account: '',
-  nickname: '',
-  role: 'OPERATOR',
-  password: ''
-})
-const isEditOperator = ref(false)
+// 管理员管理
+const roleUsers = ref<RoleUser[]>([])
+const roleLoading = ref(false)
+
+// 新建账号弹窗
+const createVisible = ref(false)
+const createForm = reactive({ account: '', nickname: '', password: '' })
+const createSubmitting = ref(false)
+
+// 从已有用户选取弹窗
+const pickVisible = ref(false)
+const pickKeyword = ref('')
+const pickResults = ref<NormalUser[]>([])
+const pickLoading = ref(false)
 
 // AI 开关
 const aiLoading = ref(false)
@@ -256,78 +261,119 @@ async function saveRules() {
 }
 
 /**
- * 加载操作员
+ * 加载管理员列表
  */
-async function loadOperators() {
-  operatorLoading.value = true
+async function loadRoleList() {
+  roleLoading.value = true
   try {
-    const res = await getOperators()
-    operators.value = res
+    const res: any = await getRoleList('2')
+    roleUsers.value = res
   } catch (e) {
     // ignore
   } finally {
-    operatorLoading.value = false
+    roleLoading.value = false
   }
 }
 
 /**
- * 新增/编辑操作员
- * @param row 行数据
+ * 打开新建账号弹窗
  */
-function handleOperatorEdit(row?: Operator) {
-  isEditOperator.value = !!row
-  if (row) {
-    operatorForm.adminId = row.adminId
-    operatorForm.account = row.account
-    operatorForm.nickname = row.nickname
-    operatorForm.role = row.role
-    operatorForm.password = ''
-  } else {
-    operatorForm.adminId = undefined
-    operatorForm.account = ''
-    operatorForm.nickname = ''
-    operatorForm.role = 'OPERATOR'
-    operatorForm.password = ''
-  }
-  operatorVisible.value = true
+function handleCreate() {
+  createForm.account = ''
+  createForm.nickname = ''
+  createForm.password = ''
+  createVisible.value = true
 }
 
 /**
- * 保存操作员
+ * 提交新建账号
  */
-async function confirmOperator() {
-  if (!operatorForm.account || !operatorForm.nickname) {
-    ElMessage.warning('请填写账号和昵称')
+async function confirmCreate() {
+  if (!createForm.account || !createForm.password) {
+    ElMessage.warning('请填写账号和密码')
     return
   }
-  if (!isEditOperator.value && !operatorForm.password) {
-    ElMessage.warning('请设置密码')
-    return
-  }
+  createSubmitting.value = true
   try {
-    if (isEditOperator.value) {
-      await updateOperator(operatorForm)
-    } else {
-      await createOperator(operatorForm)
+    await createUserWithRole({
+      account: createForm.account,
+      password: createForm.password,
+      nickname: createForm.nickname || createForm.account,
+      role: 'ADMIN'
+    })
+    ElMessage.success('创建成功')
+    createVisible.value = false
+    loadRoleList()
+  } catch (e) {
+    // ignore
+  } finally {
+    createSubmitting.value = false
+  }
+}
+
+/**
+ * 打开选取用户弹窗
+ */
+function handlePick() {
+  pickKeyword.value = ''
+  pickResults.value = []
+  pickVisible.value = true
+}
+
+/**
+ * 搜索普通用户
+ */
+async function doSearchNormalUser() {
+  if (!pickKeyword.value.trim()) {
+    ElMessage.warning('请输入搜索关键词')
+    return
+  }
+  pickLoading.value = true
+  try {
+    const res: any = await searchNormalUser(pickKeyword.value.trim())
+    pickResults.value = res
+    if ((res as any[]).length === 0) {
+      ElMessage.info('未找到匹配的普通用户')
     }
-    ElMessage.success('保存成功')
-    operatorVisible.value = false
-    loadOperators()
+  } catch (e) {
+    // ignore
+  } finally {
+    pickLoading.value = false
+  }
+}
+
+/**
+ * 确认将用户设为管理员
+ */
+async function confirmPickUser(user: NormalUser) {
+  try {
+    await ElMessageBox.confirm(
+      `确认将用户「${user.nickname}」(${user.account}) 设为管理员？`,
+      '角色设置确认',
+      { type: 'info' }
+    )
+    await setUserRole(user.userId, 'ADMIN')
+    ElMessage.success('设置成功')
+    pickVisible.value = false
+    loadRoleList()
   } catch (e) {
     // ignore
   }
 }
 
 /**
- * 删除操作员
- * @param row 行数据，el-table 原生插槽 row 类型为 any
+ * 移除管理员角色（降级为普通用户）
  */
-async function handleOperatorDelete(row: any) {
+async function handleRemoveRole(row: any) {
   try {
-    await ElMessageBox.confirm(`确认删除操作员「${row.nickname}」？`, '删除确认', { type: 'warning' })
-    await deleteOperator(row.adminId)
-    ElMessage.success('已删除')
-    loadOperators()
+    await ElMessageBox.confirm(
+      `确认将管理员「${row.nickname}」降级为普通用户？`,
+      '移除角色确认',
+      { type: 'warning' }
+    )
+    await removeUserRole(row.userId)
+    ElMessage.success('已移除角色')
+    loadRoleList()
   } catch (e) {
     // ignore
   }
@@ -370,10 +416,21 @@ function handleTabChange(tab: string) {
     case 'announce': loadAnnouncements(); break
     case 'banner': loadBanners(); break
     case 'rule': loadRules(); break
-    case 'operator': loadOperators(); break
+    case 'role': loadRoleList(); break
     case 'ai': loadAiSwitch(); break
   }
 }
+
+// 搜索防抖
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(pickKeyword, (val) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  if (val.trim()) {
+    searchTimer = setTimeout(() => doSearchNormalUser(), 300)
+  } else {
+    pickResults.value = []
+  }
+})
 
 onMounted(() => {
   loadAnnouncements()
@@ -392,7 +449,7 @@ onMounted(() => {
           { key: 'announce', label: '系统公告' },
           { key: 'banner', label: '首页轮播' },
           { key: 'rule', label: '平台规则' },
-          { key: 'operator', label: '操作员管理' },
+          { key: 'role', label: '管理员管理' },
           { key: 'ai', label: 'AI 开关' }
         ]"
         :key="tab.key"
@@ -490,35 +547,30 @@ onMounted(() => {
       </el-form>
     </div>
 
-    <!-- 操作员管理 -->
-    <div v-else-if="activeTab === 'operator'" class="base-card" v-loading="operatorLoading">
+    <!-- 管理员管理 -->
+    <div v-else-if="activeTab === 'role'" class="base-card" v-loading="roleLoading">
       <div class="card-toolbar">
-        <el-button type="primary" :icon="'Plus'" @click="handleOperatorEdit()">新增操作员</el-button>
+        <div class="card-toolbar-actions">
+          <el-button type="primary" :icon="'Plus'" @click="handleCreate()">新建管理员</el-button>
+          <el-button :icon="'Search'" @click="handlePick()">从用户选取</el-button>
+        </div>
       </div>
-      <el-table :data="operators" stripe>
+      <el-table :data="roleUsers" stripe>
         <el-table-column type="index" label="#" width="60" align="center" />
-        <el-table-column prop="adminId" label="ID" width="80" />
+        <el-table-column prop="userId" label="ID" width="80" />
         <el-table-column prop="account" label="账号" width="160" />
-        <el-table-column prop="nickname" label="昵称" width="160" />
-        <el-table-column prop="role" label="角色" width="140">
+        <el-table-column prop="nickname" label="昵称" width="180" />
+        <el-table-column prop="status" label="状态" width="90" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.role === 'SUPER_ADMIN' ? 'warning' : 'primary'" size="small" effect="dark">
-              {{ row.role === 'SUPER_ADMIN' ? '超级管理员' : '操作员' }}
+            <el-tag :type="row.status === 1 ? 'primary' : 'danger'" size="small" effect="plain">
+              {{ row.status === 1 ? '正常' : '封禁' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100" align="center">
+        <el-table-column prop="registerTime" label="注册时间" width="180" />
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'ACTIVE' ? 'primary' : 'info'" size="small" effect="dark">
-              {{ row.status === 'ACTIVE' ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="160" fixed="right">
-          <template #default="{ row }">
-            <el-button text type="primary" size="small" @click="handleOperatorEdit(row)">编辑</el-button>
-            <el-button text type="danger" size="small" @click="handleOperatorDelete(row)">删除</el-button>
+            <el-button text type="danger" size="small" @click="handleRemoveRole(row)">移除角色</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -603,29 +655,43 @@ onMounted(() => {
       </template>
     </el-dialog>
 
-    <!-- 操作员弹窗 -->
-    <el-dialog v-model="operatorVisible" :title="isEditOperator ? '编辑操作员' : '新增操作员'" width="480px">
-      <el-form :model="operatorForm" label-width="80px">
+    <!-- 新建管理员弹窗 -->
+    <el-dialog v-model="createVisible" title="新建管理员" width="460px">
+      <el-form :model="createForm" label-width="70px">
         <el-form-item label="账号">
-          <el-input v-model="operatorForm.account" :disabled="isEditOperator" />
+          <el-input v-model="createForm.account" placeholder="登录账号" />
         </el-form-item>
         <el-form-item label="昵称">
-          <el-input v-model="operatorForm.nickname" />
+          <el-input v-model="createForm.nickname" placeholder="默认同账号" />
         </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="operatorForm.role" style="width: 200px">
-            <el-option label="超级管理员" value="SUPER_ADMIN" />
-            <el-option label="操作员" value="OPERATOR" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if="!isEditOperator" label="密码">
-          <el-input v-model="operatorForm.password" type="password" show-password />
+        <el-form-item label="密码">
+          <el-input v-model="createForm.password" type="password" show-password placeholder="登录密码" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="operatorVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmOperator">保存</el-button>
+        <el-button @click="createVisible = false">取消</el-button>
+        <el-button type="primary" :loading="createSubmitting" @click="confirmCreate">保存</el-button>
       </template>
+    </el-dialog>
+
+    <!-- 从用户选取弹窗 -->
+    <el-dialog v-model="pickVisible" title="从已有用户选取" width="540px">
+      <div class="pick-search">
+        <el-input v-model="pickKeyword" placeholder="搜索账号/昵称" clearable @keyup.enter="doSearchNormalUser" />
+        <el-button type="primary" :icon="'Search'" @click="doSearchNormalUser" :loading="pickLoading">搜索</el-button>
+      </div>
+      <div v-if="pickResults.length > 0" class="pick-results">
+        <div v-for="user in pickResults" :key="user.userId" class="pick-user-item">
+          <div class="pick-user-info">
+            <span class="pick-user-nickname">{{ user.nickname }}</span>
+            <span class="pick-user-account">@{{ user.account }}</span>
+          </div>
+          <el-button type="primary" size="small" @click="confirmPickUser(user)">设为管理员</el-button>
+        </div>
+      </div>
+      <div v-else-if="pickKeyword && !pickLoading" class="pick-empty">
+        未找到匹配的普通用户
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -657,9 +723,6 @@ onMounted(() => {
       box-shadow: $shadow-glow-primary;
     }
   }
-}
-.card-toolbar {
-  padding: 0 0 16px;
 }
 .banner-thumb {
   width: 80px;
@@ -728,5 +791,56 @@ onMounted(() => {
 .ai-actions {
   margin-top: 24px;
   text-align: right;
+}
+.card-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.card-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+.pick-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.pick-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.pick-user-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border: 1px solid $border-base;
+  border-radius: $radius-md;
+  transition: $transition-base;
+  &:hover { border-color: $color-primary; }
+}
+.pick-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pick-user-nickname {
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+}
+.pick-user-account {
+  font-size: 12px;
+  color: $text-secondary;
+}
+.pick-empty {
+  text-align: center;
+  color: $text-secondary;
+  padding: 40px 0;
+  font-size: 14px;
 }
 </style>

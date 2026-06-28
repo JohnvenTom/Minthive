@@ -2,7 +2,7 @@ import { get, post, put, del } from './request'
 
 /**
  * 系统配置 API
- * 功能：公告、轮播图、规则、操作员管理、AI 开关
+ * 功能：公告、轮播图、规则、圈主·管理员管理、AI 开关
  */
 
 /** 系统公告 */
@@ -33,14 +33,24 @@ export interface PlatformRule {
   aiDailyLimit: number
 }
 
-/** 操作员 */
-export interface Operator {
-  adminId: number
+/** 角色用户（圈主/管理员） */
+export interface RoleUser {
+  userId: number
   account: string
   nickname: string
-  role: string
+  avatar: string
+  role: number
   status: number
-  createTime: string
+  registerTime: string
+}
+
+/** 可选取的普通用户 */
+export interface NormalUser {
+  userId: number
+  account: string
+  nickname: string
+  avatar: string
+  registerTime: string
 }
 
 /** AI 开关配置 */
@@ -92,19 +102,22 @@ export function updatePlatformRules(data: PlatformRule) {
 }
 
 /**
- * 操作员管理
+ * 圈主·管理员管理（对接 AdminUserController，baseURL 已含 /api/admin）
  */
-export function getOperators() {
-  return get<Operator[]>('/config/operators')
+export function getRoleList(roles = '1,2', keyword?: string) {
+  return get<RoleUser[]>('/user/role-list', { roles, keyword })
 }
-export function createOperator(data: Partial<Operator> & { password: string }) {
-  return post('/config/operator', data)
+export function searchNormalUser(keyword: string) {
+  return get<NormalUser[]>('/user/search-normal', { keyword })
 }
-export function updateOperator(data: Partial<Operator>) {
-  return put('/config/operator', data)
+export function createUserWithRole(data: { account: string; password: string; nickname: string; role: string }) {
+  return post<{ userId: number; account: string; nickname: string; role: number }>('/user/create-with-role', data)
 }
-export function deleteOperator(adminId: number) {
-  return del('/config/operator', { adminId })
+export function setUserRole(userId: number, role: string) {
+  return put(`/user/role/${userId}`, { role })
+}
+export function removeUserRole(userId: number) {
+  return del(`/user/role/${userId}`)
 }
 
 /**

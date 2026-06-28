@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DataTable from '@/components/DataTable.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -17,6 +17,7 @@ import {
   type CircleCreationApply,
   type CircleCategory
 } from '@/api/circle'
+import { searchNormalUser, createUserWithRole, setUserRole, type NormalUser } from '@/api/config'
 
 /**
  * CircleManagePage 圈子管理页
@@ -86,6 +87,17 @@ const offlineForm = reactive({ circleId: 0, name: '', reason: '' })
 // 驳回申请弹窗
 const rejectApplyVisible = ref(false)
 const rejectApplyForm = reactive({ circleId: 0, reason: '' })
+
+// 新增圈主弹窗
+const ownerCreateVisible = ref(false)
+const ownerCreateForm = reactive({ account: '', nickname: '', password: '' })
+const ownerCreateSubmitting = ref(false)
+
+// 从用户选取圈主弹窗
+const ownerPickVisible = ref(false)
+const ownerPickKeyword = ref('')
+const ownerPickResults = ref<NormalUser[]>([])
+const ownerPickLoading = ref(false)
 
 /**
  * 加载圈子列表
@@ -268,6 +280,90 @@ async function confirmRejectApply() {
   }
 }
 
+/**
+ * 打开新建圈主弹窗
+ */
+function handleOwnerCreate() {
+  ownerCreateForm.account = ''
+  ownerCreateForm.nickname = ''
+  ownerCreateForm.password = ''
+  ownerCreateVisible.value = true
+}
+
+/**
+ * 提交新建圈主
+ */
+async function confirmOwnerCreate() {
+  if (!ownerCreateForm.account || !ownerCreateForm.password) {
+    ElMessage.warning('请填写账号和密码')
+    return
+  }
+  ownerCreateSubmitting.value = true
+  try {
+    await createUserWithRole({
+      account: ownerCreateForm.account,
+      password: ownerCreateForm.password,
+      nickname: ownerCreateForm.nickname || ownerCreateForm.account,
+      role: 'CIRCLE_OWNER'
+    })
+    ElMessage.success('圈主创建成功')
+    ownerCreateVisible.value = false
+  } catch (e) {
+    // ignore
+  } finally {
+    ownerCreateSubmitting.value = false
+  }
+}
+
+/**
+ * 打开从用户选取圈主弹窗
+ */
+function handleOwnerPick() {
+  ownerPickKeyword.value = ''
+  ownerPickResults.value = []
+  ownerPickVisible.value = true
+}
+
+/**
+ * 搜索普通用户设为圈主
+ */
+async function doSearchOwner() {
+  if (!ownerPickKeyword.value.trim()) {
+    ElMessage.warning('请输入搜索关键词')
+    return
+  }
+  ownerPickLoading.value = true
+  try {
+    const res: any = await searchNormalUser(ownerPickKeyword.value.trim())
+    ownerPickResults.value = res
+    if ((res as any[]).length === 0) {
+      ElMessage.info('未找到匹配的普通用户')
+    }
+  } catch (e) {
+    // ignore
+  } finally {
+    ownerPickLoading.value = false
+  }
+}
+
+/**
+ * 确认将用户设为圈主
+ */
+async function confirmOwnerPick(user: NormalUser) {
+  try {
+    await ElMessageBox.confirm(
+      `确认将用户「${user.nickname}」(${user.account}) 设为圈主？`,
+      '角色设置确认',
+      { type: 'info' }
+    )
+    await setUserRole(user.userId, 'CIRCLE_OWNER')
+    ElMessage.success('已设为圈主')
+    ownerPickVisible.value = false
+  } catch (e) {
+    // ignore
+  }
+}
+
 async function loadCategories() {
   try {
     const list = await getCircleCategories()
@@ -276,6 +372,17 @@ async function loadCategories() {
     // ignore
   }
 }
+
+// 搜索防抖
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(ownerPickKeyword, (val) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  if (val.trim()) {
+    searchTimer = setTimeout(() => doSearchOwner(), 300)
+  } else {
+    ownerPickResults.value = []
+  }
+})
 
 onMounted(() => {
   loadList()
@@ -326,6 +433,10 @@ onMounted(() => {
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :icon="'Search'" @click="loadList">查询</el-button>
+          </el-form-item>
+          <el-form-item style="margin-left: auto">
+            <el-button type="success" :icon="'Plus'" @click="handleOwnerCreate">新增圈主</el-button>
+            <el-button :icon="'Search'" @click="handleOwnerPick">从用户选取</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -475,6 +586,45 @@ onMounted(() => {
         <el-button type="warning" @click="confirmRejectApply">确认驳回</el-button>
       </template>
     </el-dialog>
+
+    <!-- 新建圈主弹窗 -->
+    <el-dialog v-model="ownerCreateVisible" title="新建圈主" width="460px">
+      <el-form :model="ownerCreateForm" label-width="70px">
+        <el-form-item label="账号">
+          <el-input v-model="ownerCreateForm.account" placeholder="登录账号" />
+        </el-form-item>
+        <el-form-item label="昵称">
+          <el-input v-model="ownerCreateForm.nickname" placeholder="默认同账号" />
+        </el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="ownerCreateForm.password" type="password" show-password placeholder="登录密码" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="ownerCreateVisible = false">取消</el-button>
+        <el-button type="primary" :loading="ownerCreateSubmitting" @click="confirmOwnerCreate">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 从用户选取圈主弹窗 -->
+    <el-dialog v-model="ownerPickVisible" title="从已有用户选取圈主" width="540px">
+      <div class="pick-search">
+        <el-input v-model="ownerPickKeyword" placeholder="搜索账号/昵称" clearable @keyup.enter="doSearchOwner" />
+        <el-button type="primary" :icon="'Search'" @click="doSearchOwner" :loading="ownerPickLoading">搜索</el-button>
+      </div>
+      <div v-if="ownerPickResults.length > 0" class="pick-results">
+        <div v-for="user in ownerPickResults" :key="user.userId" class="pick-user-item">
+          <div class="pick-user-info">
+            <span class="pick-user-nickname">{{ user.nickname }}</span>
+            <span class="pick-user-account">@{{ user.account }}</span>
+          </div>
+          <el-button type="primary" size="small" @click="confirmOwnerPick(user)">设为圈主</el-button>
+        </div>
+      </div>
+      <div v-else-if="ownerPickKeyword && !ownerPickLoading" class="pick-empty">
+        未找到匹配的普通用户
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -527,5 +677,47 @@ onMounted(() => {
 }
 .text-secondary {
   color: $text-secondary;
+}
+.pick-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.pick-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.pick-user-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border: 1px solid $border-base;
+  border-radius: $radius-md;
+  transition: $transition-base;
+  &:hover { border-color: $color-primary; }
+}
+.pick-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pick-user-nickname {
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+}
+.pick-user-account {
+  font-size: 12px;
+  color: $text-secondary;
+}
+.pick-empty {
+  text-align: center;
+  color: $text-secondary;
+  padding: 40px 0;
+  font-size: 14px;
 }
 </style>

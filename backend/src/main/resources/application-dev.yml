@@ -60,13 +60,6 @@ ai:
     enabled: true
     message: "AI助手暂时休息中，请稍后再试～"
 
-# 敏感词配置
-sensitive:
-  word:
-    path: classpath:sensitive-words.txt
-    # 备用：外部路径
-    external-path: D:/minthive/sensitive-words.txt
-
 # 防刷限制
 rate-limit:
   post-daily: 50      # 每日发帖上限

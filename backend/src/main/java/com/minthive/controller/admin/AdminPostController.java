@@ -15,12 +15,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
  * 管理后台-内容审核控制器
- * <p>功能描述：提供帖子审核（待审/已发布）、通过/驳回/删除、敏感词管理等接口</p>
+ * <p>功能描述：提供帖子审核（待审/已发布）、通过/驳回/删除等接口</p>
  */
 @Tag(name = "管理后台-内容审核")
 @RestController
@@ -140,66 +139,4 @@ public class AdminPostController {
         return Result.success();
     }
 
-    /**
-     * 敏感词列表
-     *
-     * @param page     页码
-     * @param pageSize 每页大小
-     * @return 敏感词分页数据（模拟返回，实际从敏感词服务获取）
-     */
-    @Operation(summary = "敏感词列表")
-    @GetMapping("/sensitive-words")
-    public Result<Map<String, Object>> sensitiveWords(
-            @RequestParam(defaultValue = "1") long page,
-            @RequestParam(defaultValue = "10") long pageSize) {
-        // 敏感词由 SensitiveWordService 管理，此处返回空列表结构
-        Map<String, Object> data = new HashMap<>(4);
-        data.put("list", List.of());
-        data.put("total", 0L);
-        data.put("page", page);
-        data.put("pageSize", pageSize);
-        return Result.success(data);
-    }
-
-    /**
-     * 新增敏感词
-     *
-     * @param params 包含 word 和 category
-     * @return 操作结果
-     */
-    @Operation(summary = "新增敏感词")
-    @PostMapping("/sensitive-word")
-    public Result<Void> addSensitiveWord(@RequestBody Map<String, Object> params) {
-        // 委托给 SensitiveWordService 处理
-        return Result.success();
-    }
-
-    /**
-     * 删除敏感词
-     *
-     * @param id 敏感词ID
-     * @return 操作结果
-     */
-    @Operation(summary = "删除敏感词")
-    @DeleteMapping("/sensitive-word")
-    public Result<Void> deleteSensitiveWord(@RequestParam Long id) {
-        return Result.success();
-    }
-
-    /**
-     * 批量导入敏感词
-     *
-     * @param params 包含 words[] 数组和 category
-     * @return 导入数量
-     */
-    @Operation(summary = "批量导入敏感词")
-    @PostMapping("/sensitive-words/import")
-    public Result<Map<String, Object>> importSensitiveWords(@RequestBody Map<String, Object> params) {
-        @SuppressWarnings("unchecked")
-        List<String> words = (List<String>) params.get("words");
-        String category = (String) params.getOrDefault("category", "default");
-        Map<String, Object> data = new HashMap<>(1);
-        data.put("imported", words != null ? words.size() : 0);
-        return Result.success(data);
-    }
 }

@@ -24,15 +24,6 @@ export interface Banner {
   status: string
 }
 
-/** 平台规则 */
-export interface PlatformRule {
-  dailyPostLimit: number
-  imageMaxSize: number
-  videoMaxDuration: number
-  videoMaxSize: number
-  aiDailyLimit: number
-}
-
 /** 角色用户（圈主/管理员） */
 export interface RoleUser {
   userId: number
@@ -51,18 +42,6 @@ export interface NormalUser {
   nickname: string
   avatar: string
   registerTime: string
-}
-
-/** AI 开关配置 */
-export interface AiSwitchConfig {
-  enabled: boolean
-  textGenerate: boolean
-  commentGenerate: boolean
-  contentDetect: boolean
-  recommend: boolean
-  imageProcess: boolean
-  privateReply: boolean
-  qaAssistant: boolean
 }
 
 /**
@@ -92,16 +71,6 @@ export function deleteBanner(id: number) {
 }
 
 /**
- * 平台规则
- */
-export function getPlatformRules() {
-  return get<PlatformRule>('/config/rules')
-}
-export function updatePlatformRules(data: PlatformRule) {
-  return put('/config/rules', data)
-}
-
-/**
  * 圈主·管理员管理（对接 AdminUserController，baseURL 已含 /api/admin）
  */
 export function getRoleList(roles = '1,2', keyword?: string) {
@@ -120,12 +89,4 @@ export function removeUserRole(userId: number) {
   return del(`/user/role/${userId}`)
 }
 
-/**
- * AI 开关配置
- */
-export function getAiSwitch() {
-  return get<AiSwitchConfig>('/config/ai-switch')
-}
-export function updateAiSwitch(data: AiSwitchConfig) {
-  put('/config/ai-switch', data)
-}
+

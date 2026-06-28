@@ -5,20 +5,18 @@ import com.minthive.entity.Announcement;
 import com.minthive.entity.Banner;
 import com.minthive.service.AnnouncementService;
 import com.minthive.service.BannerService;
-import com.minthive.service.SensitiveWordService;
 import com.minthive.service.SystemMsgService;
 import com.minthive.websocket.WebSocketServer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.util.*;
+import java.util.List;
 
 /**
  * 管理后台-系统配置控制器
- * <p>功能描述：公告管理、Banner管理、平台规则、AI开关、敏感词检测等</p>
+ * <p>功能描述：公告管理、Banner管理</p>
  */
 @Tag(name = "管理后台-系统配置")
 @RestController
@@ -26,26 +24,10 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AdminConfigController {
 
-    private final SensitiveWordService sensitiveWordService;
     private final SystemMsgService systemMsgService;
     private final AnnouncementService announcementService;
     private final BannerService bannerService;
     private final WebSocketServer webSocketServer;
-
-    /** 内存存储规则/AI开关（Banner已迁移至数据库） */
-    private static Map<String, Object> PLATFORM_RULES = Collections.synchronizedMap(new LinkedHashMap<>());
-    private static Map<String, Object> AI_SWITCH = Collections.synchronizedMap(new LinkedHashMap<>());
-
-    static {
-        // 默认规则
-        PLATFORM_RULES.put("communityRules", "1. 禁止发布违法违规内容\n2. 尊重他人，禁止人身攻击\n3. 禁止广告引流\n4. 保护隐私，禁止人肉搜索");
-        PLATFORM_RULES.put("copyrightNotice", "MintHive 平台保留对违规内容的处置权");
-        // 默认AI开关
-        AI_SWITCH.put("aiReviewEnabled", true);
-        AI_SWITCH.put("aiReplyEnabled", true);
-        AI_SWITCH.put("aiReportEnabled", true);
-        AI_SWITCH.put("riskThreshold", "MEDIUM");
-    }
 
     // ==================== 公告管理（持久化至数据库）====================
 
@@ -111,86 +93,6 @@ public class AdminConfigController {
     public Result<Void> deleteBanner(@RequestParam Long id) {
         bannerService.deleteById(id);
         return Result.success();
-    }
-
-    // ==================== 平台规则 ====================
-
-    /**
-     * 获取平台规则
-     *
-     * @return 规则内容
-     */
-    @Operation(summary = "平台规则")
-    @GetMapping("/rules")
-    public Result<Map<String, Object>> getPlatformRules() {
-        return Result.success(PLATFORM_RULES);
-    }
-
-    /**
-     * 更新平台规则
-     *
-     * @param data 规则数据
-     * @return 操作结果
-     */
-    @Operation(summary = "更新平台规则")
-    @PutMapping("/rules")
-    public Result<Map<String, Object>> updatePlatformRules(@RequestBody Map<String, Object> data) {
-        PLATFORM_RULES.clear();
-        PLATFORM_RULES.putAll(data);
-        return Result.success(data);
-    }
-
-    // ==================== AI 开关 ====================
-
-    /**
-     * 获取AI功能开关配置
-     *
-     * @return AI开关状态
-     */
-    @Operation(summary = "AI开关配置")
-    @GetMapping("/ai-switch")
-    public Result<Map<String, Object>> getAiSwitch() {
-        return Result.success(AI_SWITCH);
-    }
-
-    /**
-     * 更新AI功能开关
-     *
-     * @param data 开关配置
-     * @return 操作结果
-     */
-    @Operation(summary = "更新AI开关")
-    @PutMapping("/ai-switch")
-    public Result<Map<String, Object>> updateAiSwitch(@RequestBody Map<String, Object> data) {
-        AI_SWITCH.clear();
-        AI_SWITCH.putAll(data);
-        return Result.success(AI_SWITCH);
-    }
-
-    // ==================== 敏感词（原有接口保留）====================
-
-    /**
-     * 敏感词检测
-     *
-     * @param text 待检测文本
-     * @return true 包含敏感词
-     */
-    @Operation(summary = "敏感词检测")
-    @GetMapping("/sensitive/check")
-    public Result<Boolean> checkSensitive(@RequestParam String text) {
-        return Result.success(sensitiveWordService.contains(text));
-    }
-
-    /**
-     * 批量导入敏感词
-     *
-     * @param file 敏感词文件
-     * @return 导入数量
-     */
-    @Operation(summary = "批量导入敏感词")
-    @PostMapping("/sensitive/import")
-    public Result<Integer> importSensitive(@RequestParam("file") MultipartFile file) {
-        return Result.success(sensitiveWordService.importWords(file));
     }
 
     /**

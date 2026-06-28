@@ -1,9 +1,9 @@
-import { get, post, del } from './request'
+import { get, post } from './request'
 import type { PageQuery, PageResult } from './types'
 
 /**
  * 内容审核 API
- * 功能：待审核列表、通过驳回、已发布管理、敏感词库配置
+ * 功能：待审核列表、通过驳回、已发布管理
  */
 
 /** 内容审核查询参数 */
@@ -28,14 +28,6 @@ export interface PostInfo {
   circleId?: number
   circleName?: string
   aiGenerated: boolean
-  createTime: string
-}
-
-/** 敏感词 */
-export interface SensitiveWord {
-  id: number
-  word: string
-  category: string
   createTime: string
 }
 
@@ -78,31 +70,4 @@ export function deletePost(postId: number) {
   return del('/content/delete', { postId })
 }
 
-/**
- * 获取敏感词库
- */
-export function getSensitiveWords(params: PageQuery) {
-  return get<PageResult<SensitiveWord>>('/content/sensitive-words', params)
-}
 
-/**
- * 添加敏感词
- */
-export function addSensitiveWord(word: string, category: string) {
-  return post('/content/sensitive-word', { word, category })
-}
-
-/**
- * 删除敏感词
- */
-export function deleteSensitiveWord(id: number) {
-  return del('/content/sensitive-word', { id })
-}
-
-/**
- * 批量导入敏感词
- * @param words 敏感词数组
- */
-export function importSensitiveWords(words: string[], category: string) {
-  return post<{ imported: number }>('/content/sensitive-words/import', { words, category })
-}

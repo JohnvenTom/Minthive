@@ -295,16 +295,12 @@ public class PostServiceImpl implements PostService {
             } catch (Exception ignored) {}
 
             if (userId != null) {
-                Map<String, Double> vector = interestVectorService.getVector(userId);
-                if (!vector.isEmpty()) {
-                    result = personalizedFeed(userId, vector, current, size);
-                    if (result != null) {
-                        enrichPageCounts(result);
-                        return result;
-                    }
+                result = personalizedFeed(userId, current, size);
+                if (result != null) {
+                    enrichPageCounts(result);
+                    return result;
                 }
             }
-            // 降级：无兴趣向量时使用综合热度排序
             result = postMapper.selectRecommendFeed(new Page<>(current, size));
         } else {
             LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
@@ -319,78 +315,57 @@ public class PostServiceImpl implements PostService {
     }
 
     /**
-     * 个性化推荐 Feed：从候选池中按兴趣向量匹配度排序
+     * 个性化推荐：有相似标签的帖子排前面
      */
-    private Page<Post> personalizedFeed(Long userId, Map<String, Double> vector, long current, long size) {
+    private Page<Post> personalizedFeed(Long userId, long current, long size) {
+        // 获取用户的兴趣标签
+        User user = userMapper.selectById(userId);
+        Set<String> userTags = user != null && user.getInterestTags() != null && !user.getInterestTags().isBlank()
+                ? new HashSet<>(Arrays.asList(user.getInterestTags().split(",")))
+                : Collections.emptySet();
+
         String cacheKey = "minthive:feed:personalized:" + userId;
         List<Long> cachedIds = null;
-
-        // 尝试从缓存读取已排序的帖子ID列表
         Object cached = redisUtil.get(cacheKey);
         if (cached instanceof List) {
-            try {
-                cachedIds = (List<Long>) cached;
-            } catch (Exception ignored) {}
+            try { cachedIds = (List<Long>) cached; } catch (Exception ignored) {}
         }
 
         if (cachedIds == null || cachedIds.isEmpty()) {
-            // 获取候选池
             List<Post> candidates = postMapper.selectCandidatePool(200);
-            if (candidates.isEmpty()) {
-                return null;
-            }
-            enrichPageCountsForList(candidates);
+            if (candidates.isEmpty()) return null;
 
-            // 计算热度分（归一化）
-            double maxPop = 1;
-            Map<Long, Double> popScores = new HashMap<>();
-            for (Post p : candidates) {
-                double pop = (p.getLikeCount() != null ? p.getLikeCount() : 0) * 1
-                           + (p.getCommentCount() != null ? p.getCommentCount() : 0) * 2
-                           + (p.getCollectCount() != null ? p.getCollectCount() : 0) * 3;
-                popScores.put(p.getId(), pop);
-                if (pop > maxPop) maxPop = pop;
-            }
+            // 按标签匹配数降序 → 热度降序 → 时间降序
+            cachedIds = candidates.stream()
+                .map(p -> {
+                    long match = userTags.isEmpty() ? 0 :
+                        tagMappingService.resolvePostTags(p).stream().filter(userTags::contains).count();
+                    long pop = (p.getLikeCount() != null ? p.getLikeCount() : 0) * 1
+                             + (p.getCommentCount() != null ? p.getCommentCount() : 0) * 2
+                             + (p.getCollectCount() != null ? p.getCollectCount() : 0) * 3;
+                    return new AbstractMap.SimpleEntry<>(p, new long[]{match, pop});
+                })
+                .sorted((a, b) -> {
+                    long[] va = a.getValue(), vb = b.getValue();
+                    int cmp = Long.compare(vb[0], va[0]); // 匹配数
+                    if (cmp != 0) return cmp;
+                    cmp = Long.compare(vb[1], va[1]);     // 热度
+                    if (cmp != 0) return cmp;
+                    return b.getKey().getCreateTime().compareTo(a.getKey().getCreateTime()); // 时间
+                })
+                .map(e -> e.getKey().getId())
+                .collect(Collectors.toList());
 
-            // 计算每篇帖子的最终得分：0.9 * 标签匹配分 + 0.1 * 归一化热度
-            Map<Long, Double> finalScores = new HashMap<>();
-            for (Post p : candidates) {
-                Set<String> postTags = tagMappingService.resolvePostTags(p);
-                double tagScore = 0;
-                if (!postTags.isEmpty() && !vector.isEmpty()) {
-                    double sum = 0;
-                    for (String tag : postTags) {
-                        Double val = vector.get(tag);
-                        if (val != null) sum += val;
-                    }
-                    tagScore = sum / postTags.size();
-                }
-                double normPop = popScores.getOrDefault(p.getId(), 0.0) / maxPop;
-                double score = 0.9 * tagScore + 0.1 * normPop;
-                finalScores.put(p.getId(), score);
-            }
-
-            // 按得分降序排列
-            cachedIds = finalScores.entrySet().stream()
-                    .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
-                    .map(Map.Entry::getKey)
-                    .collect(Collectors.toList());
-
-            // 缓存排序结果（5分钟）
             redisUtil.set(cacheKey, cachedIds, 5, java.util.concurrent.TimeUnit.MINUTES);
         }
 
-        // 分页
         int total = cachedIds.size();
         int from = (int) ((current - 1) * size);
         int to = Math.min(from + (int) size, total);
-        if (from >= total) {
-            return new Page<>(current, size, 0);
-        }
-        List<Long> pageIds = cachedIds.subList(from, to);
-        List<Post> records = postMapper.selectByIdsOrdered(pageIds);
-        if (records == null) records = Collections.emptyList();
+        if (from >= total) return new Page<>(current, size, 0);
 
+        List<Post> records = postMapper.selectByIdsOrdered(cachedIds.subList(from, to));
+        if (records == null) records = Collections.emptyList();
         Page<Post> page = new Page<>(current, size, total);
         page.setRecords(records);
         return page;

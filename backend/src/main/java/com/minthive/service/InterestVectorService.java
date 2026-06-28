@@ -118,6 +118,25 @@ public class InterestVectorService {
             }
             return vector;
         }
+        // 兼容：已有 interestTags 但尚未生成 aiInterestVector 的存量用户
+        if (user != null && user.getInterestTags() != null && !user.getInterestTags().isBlank()) {
+            Map<String, Double> fallback = new LinkedHashMap<>();
+            for (String tag : user.getInterestTags().split(",")) {
+                tag = tag.trim();
+                if (!tag.isEmpty()) {
+                    fallback.put(tag, 1.0);
+                }
+            }
+            if (!fallback.isEmpty()) {
+                String json = vectorToJson(fallback);
+                User update = new User();
+                update.setId(userId);
+                update.setAiInterestVector(json);
+                userMapper.updateById(update);
+                redisUtil.set(key, json, 1, TimeUnit.HOURS);
+                return fallback;
+            }
+        }
         return Collections.emptyMap();
     }
 

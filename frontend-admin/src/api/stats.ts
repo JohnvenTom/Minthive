@@ -8,7 +8,7 @@ import { get } from './request'
 /** 时间维度 */
 export type TimeRange = 'DAY' | 'WEEK' | 'MONTH'
 
-/** 核心指标 */
+/** 核心指标（含较昨日趋势百分比） */
 export interface CoreMetrics {
   totalUsers: number
   todayRegister: number
@@ -18,6 +18,12 @@ export interface CoreMetrics {
   todayPosts: number
   totalInteractions: number
   pendingReports: number
+  totalUsersTrend: number
+  todayRegisterTrend: number
+  dauTrend: number
+  mauTrend: number
+  todayPostsTrend: number
+  pendingReportsTrend: number
 }
 
 /** 趋势数据点 */

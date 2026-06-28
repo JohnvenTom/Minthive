@@ -1,12 +1,8 @@
 import * as echarts from 'echarts'
 
-/**
- * 注册暮光玫瑰自定义 ECharts 主题
- * 覆盖内置 dark 主题的蓝色底色，统一为项目色板
- */
-export function registerMintHiveTheme() {
-  const palette = ['#E879A9', '#F59E0B', '#34D399', '#A78BFA', '#EF4444', '#F97316', '#06B6D4', '#EC4899']
+const palette = ['#E879A9', '#F59E0B', '#34D399', '#A78BFA', '#EF4444', '#F97316', '#06B6D4', '#EC4899']
 
+export function registerMintHiveTheme() {
   echarts.registerTheme('minthive', {
     color: palette,
     backgroundColor: 'transparent',
@@ -33,6 +29,37 @@ export function registerMintHiveTheme() {
       borderColor: '#3f3f46',
       textStyle: { color: '#F4F4F5' },
       extraCssText: 'border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.4);'
+    }
+  })
+}
+
+export function registerMintHiveLightTheme() {
+  echarts.registerTheme('minthive-light', {
+    color: palette,
+    backgroundColor: 'transparent',
+    textStyle: { color: '#52525b' },
+    title: { textStyle: { color: '#18181b' }, subtextStyle: { color: '#71717A' } },
+    line: { itemStyle: { borderWidth: 2 }, lineStyle: { width: 2 }, symbolSize: 6, symbol: 'circle', smooth: true },
+    bar: { itemStyle: { barBorderWidth: 0, barBorderRadius: [4, 4, 0, 0] } },
+    pie: { itemStyle: { borderWidth: 2, borderColor: '#E4E4E7' } },
+    categoryAxis: {
+      axisLine: { show: true, lineStyle: { color: '#D4D4D7' } },
+      axisTick: { show: false },
+      axisLabel: { color: '#71717A' },
+      splitLine: { show: false }
+    },
+    valueAxis: {
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: '#71717A' },
+      splitLine: { lineStyle: { color: '#E4E4E7', type: 'dashed' } }
+    },
+    legend: { textStyle: { color: '#52525b' } },
+    tooltip: {
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#E4E4E7',
+      textStyle: { color: '#18181b' },
+      extraCssText: 'border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.1);'
     }
   })
 }

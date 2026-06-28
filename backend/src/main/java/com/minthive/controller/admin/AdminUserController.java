@@ -3,7 +3,9 @@ package com.minthive.controller.admin;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.minthive.common.Constants;
 import com.minthive.common.Result;
+import com.minthive.common.ResultCode;
 import com.minthive.entity.User;
 import com.minthive.mapper.AdminUserMapper;
 import com.minthive.mapper.UserMapper;
@@ -14,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -166,6 +169,156 @@ public class AdminUserController {
         Map<String, Object> data = new HashMap<>(1);
         data.put("cleaned", cleaned);
         return Result.success(data);
+    }
+
+    // ==================== 角色管理（圈主/管理员） ====================
+
+    /**
+     * 按角色查询用户列表
+     *
+     * @param roles   角色值，逗号分隔，如 "1,2"
+     * @param keyword 搜索关键词（可空，匹配账号/昵称）
+     * @return 用户数组
+     */
+    @Operation(summary = "按角色查询用户列表")
+    @GetMapping("/role-list")
+    public Result<List<Map<String, Object>>> getRoleList(
+            @RequestParam(defaultValue = "1,2") String roles,
+            @RequestParam(required = false) String keyword) {
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        // 按角色筛选
+        String[] roleArr = roles.split(",");
+        Integer[] roleInts = java.util.Arrays.stream(roleArr).map(Integer::parseInt).toArray(Integer[]::new);
+        wrapper.in(User::getRole, (Object[]) roleInts);
+        // 关键词搜索
+        if (keyword != null && !keyword.isBlank()) {
+            wrapper.and(w -> w.like(User::getAccount, keyword)
+                    .or().like(User::getNickname, keyword));
+        }
+        wrapper.orderByDesc(User::getId);
+        List<User> users = userMapper.selectList(wrapper);
+        List<Map<String, Object>> result = users.stream().map(u -> {
+            Map<String, Object> m = new HashMap<>(8);
+            m.put("userId", u.getId());
+            m.put("account", u.getAccount());
+            m.put("nickname", u.getNickname());
+            m.put("avatar", u.getAvatar() != null ? u.getAvatar() : "");
+            m.put("role", u.getRole());
+            m.put("status", u.getStatus());
+            m.put("registerTime", u.getRegisterTime() != null ? u.getRegisterTime().toString() : "");
+            return m;
+        }).toList();
+        return Result.success(result);
+    }
+
+    /**
+     * 搜索普通用户（用于选取设为圈主/管理员）
+     *
+     * @param keyword 搜索关键词（匹配账号/昵称）
+     * @return 用户数组
+     */
+    @Operation(summary = "搜索普通用户")
+    @GetMapping("/search-normal")
+    public Result<List<Map<String, Object>>> searchNormalUser(@RequestParam String keyword) {
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getRole, Constants.ROLE_USER)
+                .and(w -> w.like(User::getAccount, keyword)
+                        .or().like(User::getNickname, keyword))
+                .orderByDesc(User::getId);
+        List<User> users = userMapper.selectList(wrapper);
+        List<Map<String, Object>> result = users.stream().map(u -> {
+            Map<String, Object> m = new HashMap<>(8);
+            m.put("userId", u.getId());
+            m.put("account", u.getAccount());
+            m.put("nickname", u.getNickname());
+            m.put("avatar", u.getAvatar() != null ? u.getAvatar() : "");
+            m.put("registerTime", u.getRegisterTime() != null ? u.getRegisterTime().toString() : "");
+            return m;
+        }).toList();
+        return Result.success(result);
+    }
+
+    /**
+     * 创建新账号并指定角色（圈主/管理员）
+     *
+     * @param data 包含 account/password/nickname/role
+     * @return 操作结果
+     */
+    @Operation(summary = "创建新账号并指定角色")
+    @PostMapping("/create-with-role")
+    public Result<Map<String, Object>> createWithRole(@RequestBody Map<String, Object> data) {
+        String account = (String) data.get("account");
+        String password = (String) data.get("password");
+        String nickname = (String) data.get("nickname");
+        String roleStr = (String) data.get("role");
+        if (account == null || account.isBlank() || password == null || password.isBlank()) {
+            return Result.error(ResultCode.PARAM_ERROR, "账号和密码不能为空");
+        }
+        // 检查账号是否已存在
+        Long exist = userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getAccount, account));
+        if (exist > 0) {
+            return Result.error(ResultCode.PARAM_ERROR, "账号已存在");
+        }
+        int role = Constants.ROLE_CIRCLE_OWNER;
+        if ("ADMIN".equals(roleStr) || "2".equals(roleStr)) {
+            role = Constants.ROLE_ADMIN;
+        }
+        User user = new User();
+        user.setAccount(account);
+        user.setPassword(BcryptUtil.encode(password));
+        user.setNickname(nickname != null ? nickname : account);
+        user.setRole(role);
+        user.setStatus(Constants.USER_STATUS_NORMAL);
+        user.setRegisterTime(java.time.LocalDateTime.now());
+        userMapper.insert(user);
+        Map<String, Object> result = new HashMap<>(4);
+        result.put("userId", user.getId());
+        result.put("account", user.getAccount());
+        result.put("nickname", user.getNickname());
+        result.put("role", user.getRole());
+        return Result.success(result);
+    }
+
+    /**
+     * 设置用户角色（普通→圈主/管理员）
+     *
+     * @param userId 用户ID
+     * @param params 包含 role 的请求体
+     * @return 操作结果
+     */
+    @Operation(summary = "设置用户角色")
+    @PutMapping("/role/{userId}")
+    public Result<Void> setUserRole(@PathVariable Long userId, @RequestBody Map<String, Object> params) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return Result.error(ResultCode.PARAM_ERROR, "用户不存在");
+        }
+        String roleStr = (String) params.get("role");
+        int role = Constants.ROLE_CIRCLE_OWNER;
+        if ("ADMIN".equals(roleStr) || "2".equals(roleStr)) {
+            role = Constants.ROLE_ADMIN;
+        }
+        User update = new User();
+        update.setId(userId);
+        update.setRole(role);
+        userMapper.updateById(update);
+        return Result.success();
+    }
+
+    /**
+     * 移除用户角色（降级为普通用户）
+     *
+     * @param userId 用户ID
+     * @return 操作结果
+     */
+    @Operation(summary = "移除用户角色")
+    @DeleteMapping("/role/{userId}")
+    public Result<Void> removeUserRole(@PathVariable Long userId) {
+        User update = new User();
+        update.setId(userId);
+        update.setRole(Constants.ROLE_USER);
+        userMapper.updateById(update);
+        return Result.success();
     }
 
     /**

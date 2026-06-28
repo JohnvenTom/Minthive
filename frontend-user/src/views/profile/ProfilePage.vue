@@ -90,6 +90,15 @@
         <h1 class="profile-name font-display">{{ userInfo.nickname }}</h1>
         <p v-if="userInfo.bio" class="profile-bio">{{ userInfo.bio }}</p>
 
+        <!-- 生日 -->
+        <p v-if="userInfo.birthday" class="profile-birthday">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          {{ formatBirthday(userInfo.birthday) }}
+        </p>
+
         <!-- 兴趣标签 -->
         <div v-if="userInfo.interests && userInfo.interests.length" class="interest-tags">
           <span v-for="tag in userInfo.interests" :key="tag" class="interest-tag">
@@ -875,6 +884,18 @@ function goEditProfile(): void {
 }
 
 /**
+ * 格式化生日日期
+ * @param {string} dateStr - ISO 日期字符串 (yyyy-MM-dd)
+ * @returns {string} 格式化后的日期 (YYYY年M月D日)
+ */
+function formatBirthday(dateStr: string): string {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return dateStr
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+}
+
+/**
  * 跳转私信聊天
  * @returns {void}
  */
@@ -1144,6 +1165,24 @@ watch(() => route.params.id, (newId) => {
   max-width: 400px;
   line-height: 1.6;
   margin-bottom: $space-3;
+}
+
+// ---------- 生日 ----------
+.profile-birthday {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: $ink-500;
+  margin-bottom: $space-3;
+  padding: 2px $space-3;
+  border-radius: $radius-pill;
+  background: rgba(78, 205, 196, 0.06);
+
+  svg {
+    flex-shrink: 0;
+    opacity: 0.6;
+  }
 }
 
 // ---------- 兴趣标签 ----------

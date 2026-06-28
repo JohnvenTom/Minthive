@@ -57,6 +57,15 @@
         </div>
       </section>
 
+      <!-- 生日 -->
+      <section class="section form-section">
+        <label class="field-label">生日</label>
+        <div class="field-input-wrap">
+          <input v-model="form.birthday" type="date" class="field-input"
+                 :max="todayStr" />
+        </div>
+      </section>
+
       <!-- 兴趣标签入口 -->
       <section class="section link-section" @click="goInterestSelect">
         <div class="link-left">
@@ -155,11 +164,12 @@ const form = ref({
   nickname: '',
   bio: '',
   avatar: '',
-  gender: 0
+  gender: 0,
+  birthday: ''
 })
 
 /** 初始值（用于判断是否有变更） */
-const initialValues = ref({ nickname: '', bio: '', avatar: '', gender: 0 })
+const initialValues = ref({ nickname: '', bio: '', avatar: '', gender: 0, birthday: '' })
 
 /** 头像上传状态 */
 const avatarUploading = ref(false)
@@ -178,6 +188,9 @@ const pendingFile = ref<File | null>(null)
 /** 裁剪后待上传的 File 对象（保存时才会上传到 MinIO） */
 const pendingCropFile = ref<File | null>(null)
 
+/** 今天日期字符串（用于日期输入的最大值限制） */
+const todayStr = new Date().toISOString().slice(0, 10)
+
 /** 保存中状态 */
 const saving = ref(false)
 
@@ -187,7 +200,8 @@ const hasChanges = computed(() => {
     form.value.nickname !== initialValues.value.nickname ||
     form.value.bio !== initialValues.value.bio ||
     form.value.avatar !== initialValues.value.avatar ||
-    form.value.gender !== initialValues.value.gender
+    form.value.gender !== initialValues.value.gender ||
+    form.value.birthday !== initialValues.value.birthday
   )
 })
 
@@ -215,7 +229,8 @@ function initForm(): void {
     nickname: user.nickname || '',
     bio: user.bio || '',
     avatar: user.avatar || '',
-    gender: user.gender ?? 0
+    gender: user.gender ?? 0,
+    birthday: user.birthday || ''
   }
   initialValues.value = { ...form.value }
 }
@@ -389,11 +404,12 @@ async function onSave(): Promise<void> {
                         !avatarUrl.startsWith('blob:') &&
                         !avatarUrl.includes('dicebear.com')
 
-    // 一次性更新：昵称 + 简介 + 头像（如有变更）
+    // 一次性更新：昵称 + 简介 + 头像（如有变更） + 性别 + 生日
     await updateProfile({
       nickname: form.value.nickname,
       bio: form.value.bio,
       gender: form.value.gender,
+      birthday: form.value.birthday || null,
       ...(isNewAvatar ? { avatar: avatarUrl } : {})
     })
 

@@ -279,6 +279,7 @@
                   :key="user.id"
                   :user="user"
                   :show-follow="isSelf"
+                  :follow-back="activeTab === 'followers'"
                   class="stagger-item"
                   @click="router.push(`/profile/${user.id}`)"
                   @follow="onUserFollow"
@@ -358,6 +359,7 @@
             :key="user.id"
             :user="user"
             :show-follow="true"
+            :follow-back="activeTab === 'followers'"
             class="stagger-item"
             @click="router.push(`/profile/${user.id}`)"
             @follow="onUserFollow"
@@ -458,7 +460,7 @@ import ShareChainDialog from '@/components/ShareChainDialog.vue'
 import { useUserStore } from '@/stores/user'
 import { getUserProfile, getUserPosts, getUserCollects, getUserLikes } from '@/api/user'
 import { toggleFollow, getFollowing, getFollowers } from '@/api/follow'
-import { deletePost, togglePostVisibility } from '@/api/post'
+import { deletePost, togglePostVisibility, toggleLike, toggleCollect } from '@/api/post'
 import type { User, Post } from '@/types'
 
 // ---------- 路由与Store ----------
@@ -756,28 +758,34 @@ async function onToggleFollow(): Promise<void> {
 }
 
 /**
- * 点赞帖子
+ * 点赞/取消点赞
  * @param {number} postId - 帖子ID
- * @returns {void}
  */
-function onLike(postId: number): void {
+async function onLike(postId: number): Promise<void> {
   const post = posts.value.find(p => p.id === postId)
-  if (post) {
+  if (!post) return
+  try {
+    await toggleLike(postId, !post.liked)
     post.liked = !post.liked
     post.likeCount += post.liked ? 1 : -1
+  } catch {
+    showToast('操作失败')
   }
 }
 
 /**
- * 收藏帖子
+ * 收藏/取消收藏
  * @param {number} postId - 帖子ID
- * @returns {void}
  */
-function onCollect(postId: number): void {
+async function onCollect(postId: number): Promise<void> {
   const post = posts.value.find(p => p.id === postId)
-  if (post) {
+  if (!post) return
+  try {
+    await toggleCollect(postId, !post.collected)
     post.collected = !post.collected
     post.collectCount += post.collected ? 1 : -1
+  } catch {
+    showToast('操作失败')
   }
 }
 
@@ -1144,7 +1152,7 @@ watch(() => route.params.id, (newId) => {
   flex-wrap: wrap;
   gap: $space-2;
   justify-content: center;
-  margin-bottom: $space-5;
+  margin-bottom: $space-3;
 }
 
 .interest-tag {

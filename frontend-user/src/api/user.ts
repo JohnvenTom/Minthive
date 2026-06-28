@@ -80,3 +80,14 @@ export function getUserLikes(page = 1, pageSize = 10) {
 export function deactivateAccount() {
   return request({ url: '/user/cancel', method: 'delete' })
 }
+
+/**
+ * 上报帖子停留时长
+ */
+export function reportStay(postId: number, duration: number, tags?: string) {
+  return request({
+    url: '/user/action/stay',
+    method: 'post',
+    data: { postId, duration, tags }
+  })
+}

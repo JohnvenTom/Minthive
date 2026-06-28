@@ -35,6 +35,8 @@ export interface User {
   status: number
   /** 当前登录用户是否已关注该用户（由后端填充） */
   isFollowing?: boolean
+  /** AI 兴趣向量（标签 -> 强度 0~1），由后端填充 */
+  interestVector?: Record<string, number>
 }
 
 // ---------- 帖子 ----------

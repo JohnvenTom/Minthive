@@ -15,16 +15,19 @@ import com.minthive.mapper.CircleMapper;
 import com.minthive.mapper.CircleMemberMapper;
 import com.minthive.mapper.CircleUserMapper;
 import com.minthive.mapper.PostMapper;
+import com.minthive.common.TagMappingConstants;
 import com.minthive.service.CircleService;
+import com.minthive.service.InterestVectorService;
 import com.minthive.service.PostService;
+import com.minthive.service.TagMappingService;
+import com.minthive.security.UserContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -46,6 +49,10 @@ public class CircleServiceImpl implements CircleService {
     private final PostService postService;
 
     private final CircleCategoryMapper circleCategoryMapper;
+
+    private final InterestVectorService interestVectorService;
+
+    private final TagMappingService tagMappingService;
 
     /**
      * 创建圈子
@@ -300,7 +307,7 @@ public class CircleServiceImpl implements CircleService {
     /**
      * 获取推荐圈子列表
      *
-     * <p>功能描述：返回成员数最多的前10个推荐圈子，用于首页推荐展示</p>
+     * <p>功能描述：返回成员数最多的前10个推荐圈子，有用户兴趣向量时按标签匹配度排序</p>
      *
      * @return 推荐圈子列表，最多返回10条记录
      */
@@ -310,11 +317,41 @@ public class CircleServiceImpl implements CircleService {
                 .eq(Circle::getStatus, 1)
                 .eq(Circle::getRecommend, 1)
                 .orderByDesc(Circle::getMemberCount)
-                .last("LIMIT 10");
+                .last("LIMIT 20");
         List<Circle> list = circleMapper.selectList(wrapper);
         fillCategoryName(list);
         fillPostCount(list);
-        return list;
+
+        // 个性化排序
+        try {
+            Long userId = UserContext.getUserId();
+            Map<String, Double> vector = interestVectorService.getVector(userId);
+            if (!vector.isEmpty()) {
+                Map<Long, Set<String>> circleTags = new HashMap<>();
+                for (Circle c : list) {
+                    circleTags.put(c.getId(), tagMappingService.resolveCircleTags(c));
+                }
+                list.sort((a, b) -> {
+                    double sa = circleScore(a, vector, circleTags.get(a.getId()));
+                    double sb = circleScore(b, vector, circleTags.get(b.getId()));
+                    return Double.compare(sb, sa);
+                });
+            }
+        } catch (Exception ignored) {}
+
+        return list.size() > 10 ? list.subList(0, 10) : list;
+    }
+
+    private double circleScore(Circle circle, Map<String, Double> vector, Set<String> tags) {
+        if (tags.isEmpty()) return 0;
+        double sum = 0;
+        for (String tag : tags) {
+            Double val = vector.get(tag);
+            if (val != null) sum += val;
+        }
+        double tagScore = sum / tags.size();
+        double memberNorm = Math.log1p(circle.getMemberCount() != null ? circle.getMemberCount() : 1) / Math.log1p(1000);
+        return 0.9 * tagScore + 0.1 * memberNorm;
     }
 
     /**

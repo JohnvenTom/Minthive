@@ -101,7 +101,7 @@ public class FollowController {
     public Result<Page<User>> followersList(@PathVariable Long userId,
                                             @RequestParam(defaultValue = "1") long current,
                                             @RequestParam(defaultValue = "20") long size) {
-        return Result.success(followService.getFollowersList(userId, current, size));
+        return Result.success(followService.getFollowersList(userId, UserContext.getUserId(), current, size));
     }
 
     /**

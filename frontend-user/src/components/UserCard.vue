@@ -22,14 +22,14 @@
       </div>
     </div>
 
-    <!-- 关注按钮 -->
+    <!-- 关注/回关按钮 -->
     <button
       v-if="showFollow"
       class="user-card__follow-btn"
       :class="{ 'is-followed': isFollowed }"
       @click.stop="handleFollow"
     >
-      {{ isFollowed ? '已关注' : '关注' }}
+      {{ followBack ? (isFollowed ? '已回关' : '回关') : (isFollowed ? '已关注' : '关注') }}
     </button>
   </div>
 </template>
@@ -52,8 +52,11 @@ const props = withDefaults(defineProps<{
   user: User
   /** 是否显示关注按钮 */
   showFollow?: boolean
+  /** 是否为粉丝列表回关模式（显示"回关"/"已回关"） */
+  followBack?: boolean
 }>(), {
-  showFollow: true
+  showFollow: true,
+  followBack: false
 })
 
 const emit = defineEmits<{

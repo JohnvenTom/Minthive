@@ -6,11 +6,14 @@ import com.minthive.mapper.AiUserLogMapper;
 import com.minthive.mapper.UserMapper;
 import com.minthive.service.AiUserLogService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /**
  * AI用户行为日志服务实现
  */
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class AiUserLogServiceImpl implements AiUserLogService {
@@ -24,6 +27,7 @@ public class AiUserLogServiceImpl implements AiUserLogService {
      *
      * @param log 日志实体
      */
+    @Async
     @Override
     public void record(AiUserLog log) {
         aiUserLogMapper.insert(log);

@@ -6,6 +6,8 @@ import com.minthive.entity.Post;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 动态帖子 Mapper 接口
  *
@@ -16,23 +18,21 @@ public interface PostMapper extends BaseMapper<Post> {
 
     /**
      * 按热度（点赞数）分页查询公开帖子
-     *
-     * <p>通过子查询从 like_collect 表实时统计每条帖子的点赞数并降序排列，
-     * 点赞数相同时按发布时间倒序，确保热门帖子优先展示</p>
-     *
-     * @param page  MyBatis-Plus 分页参数（current, size）
-     * @return 按热度排序的帖子分页结果
      */
     Page<Post> selectHotFeed(Page<Post> page);
 
     /**
      * 按综合推荐算法分页查询公开帖子
-     *
-     * <p>综合评分 = 点赞数×1 + 评论数×2 + 收藏数×3，权重体现评论和收藏的更高参与度，
-     * 同分时按发布时间倒序，兼顾内容质量和新鲜度</p>
-     *
-     * @param page  MyBatis-Plus 分页参数（current, size）
-     * @return 按综合评分排序的帖子分页结果
      */
     Page<Post> selectRecommendFeed(Page<Post> page);
+
+    /**
+     * 查询候选帖子池（已审核、公开、未删除），附带热度分数，按时间倒序
+     */
+    List<Post> selectCandidatePool(@Param("limit") int limit);
+
+    /**
+     * 按ID列表查询帖子并保持顺序
+     */
+    List<Post> selectByIdsOrdered(@Param("ids") List<Long> ids);
 }

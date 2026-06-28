@@ -64,7 +64,7 @@
         ORDER BY date ASC
     </select>
 
-    <!-- 日活趋势：按天统计有互动行为的独立用户数 -->
+    <!-- 日活趋势：按天统计有发帖/评论/点赞行为的独立用户数（与核心指标口径一致） -->
     <select id="selectDauTrend" resultType="java.util.Map">
         SELECT d.date, COALESCE(t.cnt, 0) AS value
         FROM (
@@ -78,11 +78,56 @@
             WHERE DATE_SUB(CURDATE(), INTERVAL n DAY) BETWEEN #{startDate} AND #{endDate}
         ) d
         LEFT JOIN (
-            SELECT DATE(action_time) AS dt, COUNT(DISTINCT user_id) AS cnt
-            FROM ai_user_log
-            WHERE action_time >= #{startDate}
-              AND action_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
-            GROUP BY DATE(action_time)
+            SELECT dt, COUNT(DISTINCT user_id) AS cnt
+            FROM (
+                SELECT user_id, DATE(create_time) AS dt FROM post WHERE deleted = 0
+                UNION ALL
+                SELECT user_id, DATE(create_time) FROM comment WHERE deleted = 0
+                UNION ALL
+                SELECT user_id, DATE(create_time) FROM like_collect
+            ) actions
+            WHERE dt BETWEEN #{startDate} AND #{endDate}
+            GROUP BY dt
+        ) t ON d.date = t.dt
+        ORDER BY d.date ASC
+    </select>
+
+    <!-- 月活趋势：按天统计滚动30天去重独立用户数 -->
+    <select id="selectMauTrend" resultType="java.util.Map">
+        SELECT d.date, COALESCE(t.cnt, 0) AS value
+        FROM (
+            SELECT DATE_SUB(CURDATE(), INTERVAL n DAY) AS date
+            FROM (SELECT 0 n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+                  UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9
+                  UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14
+                  UNION SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19
+                  UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24
+                  UNION SELECT 25 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29) nums
+            WHERE DATE_SUB(CURDATE(), INTERVAL n DAY) BETWEEN #{startDate} AND #{endDate}
+        ) d
+        LEFT JOIN (
+            SELECT ref_date AS dt, COUNT(DISTINCT user_id) AS cnt
+            FROM (
+                SELECT d2.date AS ref_date, a.user_id
+                FROM (
+                    SELECT DATE_SUB(CURDATE(), INTERVAL n DAY) AS date
+                    FROM (SELECT 0 n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+                          UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9
+                          UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14
+                          UNION SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19
+                          UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24
+                          UNION SELECT 25 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29) nums
+                    WHERE DATE_SUB(CURDATE(), INTERVAL n DAY) BETWEEN #{startDate} AND #{endDate}
+                ) d2
+                JOIN (
+                    SELECT user_id, DATE(create_time) AS action_date FROM post WHERE deleted = 0
+                    UNION ALL
+                    SELECT user_id, DATE(create_time) FROM comment WHERE deleted = 0
+                    UNION ALL
+                    SELECT user_id, DATE(create_time) FROM like_collect
+                ) a ON a.action_date BETWEEN DATE_SUB(d2.date, INTERVAL 29 DAY) AND d2.date
+            ) t2
+            GROUP BY dt
         ) t ON d.date = t.dt
         ORDER BY d.date ASC
     </select>
@@ -177,13 +222,13 @@
         ORDER BY count DESC
     </select>
 
-    <!-- 用户活跃高峰时段：按小时聚合今日发帖+评论+点赞行为 -->
+    <!-- 用户活跃高峰时段：按小时聚合发帖+评论+点赞行为（支持时间范围，日均值） -->
     <select id="selectPeakHours" resultType="java.util.Map">
         SELECT d.hour,
-               COALESCE(p.cnt, 0)   AS postCount,
-               COALESCE(c.cnt, 0)    AS commentCount,
-               COALESCE(lk.cnt, 0)  AS likeCount,
-               COALESCE(p.cnt, 0) + COALESCE(c.cnt, 0) + COALESCE(lk.cnt, 0) AS total
+               ROUND(COALESCE(p.cnt, 0) / #{dayCount}, 1)   AS postCount,
+               ROUND(COALESCE(c.cnt, 0) / #{dayCount}, 1)    AS commentCount,
+               ROUND(COALESCE(lk.cnt, 0) / #{dayCount}, 1)  AS likeCount,
+               ROUND((COALESCE(p.cnt, 0) + COALESCE(c.cnt, 0) + COALESCE(lk.cnt, 0)) / #{dayCount}, 1) AS total
         FROM (
             SELECT CONCAT(LPAD(h, 2, '0'), ':00-', LPAD(h + 1, 2, '0'), ':00') AS hour, h AS h
             FROM (SELECT 0 h UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
@@ -194,20 +239,47 @@
         ) d
         LEFT JOIN (
             SELECT HOUR(create_time) AS h, COUNT(*) AS cnt
-            FROM post WHERE DATE(create_time) = CURDATE() AND deleted = 0
+            FROM post WHERE DATE(create_time) >= #{startDate} AND DATE(create_time) &lt;= #{endDate} AND deleted = 0
             GROUP BY HOUR(create_time)
         ) p ON d.h = p.h
         LEFT JOIN (
             SELECT HOUR(create_time) AS h, COUNT(*) AS cnt
-            FROM comment WHERE DATE(create_time) = CURDATE() AND deleted = 0
+            FROM comment WHERE DATE(create_time) >= #{startDate} AND DATE(create_time) &lt;= #{endDate} AND deleted = 0
             GROUP BY HOUR(create_time)
         ) c ON d.h = c.h
         LEFT JOIN (
             SELECT HOUR(create_time) AS h, COUNT(*) AS cnt
-            FROM like_collect WHERE DATE(create_time) = CURDATE()
+            FROM like_collect WHERE DATE(create_time) >= #{startDate} AND DATE(create_time) &lt;= #{endDate}
             GROUP BY HOUR(create_time)
         ) lk ON d.h = lk.h
         ORDER BY d.h ASC
+    </select>
+
+    <!-- 帖子审核漏斗：当前审核状态分布 -->
+    <select id="selectAuditFunnel" resultType="java.util.Map">
+        SELECT
+            COUNT(*)                                                       AS totalPosts,
+            SUM(CASE WHEN audit_status = 0 THEN 1 ELSE 0 END)             AS pendingCount,
+            SUM(CASE WHEN audit_status = 1 THEN 1 ELSE 0 END)             AS approvedCount,
+            SUM(CASE WHEN audit_status = 2 THEN 1 ELSE 0 END)             AS rejectedCount,
+            ROUND(SUM(CASE WHEN audit_status = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS passRate
+        FROM post
+        WHERE deleted = 0
+    </select>
+
+    <!-- 帖子审核趋势：按天统计各审核状态 -->
+    <select id="selectAuditTrend" resultType="java.util.Map">
+        SELECT DATE(create_time) AS date,
+               COUNT(*)          AS total,
+               SUM(CASE WHEN audit_status = 0 THEN 1 ELSE 0 END) AS pending,
+               SUM(CASE WHEN audit_status = 1 THEN 1 ELSE 0 END) AS approved,
+               SUM(CASE WHEN audit_status = 2 THEN 1 ELSE 0 END) AS rejected
+        FROM post
+        WHERE deleted = 0
+          AND create_time >= #{startDate}
+          AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY DATE(create_time)
+        ORDER BY date ASC
     </select>
 
     <!-- 风险等级分布：按 ai_risk_level 分组统计待处理/已处理工单 -->

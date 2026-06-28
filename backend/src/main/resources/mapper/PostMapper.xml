@@ -2,11 +2,6 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.minthive.mapper.PostMapper">
 
-    <!--
-        按热度（点赞数）分页查询公开帖子
-        排序规则: 点赞数降序 → 发布时间降序（同赞时新帖优先）
-        数据来源: like_collect 表 type=1 的记录数作为点赞数
-    -->
     <select id="selectHotFeed" resultType="com.minthive.entity.Post">
         SELECT p.*
         FROM post p
@@ -20,12 +15,6 @@
         ) DESC, p.create_time DESC
     </select>
 
-    <!--
-        按综合推荐算法分页查询公开帖子
-        综合评分公式: 点赞×1 + 评论×2 + 收藏×3
-        权重设计: 收藏 > 评论 > 点赞（体现参与深度）
-        同分时按发布时间倒序，兼顾新鲜度
-    -->
     <select id="selectRecommendFeed" resultType="com.minthive.entity.Post">
         SELECT p.*
         FROM post p
@@ -37,6 +26,30 @@
             (SELECT COUNT(*) FROM comment c WHERE c.post_id = p.id) * 2 +
             (SELECT COUNT(*) FROM like_collect lcc WHERE lcc.target_id = p.id AND lcc.type = 3) * 3
         ) DESC, p.create_time DESC
+    </select>
+
+    <select id="selectCandidatePool" resultType="com.minthive.entity.Post">
+        SELECT p.*
+        FROM post p
+        WHERE p.audit_status = 1
+          AND p.visibility = 0
+          AND p.deleted = 0
+        ORDER BY p.create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectByIdsOrdered" resultType="com.minthive.entity.Post">
+        SELECT p.*
+        FROM post p
+        WHERE p.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY FIELD(p.id,
+        <foreach collection="ids" item="id" separator=",">
+            #{id}
+        </foreach>
+        )
     </select>
 
 </mapper>

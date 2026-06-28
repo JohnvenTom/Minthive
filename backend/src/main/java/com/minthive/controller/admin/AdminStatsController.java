@@ -36,6 +36,7 @@ public class AdminStatsController {
 
     /** 日期格式化器 */
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter HOUR_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     /**
      * 核心指标总览
@@ -125,6 +126,7 @@ public class AdminStatsController {
             @RequestParam(defaultValue = "DAY") String range) {
         DateRange dr = calcRange(range);
         List<Map<String, Object>> dauRows = adminStatsMapper.selectDauTrend(dr.start, dr.end);
+        List<Map<String, Object>> mauRows = adminStatsMapper.selectMauTrend(dr.start, dr.end);
 
         List<String> dates = new ArrayList<>();
         List<Long> dauData = new ArrayList<>();
@@ -133,15 +135,9 @@ public class AdminStatsController {
             dauData.add(toNumber(row.get("value")).longValue());
         }
 
-        // MAU 用滚动 30 天窗口计算（简化为 DAU 的累计去重近似）
         List<Long> mauData = new ArrayList<>();
-        for (int i = 0; i < dauData.size(); i++) {
-            long sum = 0;
-            int start = Math.max(0, i - 29);
-            for (int j = start; j <= i; j++) {
-                sum += dauData.get(j);
-            }
-            mauData.add(sum); // 近似值，实际 MAU 应该用独立用户去重
+        for (Map<String, Object> row : mauRows) {
+            mauData.add(toNumber(row.get("value")).longValue());
         }
 
         Map<String, Object> data = new HashMap<>(4);
@@ -255,6 +251,58 @@ public class AdminStatsController {
     }
 
     /**
+     * 活跃高峰时段（热力图数据）
+     * <p>功能：按小时聚合发帖+评论+点赞行为，返回24h×3类的日均值，支持时间维度切换</p>
+     *
+     * @param range 时间维度: DAY=近30天, WEEK=近12周, MONTH=近12月
+     * @return [{hour: '08:00', postCount, commentCount, likeCount, total}, ...]
+     */
+    @Operation(summary = "活跃高峰时段(热力图)")
+    @GetMapping("/peak-hours")
+    public Result<List<Map<String, Object>>> peakHours(
+            @RequestParam(defaultValue = "DAY") String range) {
+        DateRange dr = calcRange(range);
+        LocalDate start = LocalDate.parse(dr.start);
+        LocalDate end = LocalDate.parse(dr.end);
+        int dayCount = (int) ChronoUnit.DAYS.between(start, end) + 1;
+        List<Map<String, Object>> rows = adminStatsMapper.selectPeakHours(dr.start, dr.end, dayCount);
+        // 格式化 hour 字段，去掉尾部（如 "08:00-09:00" → "08:00"）
+        for (Map<String, Object> row : rows) {
+            String hour = (String) row.get("hour");
+            if (hour != null && hour.contains("-")) {
+                row.put("hour", hour.substring(0, 5));
+            }
+        }
+        return Result.success(rows);
+    }
+
+    /**
+     * 帖子审核漏斗
+     * <p>功能：返回帖子审核状态的实时快照及按天趋势</p>
+     *
+     * @param range 时间维度
+     * @return {snapshot: {totalPosts, pendingCount, approvedCount, rejectedCount, passRate}, trend: [...]}
+     */
+    @Operation(summary = "帖子审核漏斗")
+    @GetMapping("/audit-funnel")
+    public Result<Map<String, Object>> auditFunnel(
+            @RequestParam(defaultValue = "DAY") String range) {
+        DateRange dr = calcRange(range);
+        Map<String, Object> snapshot = adminStatsMapper.selectAuditFunnel();
+        List<Map<String, Object>> trend = adminStatsMapper.selectAuditTrend(dr.start, dr.end);
+        // 数值类型安全转换
+        for (String key : new String[]{"totalPosts", "pendingCount", "approvedCount", "rejectedCount"}) {
+            snapshot.put(key, toNumber(snapshot.get(key)).longValue());
+        }
+        snapshot.put("passRate", toNumber(snapshot.get("passRate")).doubleValue());
+
+        Map<String, Object> data = new HashMap<>(4);
+        data.put("snapshot", snapshot);
+        data.put("trend", trend);
+        return Result.success(data);
+    }
+
+    /**
      * AI 运营日报
      * <p>功能：基于平台真实运营数据生成 AI 辅助运营分析报告，包括健康评分、违规分布、高峰时段、AI 建议、风险等级</p>
      * <p>注意事项：违规类型/高峰时段/风险等级均从数据库实时统计；运营建议由本地私有化 AI 大模型生成；AI 调用失败时降级为规则建议</p>
@@ -289,8 +337,9 @@ public class AdminStatsController {
             violationTypes.add(mapOf("type", "暂无违规", "count", 0));
         }
 
-        // 4. 活跃高峰时段（从 post/comment/like_collect 表按小时聚合）
-        List<Map<String, Object>> peakHourRows = adminStatsMapper.selectPeakHours();
+        // 4. 活跃高峰时段（从 post/comment/like_collect 表按小时聚合今日数据）
+        String todayStr = LocalDate.now().format(DATE_FMT);
+        List<Map<String, Object>> peakHourRows = adminStatsMapper.selectPeakHours(todayStr, todayStr, 1);
         // 取 total 前 5 的时段作为高峰时段
         peakHourRows.sort((a, b) -> Long.compare(toNumber(b.get("total")).longValue(), toNumber(a.get("total")).longValue()));
         List<Map<String, Object>> peakHours = new ArrayList<>();

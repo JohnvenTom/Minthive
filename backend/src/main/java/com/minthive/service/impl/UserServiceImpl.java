@@ -19,12 +19,15 @@ import com.minthive.service.UserService;
 import com.minthive.service.SmsService;
 import com.minthive.util.BcryptUtil;
 import com.minthive.util.RedisUtil;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户服务实现
@@ -51,6 +54,8 @@ public class UserServiceImpl implements UserService {
     private final com.minthive.service.PostService postService;
 
     private final FollowMapper followMapper;
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * 用户注册
@@ -273,6 +278,19 @@ public class UserServiceImpl implements UserService {
         user.setPostCount((int) postCount);
         user.setFollowCount((int) followCount);
         user.setFanCount((int) fanCount);
+
+        // 解析 AI 兴趣向量
+        if (user.getAiInterestVector() != null && !user.getAiInterestVector().isBlank()) {
+            try {
+                Map<String, Object> vector = OBJECT_MAPPER.readValue(
+                    user.getAiInterestVector(),
+                    new TypeReference<Map<String, Object>>() {}
+                );
+                user.setInterestVector(vector);
+            } catch (Exception e) {
+                log.debug("解析兴趣向量失败 userId={}", user.getId());
+            }
+        }
     }
 
     /**

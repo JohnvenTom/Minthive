@@ -4,6 +4,11 @@ import com.minthive.ai.AiContext;
 import com.minthive.ai.AiRateLimiter;
 import com.minthive.ai.AiService;
 import com.minthive.common.Result;
+import com.minthive.entity.Circle;
+import com.minthive.entity.User;
+import com.minthive.security.UserContext;
+import com.minthive.service.CircleService;
+import com.minthive.service.FollowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.Data;
@@ -12,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * AI 接口控制器(6 大 AI 能力)
@@ -26,16 +32,17 @@ public class AiController {
 
     private final AiContext aiContext;
     private final AiRateLimiter aiRateLimiter;
+    private final CircleService circleService;
+    private final FollowService followService;
 
     /**
-     * 构造器注入 AiContext 和 AiRateLimiter
-     *
-     * @param aiContext     AI上下文
-     * @param aiRateLimiter AI限流器
+     * 构造器注入
      */
-    public AiController(AiContext aiContext, AiRateLimiter aiRateLimiter) {
+    public AiController(AiContext aiContext, AiRateLimiter aiRateLimiter, CircleService circleService, FollowService followService) {
         this.aiContext = aiContext;
         this.aiRateLimiter = aiRateLimiter;
+        this.circleService = circleService;
+        this.followService = followService;
     }
 
     /**
@@ -180,28 +187,30 @@ public class AiController {
     /**
      * AI 兴趣推荐
      *
-     * <p>功能描述：基于用户兴趣推荐圈子和用户，简化实现为随机推荐</p>
-     * <p>注意事项：当前为随机推荐3个圈子ID和3个用户ID，后续可接入真实AI推荐算法</p>
+     * <p>功能描述：基于用户兴趣推荐圈子和用户</p>
      *
      * @return 推荐结果Map，包含 circles（圈子ID列表）和 users（用户ID列表）
      */
     @Operation(summary = "AI兴趣推荐")
     @GetMapping("/recommend")
-    public Result<Map<String, List<Integer>>> recommend() {
-        Random random = new Random();
-        Map<String, List<Integer>> result = new HashMap<>();
-        // 随机推荐3个圈子ID
-        result.put("circles", Arrays.asList(
-                random.nextInt(100) + 1,
-                random.nextInt(100) + 1,
-                random.nextInt(100) + 1
-        ));
-        // 随机推荐3个用户ID
-        result.put("users", Arrays.asList(
-                random.nextInt(1000) + 1,
-                random.nextInt(1000) + 1,
-                random.nextInt(1000) + 1
-        ));
+    public Result<Map<String, List<Long>>> recommend() {
+        Long userId = UserContext.getUserId();
+        Map<String, List<Long>> result = new HashMap<>();
+
+        try {
+            List<Circle> circles = circleService.recommendCircles();
+            result.put("circles", circles.stream().map(Circle::getId).collect(Collectors.toList()));
+        } catch (Exception e) {
+            result.put("circles", Collections.emptyList());
+        }
+
+        try {
+            List<User> users = followService.recommendUsers(userId);
+            result.put("users", users.stream().map(User::getId).collect(Collectors.toList()));
+        } catch (Exception e) {
+            result.put("users", Collections.emptyList());
+        }
+
         return Result.success(result);
     }
 

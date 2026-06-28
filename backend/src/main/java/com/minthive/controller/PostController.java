@@ -4,15 +4,18 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
 import com.minthive.common.Constants;
 import com.minthive.common.ResultCode;
+import com.minthive.entity.AiUserLog;
 import com.minthive.entity.Post;
 import com.minthive.security.LoginUser;
 import com.minthive.security.UserContext;
+import com.minthive.service.AiUserLogService;
 import com.minthive.service.LikeCollectService;
 import com.minthive.service.PostService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -25,16 +28,19 @@ public class PostController {
 
     private final PostService postService;
     private final LikeCollectService likeCollectService;
+    private final AiUserLogService aiUserLogService;
 
     /**
      * 构造器注入
      *
      * @param postService        帖子服务
      * @param likeCollectService 点赞收藏服务
+     * @param aiUserLogService   AI用户行为日志服务
      */
-    public PostController(PostService postService, LikeCollectService likeCollectService) {
+    public PostController(PostService postService, LikeCollectService likeCollectService, AiUserLogService aiUserLogService) {
         this.postService = postService;
         this.likeCollectService = likeCollectService;
+        this.aiUserLogService = aiUserLogService;
     }
 
     /**
@@ -46,8 +52,24 @@ public class PostController {
     @Operation(summary = "发布帖子")
     @PostMapping
     public Result<Post> publish(@RequestBody Post post) {
-        post.setUserId(UserContext.getUserId());
-        return Result.success(postService.publish(post));
+        Long userId = UserContext.getUserId();
+        post.setUserId(userId);
+        Post result = postService.publish(post);
+        // 记录发布行为
+        try {
+            AiUserLog log = new AiUserLog();
+            log.setUserId(userId);
+            log.setPostId(result.getId());
+            log.setActionType("publish");
+            log.setActionTime(LocalDateTime.now());
+            if (result.getTags() != null) {
+                log.setInterestSnapshot(result.getTags());
+            }
+            aiUserLogService.record(log);
+        } catch (Exception e) {
+            // 行为日志不影响主流程
+        }
+        return Result.success(result);
     }
 
     /**
@@ -61,7 +83,18 @@ public class PostController {
     public Result<Post> get(@PathVariable Long id) {
         LoginUser user = UserContext.get();
         Long currentUserId = user != null ? user.getUserId() : null;
-        return Result.success(postService.getById(id, currentUserId));
+        Post post = postService.getById(id, currentUserId);
+        // 记录浏览行为
+        if (currentUserId != null) {
+            AiUserLog log = new AiUserLog();
+            log.setUserId(currentUserId);
+            log.setPostId(id);
+            log.setActionType("view");
+            log.setActionTime(LocalDateTime.now());
+            log.setInterestSnapshot(post.getTags());
+            aiUserLogService.record(log);
+        }
+        return Result.success(post);
     }
 
     /**
@@ -151,6 +184,7 @@ public class PostController {
     public Result<Void> like(@PathVariable Long id) {
         Long userId = UserContext.getUserId();
         likeCollectService.like(userId, id, Constants.LC_TYPE_LIKE_POST);
+        recordAction(userId, id, "like");
         return Result.success();
     }
 
@@ -165,6 +199,7 @@ public class PostController {
     public Result<Void> unlike(@PathVariable Long id) {
         Long userId = UserContext.getUserId();
         likeCollectService.unlike(userId, id, Constants.LC_TYPE_LIKE_POST);
+        recordAction(userId, id, "unlike");
         return Result.success();
     }
 
@@ -179,6 +214,7 @@ public class PostController {
     public Result<Void> collect(@PathVariable Long id) {
         Long userId = UserContext.getUserId();
         likeCollectService.like(userId, id, Constants.LC_TYPE_COLLECT_POST);
+        recordAction(userId, id, "collect");
         return Result.success();
     }
 
@@ -193,7 +229,28 @@ public class PostController {
     public Result<Void> uncollect(@PathVariable Long id) {
         Long userId = UserContext.getUserId();
         likeCollectService.unlike(userId, id, Constants.LC_TYPE_COLLECT_POST);
+        recordAction(userId, id, "uncollect");
         return Result.success();
+    }
+
+    /**
+     * 记录用户行为到 ai_user_log
+     */
+    private void recordAction(Long userId, Long postId, String actionType) {
+        try {
+            AiUserLog log = new AiUserLog();
+            log.setUserId(userId);
+            log.setPostId(postId);
+            log.setActionType(actionType);
+            log.setActionTime(LocalDateTime.now());
+            Post post = postService.getById(postId);
+            if (post != null && post.getTags() != null) {
+                log.setInterestSnapshot(post.getTags());
+            }
+            aiUserLogService.record(log);
+        } catch (Exception e) {
+            // 行为日志不影响主流程
+        }
     }
 
     /**

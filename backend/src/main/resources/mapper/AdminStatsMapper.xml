@@ -3,9 +3,10 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.minthive.mapper.AdminStatsMapper">
 
-    <!-- 核心指标：一次性查询所有平台运营数据 -->
+    <!-- 核心指标：一次性查询所有平台运营数据（含昨日对比值） -->
     <select id="selectCoreMetrics" resultType="java.util.Map">
         SELECT
+            -- 今日值
             (SELECT COUNT(*) FROM `user` WHERE deleted = 0 AND cancel_status = 0)                          AS totalUsers,
             (SELECT COUNT(*) FROM `user` WHERE deleted = 0 AND cancel_status = 0
              AND DATE(register_time) = CURDATE())                                                         AS todayRegister,
@@ -26,7 +27,30 @@
             (SELECT COUNT(*) FROM post WHERE deleted = 0)                                                  AS totalPosts,
             (SELECT COUNT(*) FROM post WHERE deleted = 0 AND DATE(create_time) = CURDATE())               AS todayPosts,
             (SELECT COUNT(*) FROM like_collect WHERE type = 1)                                                AS totalInteractions,
-            (SELECT COUNT(*) FROM report WHERE status = 0)                                                AS pendingReports
+            (SELECT COUNT(*) FROM report WHERE status = 0)                                                AS pendingReports,
+            -- 昨日对比值
+            (SELECT COUNT(*) FROM `user` WHERE deleted = 0 AND cancel_status = 0
+              AND register_time &lt; CURDATE())                                                               AS prevTotalUsers,
+            (SELECT COUNT(*) FROM `user` WHERE deleted = 0 AND cancel_status = 0
+             AND DATE(register_time) = DATE_SUB(CURDATE(), INTERVAL 1 DAY))                               AS prevTodayRegister,
+            (SELECT COUNT(DISTINCT user_id) FROM (
+                SELECT user_id FROM post WHERE DATE(create_time) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) AND deleted = 0
+                UNION
+                SELECT user_id FROM comment WHERE DATE(create_time) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) AND deleted = 0
+                UNION
+                SELECT user_id FROM like_collect WHERE DATE(create_time) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+            ) t)                                                                                           AS prevDau,
+            (SELECT COUNT(DISTINCT user_id) FROM (
+                SELECT user_id FROM post WHERE create_time >= DATE_SUB(CURDATE(), INTERVAL 31 DAY) AND create_time &lt; CURDATE() AND deleted = 0
+                UNION
+                SELECT user_id FROM comment WHERE create_time >= DATE_SUB(CURDATE(), INTERVAL 31 DAY) AND create_time &lt; CURDATE() AND deleted = 0
+                UNION
+                SELECT user_id FROM like_collect WHERE create_time >= DATE_SUB(CURDATE(), INTERVAL 31 DAY) AND create_time &lt; CURDATE()
+            ) t)                                                                                           AS prevMau,
+            (SELECT COUNT(*) FROM post WHERE deleted = 0
+             AND DATE(create_time) = DATE_SUB(CURDATE(), INTERVAL 1 DAY))                                 AS prevTodayPosts,
+             (SELECT COUNT(*) FROM report WHERE status = 0
+              AND create_time &lt; CURDATE())                                                                  AS prevPendingReports
     </select>
 
     <!-- 注册趋势：按天统计新增用户数 -->

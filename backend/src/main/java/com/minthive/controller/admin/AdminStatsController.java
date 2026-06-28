@@ -39,23 +39,59 @@ public class AdminStatsController {
 
     /**
      * 核心指标总览
-     * <p>功能：返回平台当前的核心运营数据，包括用户总数、今日注册、日活/月活、帖子数、互动量、待处理工单</p>
+     * <p>功能：返回平台当前的核心运营数据，包括用户总数、今日注册、日活/月活、帖子数、互动量、待处理工单，以及较昨日趋势百分比</p>
      *
-     * @return 包含 totalUsers/todayRegister/dau/mau/totalPosts/todayPosts/totalInteractions/pendingReports 的 Map
+     * @return 包含指标字段及 xxxTrend 趋势字段的 Map
      */
     @Operation(summary = "核心指标")
     @GetMapping("/metrics")
     public Result<Map<String, Object>> metrics() {
         Map<String, Object> data = adminStatsMapper.selectCoreMetrics();
-        // 确保数值字段为 Long/Integer 类型（避免前端 JSON 数字精度问题）
-        data.put("totalUsers", toNumber(data.get("totalUsers")));
-        data.put("todayRegister", toNumber(data.get("todayRegister")));
-        data.put("dau", toNumber(data.get("dau")));
-        data.put("mau", toNumber(data.get("mau")));
-        data.put("totalPosts", toNumber(data.get("totalPosts")));
-        data.put("todayPosts", toNumber(data.get("todayPosts")));
-        data.put("totalInteractions", toNumber(data.get("totalInteractions")));
-        data.put("pendingReports", toNumber(data.get("pendingReports")));
+
+        // 确保数值字段为 Number
+        long totalUsers = toNumber(data.get("totalUsers")).longValue();
+        long todayRegister = toNumber(data.get("todayRegister")).longValue();
+        long dau = toNumber(data.get("dau")).longValue();
+        long mau = toNumber(data.get("mau")).longValue();
+        long totalPosts = toNumber(data.get("totalPosts")).longValue();
+        long todayPosts = toNumber(data.get("todayPosts")).longValue();
+        long totalInteractions = toNumber(data.get("totalInteractions")).longValue();
+        long pendingReports = toNumber(data.get("pendingReports")).longValue();
+
+        // 昨日对比值
+        long prevTotalUsers = toNumber(data.get("prevTotalUsers")).longValue();
+        long prevTodayRegister = toNumber(data.get("prevTodayRegister")).longValue();
+        long prevDau = toNumber(data.get("prevDau")).longValue();
+        long prevMau = toNumber(data.get("prevMau")).longValue();
+        long prevTodayPosts = toNumber(data.get("prevTodayPosts")).longValue();
+        long prevPendingReports = toNumber(data.get("prevPendingReports")).longValue();
+
+        // 覆盖为清洁的 Long 类型
+        data.put("totalUsers", totalUsers);
+        data.put("todayRegister", todayRegister);
+        data.put("dau", dau);
+        data.put("mau", mau);
+        data.put("totalPosts", totalPosts);
+        data.put("todayPosts", todayPosts);
+        data.put("totalInteractions", totalInteractions);
+        data.put("pendingReports", pendingReports);
+
+        // 计算较昨日趋势（保留 1 位小数，分母为 0 时返回 0）
+        data.put("totalUsersTrend", calcTrend(totalUsers, prevTotalUsers));
+        data.put("todayRegisterTrend", calcTrend(todayRegister, prevTodayRegister));
+        data.put("dauTrend", calcTrend(dau, prevDau));
+        data.put("mauTrend", calcTrend(mau, prevMau));
+        data.put("todayPostsTrend", calcTrend(todayPosts, prevTodayPosts));
+        data.put("pendingReportsTrend", calcTrend(pendingReports, prevPendingReports));
+
+        // 清理中间字段
+        data.remove("prevTotalUsers");
+        data.remove("prevTodayRegister");
+        data.remove("prevDau");
+        data.remove("prevMau");
+        data.remove("prevTodayPosts");
+        data.remove("prevPendingReports");
+
         return Result.success(data);
     }
 
@@ -440,6 +476,17 @@ public class AdminStatsController {
             }
             workbook.write(response.getOutputStream());
         }
+    }
+
+    /**
+     * 计算较昨日变化百分比，保留 1 位小数
+     * @param today    今日值
+     * @param yesterday 昨日值
+     * @return 百分比（如 12.3, -5.0），昨日为 0 时返回 0
+     */
+    private double calcTrend(long today, long yesterday) {
+        if (yesterday == 0) return 0;
+        return Math.round((double) (today - yesterday) / yesterday * 100 * 10) / 10.0;
     }
 
     // ==================== 内部工具方法 ====================

@@ -1,17 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
-import { registerMintHiveTheme } from '@/styles/echarts-theme'
+import { registerMintHiveTheme, registerMintHiveLightTheme } from '@/styles/echarts-theme'
+import { useAdminStore } from '@/stores/admin'
 
-/**
- * ChartCard 图表卡片组件
- * 功能：封装 ECharts 实例，自适应容器尺寸，支持暗色主题
- * Props:
- *   - title: 卡片标题
- *   - option: ECharts 配置项
- *   - height: 图表高度，默认 280
- *   - loading: 加载状态
- */
 const props = withDefaults(defineProps<{
   title?: string
   option: echarts.EChartsOption
@@ -23,14 +15,17 @@ const props = withDefaults(defineProps<{
   loading: false
 })
 
+const adminStore = useAdminStore()
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 
-/** 初始化图表 */
 function initChart() {
   if (!chartRef.value) return
   registerMintHiveTheme()
-  chartInstance = echarts.init(chartRef.value, 'minthive')
+  registerMintHiveLightTheme()
+  const themeName = adminStore.theme === 'light' ? 'minthive-light' : 'minthive'
+  chartInstance?.dispose()
+  chartInstance = echarts.init(chartRef.value, themeName)
   chartInstance.setOption({
     grid: { top: 40, right: 24, bottom: 32, left: 48 },
     textStyle: { fontFamily: 'JetBrains Mono, monospace' },
@@ -38,7 +33,6 @@ function initChart() {
   })
 }
 
-/** 监听配置变化更新图表 */
 watch(
   () => props.option,
   (newOpt) => {
@@ -58,7 +52,13 @@ watch(
   }
 )
 
-/** 窗口尺寸变化自适应 */
+watch(
+  () => adminStore.theme,
+  () => {
+    initChart()
+  }
+)
+
 function handleResize() {
   chartInstance?.resize()
 }

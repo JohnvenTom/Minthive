@@ -47,6 +47,39 @@ export interface CircleActive {
   interactionCount: number
 }
 
+/** 高峰时段数据点 */
+export interface PeakHour {
+  hour: string
+  postCount: number
+  commentCount: number
+  likeCount: number
+  total: number
+}
+
+/** 审核漏斗快照 */
+export interface AuditSnapshot {
+  totalPosts: number
+  pendingCount: number
+  approvedCount: number
+  rejectedCount: number
+  passRate: number
+}
+
+/** 审核趋势数据点 */
+export interface AuditTrendPoint {
+  date: string
+  total: number
+  pending: number
+  approved: number
+  rejected: number
+}
+
+/** 审核漏斗 */
+export interface AuditFunnel {
+  snapshot: AuditSnapshot
+  trend: AuditTrendPoint[]
+}
+
 /** AI 日报 */
 export interface AiDailyReport {
   reportDate: string
@@ -106,6 +139,20 @@ export function getCircleActiveRank() {
  */
 export function getReportStats(range: TimeRange) {
   return get<MultiTrend>('/stats/report', { range })
+}
+
+/**
+ * 活跃高峰时段（热力图数据）
+ */
+export function getPeakHours(range: TimeRange) {
+  return get<PeakHour[]>('/stats/peak-hours', { range })
+}
+
+/**
+ * 帖子审核漏斗
+ */
+export function getAuditFunnel(range: TimeRange) {
+  return get<AuditFunnel>('/stats/audit-funnel', { range })
 }
 
 /**

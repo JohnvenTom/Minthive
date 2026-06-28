@@ -51,14 +51,16 @@ public interface FollowService {
     /**
      * 获取用户的粉丝列表（分页）
      *
-     * <p>查询关注指定用户的用户列表，关联 user 表获取用户详情</p>
+     * <p>查询关注指定用户的用户列表，关联 user 表获取用户详情，
+     * 并标记当前登录用户是否已回关每个粉丝</p>
      *
-     * @param userId  当前用户ID
-     * @param current 当前页码，默认1
-     * @param size    每页条数，默认20
+     * @param userId        目标用户ID
+     * @param currentUserId 当前登录用户ID（用于标记回关状态）
+     * @param current       当前页码，默认1
+     * @param size          每页条数，默认20
      * @return 分页用户列表
      */
-    Page<User> getFollowersList(Long userId, long current, long size);
+    Page<User> getFollowersList(Long userId, Long currentUserId, long current, long size);
 
     /**
      * 推荐好友列表

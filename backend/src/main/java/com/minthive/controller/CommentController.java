@@ -3,14 +3,19 @@ package com.minthive.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Constants;
 import com.minthive.common.Result;
-import com.minthive.common.Constants;
+import com.minthive.entity.AiUserLog;
 import com.minthive.entity.Comment;
+import com.minthive.entity.Post;
 import com.minthive.security.UserContext;
+import com.minthive.service.AiUserLogService;
 import com.minthive.service.CommentService;
 import com.minthive.service.LikeCollectService;
+import com.minthive.service.PostService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 /**
  * 评论控制器
@@ -24,15 +29,23 @@ public class CommentController {
 
     private final LikeCollectService likeCollectService;
 
+    private final AiUserLogService aiUserLogService;
+
+    private final PostService postService;
+
     /**
      * 构造器注入
      *
      * @param commentService     评论服务
      * @param likeCollectService 点赞收藏服务
+     * @param aiUserLogService   AI用户行为日志服务
+     * @param postService        帖子服务
      */
-    public CommentController(CommentService commentService, LikeCollectService likeCollectService) {
+    public CommentController(CommentService commentService, LikeCollectService likeCollectService, AiUserLogService aiUserLogService, PostService postService) {
         this.commentService = commentService;
         this.likeCollectService = likeCollectService;
+        this.aiUserLogService = aiUserLogService;
+        this.postService = postService;
     }
 
     /**
@@ -44,8 +57,25 @@ public class CommentController {
     @Operation(summary = "发表评论")
     @PostMapping
     public Result<Comment> publish(@RequestBody Comment comment) {
-        comment.setUserId(UserContext.getUserId());
-        return Result.success(commentService.publish(comment));
+        Long userId = UserContext.getUserId();
+        comment.setUserId(userId);
+        Comment result = commentService.publish(comment);
+        // 记录评论行为
+        try {
+            AiUserLog log = new AiUserLog();
+            log.setUserId(userId);
+            log.setPostId(comment.getPostId());
+            log.setActionType("comment");
+            log.setActionTime(LocalDateTime.now());
+            Post post = postService.getById(comment.getPostId());
+            if (post != null && post.getTags() != null) {
+                log.setInterestSnapshot(post.getTags());
+            }
+            aiUserLogService.record(log);
+        } catch (Exception e) {
+            // 行为日志不影响主流程
+        }
+        return Result.success(result);
     }
 
     /**

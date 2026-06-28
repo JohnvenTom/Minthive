@@ -44,7 +44,7 @@
         <!-- 作者信息 -->
         <div class="author-row">
           <img
-            :src="post.avatar || '/default-avatar.png'"
+            :src="post.avatar || defaultAvatar"
             class="author-avatar"
             alt="头像"
             @click="goProfile(post.userId)"
@@ -326,9 +326,13 @@ import { getCircleDetail } from '@/api/circle'
 import { getComments, createComment, toggleCommentLike } from '@/api/comment'
 import { aiGenerateComment } from '@/api/ai'
 import { report } from '@/api/report'
+import { reportStay } from '@/api/user'
 import { wsClient } from '@/utils/websocket'
 import { formatRelativeTime } from '@/utils/format'
 import type { Post, Comment, AiCommentSuggestion } from '@/types'
+
+/** 默认头像（无头像时显示） */
+const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect fill="#4ECDC4" width="40" height="40"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16">U</text></svg>')
 
 // ---------- 路由与Store ----------
 const route = useRoute()
@@ -880,15 +884,24 @@ function onWsComment(data: any): void {
   }
 }
 
-// ---------- 生命周期 ----------
+// ---------- 停留时长追踪 ----------
+const stayStartTime = ref(0)
+
 onMounted(() => {
   fetchPostDetail()
   fetchComments()
   wsClient.on('comment', onWsComment)
+  stayStartTime.value = Date.now()
 })
 
 onUnmounted(() => {
   wsClient.off('comment', onWsComment)
+  if (stayStartTime.value > 0 && post.value) {
+    const duration = Math.round((Date.now() - stayStartTime.value) / 1000)
+    if (duration >= 3) {
+      reportStay(post.value.id, duration, post.value.topics?.join(',')).catch(() => {})
+    }
+  }
 })
 </script>
 

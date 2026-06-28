@@ -10,6 +10,7 @@ import lombok.Data;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 用户实体类
@@ -50,8 +51,14 @@ public class User implements Serializable {
     /** 兴趣标签(逗号分隔) */
     private String interestTags;
 
-    /** AI用户兴趣向量 */
+    /** AI用户兴趣向量(JSON字符串,持久化) */
     private String aiInterestVector;
+
+    /**
+     * 兴趣向量 Map（非持久化字段，由后端从 aiInterestVector JSON 解析后填充返回给前端）
+     */
+    @TableField(exist = false)
+    private Map<String, Object> interestVector;
 
     /** 注册时间 */
     private LocalDateTime registerTime;

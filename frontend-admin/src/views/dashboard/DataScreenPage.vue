@@ -6,7 +6,7 @@ import { saveAs } from 'file-saver'
 import * as XLSX from 'xlsx'
 import { useAdminStore } from '@/stores/admin'
 import { useStatsStore } from '@/stores/stats'
-import type { TimeRange } from '@/api/stats'
+import type { TimeRange, PeakHour, AuditFunnel } from '@/api/stats'
 import StatCard from '@/components/StatCard.vue'
 import ChartCard from '@/components/ChartCard.vue'
 import AiReportCard from '@/components/AiReportCard.vue'
@@ -89,6 +89,73 @@ const interactionChartOption = computed<echarts.EChartsOption>(() => ({
     itemStyle: { color: i === 0 ? '#E879A9' : '#F59E0B' }
   }))
 }))
+
+const peakHourTypes = ['发帖', '评论', '点赞']
+
+const heatmapOption = computed<echarts.EChartsOption>(() => {
+  const data = statsStore.peakHours
+  const maxVal = Math.max(1, ...data.map(p => Math.max(p.postCount, p.commentCount, p.likeCount)))
+  const heatData: [number, number, number][] = []
+  data.forEach((p, h) => {
+    heatData.push([0, h, p.postCount])
+    heatData.push([1, h, p.commentCount])
+    heatData.push([2, h, p.likeCount])
+  })
+  return {
+    tooltip: {
+      position: 'top',
+      formatter: (params: any) => {
+        const d = params.data as [number, number, number]
+        return `${peakHourTypes[d[0]]} ${data[d[1]].hour}<br/>活跃量: ${d[2]}`
+      }
+    },
+    grid: { left: 56, right: 20, top: 40, bottom: 36 },
+    xAxis: { type: 'category', data: peakHourTypes, splitArea: { show: true } },
+    yAxis: { type: 'category', data: data.map(p => p.hour), splitArea: { show: true }, inverse: true },
+    visualMap: {
+      min: 0, max: maxVal,
+      calculable: true,
+      orient: 'horizontal', left: 'center', top: 0, inRange: { color: ['rgba(232,121,169,0.05)', '#E879A9'] },
+      textStyle: { fontSize: 10 }
+    },
+    series: [{
+      type: 'heatmap', data: heatData,
+      label: { show: false },
+      emphasis: {
+        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.3)' }
+      }
+    }]
+  }
+})
+
+const funnelOption = computed<echarts.EChartsOption>(() => {
+  const s = statsStore.auditFunnel?.snapshot
+  if (!s) return {}
+  return {
+    tooltip: {
+      trigger: 'item',
+      formatter: (params: any) => {
+        const pct = params.percent || 0
+        return `${params.name}<br/>${params.value} 篇 (${pct}%)`
+      }
+    },
+    series: [{
+      type: 'funnel', left: '25%', top: 20, bottom: 20, width: '50%',
+      minSize: '10%', maxSize: '100%',
+      sort: 'descending', gap: 4,
+      label: { show: true, position: 'left', formatter: '{b}', fontSize: 11, color: '#A1A1AA' },
+      labelLine: { show: false },
+      itemStyle: { borderColor: '#fff', borderWidth: 1 },
+      emphasis: { label: { fontSize: 12, fontWeight: 'bold' } },
+      data: [
+        { name: '总发帖', value: s.totalPosts, itemStyle: { color: '#E879A9' } },
+        { name: '待审核', value: s.pendingCount, itemStyle: { color: '#F59E0B' } },
+        { name: '已通过', value: s.approvedCount, itemStyle: { color: '#34D399' } },
+        { name: '已驳回', value: s.rejectedCount, itemStyle: { color: '#EF4444' } }
+      ]
+    }]
+  }
+})
 
 const isLight = computed(() => adminStore.theme === 'light')
 const labelLineColor = computed(() => isLight.value ? '#D4D4D7' : '#3A4270')
@@ -219,6 +286,12 @@ onMounted(() => {
         </div>
         <div class="chart-grid-item fade-in-up" style="animation-delay: 0.8s">
           <ChartCard title="举报工单统计" :option="reportChartOption" :loading="statsStore.loading" :height="260" />
+        </div>
+        <div class="chart-grid-item fade-in-up" style="animation-delay: 0.85s">
+          <ChartCard title="活跃高峰时段" :option="heatmapOption" :loading="statsStore.loading" :height="300" />
+        </div>
+        <div class="chart-grid-item fade-in-up" style="animation-delay: 0.9s">
+          <ChartCard title="帖子审核漏斗" :option="funnelOption" :loading="statsStore.loading" :height="300" />
         </div>
       </section>
 

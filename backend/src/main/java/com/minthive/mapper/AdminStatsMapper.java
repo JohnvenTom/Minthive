@@ -42,6 +42,16 @@ public interface AdminStatsMapper {
                                              @Param("endDate") String endDate);
 
     /**
+     * 月活趋势（按天分组，滚动30天去重独立用户数）
+     * 功能：按日期统计以当天为终点的滚动30天内发帖/评论/点赞的去重用户数
+     * @param startDate 起始日期
+     * @param endDate   结束日期
+     * @return 日期-MAU列表
+     */
+    List<Map<String, Object>> selectMauTrend(@Param("startDate") String startDate,
+                                              @Param("endDate") String endDate);
+
+    /**
      * 发帖趋势（按天分组）
      * 功能：按日期统计每日新增帖子数
      * @param startDate 起始日期
@@ -49,7 +59,7 @@ public interface AdminStatsMapper {
      * @return 日期-帖子数列表
      */
     List<Map<String, Object>> selectPostTrend(@Param("startDate") String startDate,
-                                              @Param("endDate") String endDate);
+                                               @Param("endDate") String endDate);
 
     /**
      * 互动趋势（按天分组，分类型统计）
@@ -88,10 +98,32 @@ public interface AdminStatsMapper {
 
     /**
      * 用户活跃高峰时段统计
-     * 功能：按小时聚合今日发帖+评论+点赞行为，找出活跃高峰时段
+     * 功能：按小时聚合发帖+评论+点赞行为，返回日均值
+     * @param startDate 起始日期
+     * @param endDate   结束日期
+     * @param dayCount  天数（用于计算日均值）
      * @return [{hour: '08:00-09:00', postCount: 10, commentCount: 5, likeCount: 20, total: 35}, ...]
      */
-    List<Map<String, Object>> selectPeakHours();
+    List<Map<String, Object>> selectPeakHours(@Param("startDate") String startDate,
+                                               @Param("endDate") String endDate,
+                                               @Param("dayCount") int dayCount);
+
+    /**
+     * 帖子审核漏斗（当前实时快照）
+     * 功能：统计所有未删除帖子的审核状态分布
+     * @return {totalPosts, pendingCount, approvedCount, rejectedCount, passRate}
+     */
+    Map<String, Object> selectAuditFunnel();
+
+    /**
+     * 帖子审核趋势（按天分组）
+     * 功能：按日期统计每日各审核状态的帖子数
+     * @param startDate 起始日期
+     * @param endDate   结束日期
+     * @return [{date, total, pending, approved, rejected}, ...]
+     */
+    List<Map<String, Object>> selectAuditTrend(@Param("startDate") String startDate,
+                                                @Param("endDate") String endDate);
 
     /**
      * 举报风险等级分布统计

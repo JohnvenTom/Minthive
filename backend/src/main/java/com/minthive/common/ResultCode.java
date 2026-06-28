@@ -78,9 +78,6 @@ public enum ResultCode {
     /** AI 服务异常 */
     AI_SERVICE_ERROR(1013, "AI服务暂时不可用"),
 
-    /** 敏感词命中 */
-    SENSITIVE_WORD(1014, "内容包含敏感词"),
-
     /** 重复操作 */
     DUPLICATE_OPERATION(1015, "请勿重复操作"),
 

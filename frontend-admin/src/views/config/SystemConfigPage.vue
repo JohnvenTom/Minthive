@@ -8,31 +8,25 @@ import {
   getBanners,
   saveBanner,
   deleteBanner,
-  getPlatformRules,
-  updatePlatformRules,
   getRoleList,
   searchNormalUser,
   createUserWithRole,
   setUserRole,
   removeUserRole,
-  getAiSwitch,
-  updateAiSwitch,
   type Announcement,
   type Banner,
-  type PlatformRule,
   type RoleUser,
-  type NormalUser,
-  type AiSwitchConfig
+  type NormalUser
 } from '@/api/config'
 import ImageSelector from '@/components/ImageSelector.vue'
 
 /**
  * SystemConfigPage 系统配置页
- * 功能：公告、轮播图、平台规则、圈主·管理员管理、AI 开关
+ * 功能：公告、轮播图、管理员管理、AI 开关
  * 参数：无
  * 注意事项：通过 Tab 切换五个配置模块
  */
-const activeTab = ref<'announce' | 'banner' | 'rule' | 'role' | 'ai'>('announce')
+const activeTab = ref<'announce' | 'banner' | 'role'>('announce')
 
 // 公告
 const announcements = ref<Announcement[]>([])
@@ -45,16 +39,6 @@ const banners = ref<Banner[]>([])
 const bannerLoading = ref(false)
 const bannerVisible = ref(false)
 const bannerForm = reactive<Partial<Banner>>({ title: '', imageUrl: '', linkUrl: '', sort: 0, status: 'ACTIVE' })
-
-// 平台规则
-const rulesLoading = ref(false)
-const rulesForm = reactive<PlatformRule>({
-  dailyPostLimit: 20,
-  imageMaxSize: 5,
-  videoMaxDuration: 60,
-  videoMaxSize: 20,
-  aiDailyLimit: 50
-})
 
 // 管理员管理
 const roleUsers = ref<RoleUser[]>([])
@@ -70,30 +54,6 @@ const pickVisible = ref(false)
 const pickKeyword = ref('')
 const pickResults = ref<NormalUser[]>([])
 const pickLoading = ref(false)
-
-// AI 开关
-const aiLoading = ref(false)
-const aiForm = reactive<AiSwitchConfig>({
-  enabled: true,
-  textGenerate: true,
-  commentGenerate: true,
-  contentDetect: true,
-  recommend: true,
-  imageProcess: true,
-  privateReply: true,
-  qaAssistant: true
-})
-
-/** AI 开关项配置 */
-const aiSwitchItems = [
-  { key: 'textGenerate', label: 'AI 文案生成', desc: '用户发帖时 AI 一键生成文案' },
-  { key: 'commentGenerate', label: 'AI 智能评论', desc: 'AI 生成贴合内容的评论' },
-  { key: 'contentDetect', label: 'AI 内容风控', desc: 'AI 语义复审违规内容' },
-  { key: 'recommend', label: 'AI 兴趣推荐', desc: '千人千面信息流推荐' },
-  { key: 'imageProcess', label: 'AI 图片处理', desc: '美颜、修复、背景消除' },
-  { key: 'privateReply', label: 'AI 私信代回复', desc: '离线时 AI 自动回复私信' },
-  { key: 'qaAssistant', label: 'AI 问答助手', desc: '全局悬浮 AI 客服' }
-] as const
 
 /**
  * 加载公告（后端返回分页数据）
@@ -234,33 +194,6 @@ async function handleBannerDelete(row: any) {
 }
 
 /**
- * 加载平台规则
- */
-async function loadRules() {
-  rulesLoading.value = true
-  try {
-    const res = await getPlatformRules()
-    Object.assign(rulesForm, res)
-  } catch (e) {
-    // ignore
-  } finally {
-    rulesLoading.value = false
-  }
-}
-
-/**
- * 保存平台规则
- */
-async function saveRules() {
-  try {
-    await updatePlatformRules(rulesForm)
-    ElMessage.success('规则保存成功')
-  } catch (e) {
-    // ignore
-  }
-}
-
-/**
  * 加载管理员列表
  */
 async function loadRoleList() {
@@ -380,33 +313,6 @@ async function handleRemoveRole(row: any) {
 }
 
 /**
- * 加载 AI 开关
- */
-async function loadAiSwitch() {
-  aiLoading.value = true
-  try {
-    const res = await getAiSwitch()
-    Object.assign(aiForm, res)
-  } catch (e) {
-    // ignore
-  } finally {
-    aiLoading.value = false
-  }
-}
-
-/**
- * 保存 AI 开关
- */
-async function saveAiSwitch() {
-  try {
-    await updateAiSwitch(aiForm)
-    ElMessage.success('AI 配置保存成功')
-  } catch (e) {
-    // ignore
-  }
-}
-
-/**
  * Tab 切换加载对应数据
  * @param tab 目标 tab
  */
@@ -415,9 +321,7 @@ function handleTabChange(tab: string) {
   switch (tab) {
     case 'announce': loadAnnouncements(); break
     case 'banner': loadBanners(); break
-    case 'rule': loadRules(); break
     case 'role': loadRoleList(); break
-    case 'ai': loadAiSwitch(); break
   }
 }
 
@@ -448,9 +352,7 @@ onMounted(() => {
         v-for="tab in [
           { key: 'announce', label: '系统公告' },
           { key: 'banner', label: '首页轮播' },
-          { key: 'rule', label: '平台规则' },
-          { key: 'role', label: '管理员管理' },
-          { key: 'ai', label: 'AI 开关' }
+          { key: 'role', label: '管理员管理' }
         ]"
         :key="tab.key"
         class="tab-item"
@@ -518,35 +420,6 @@ onMounted(() => {
       </el-table>
     </div>
 
-    <!-- 平台规则 -->
-    <div v-else-if="activeTab === 'rule'" class="base-card" v-loading="rulesLoading">
-      <el-form :model="rulesForm" label-width="160px" style="max-width: 560px; padding: 20px">
-        <el-form-item label="每日发帖上限">
-          <el-input-number v-model="rulesForm.dailyPostLimit" :min="1" :max="100" controls-position="right" />
-          <span class="form-tip">条/天</span>
-        </el-form-item>
-        <el-form-item label="单张图片大小限制">
-          <el-input-number v-model="rulesForm.imageMaxSize" :min="1" :max="20" controls-position="right" />
-          <span class="form-tip">MB</span>
-        </el-form-item>
-        <el-form-item label="视频时长限制">
-          <el-input-number v-model="rulesForm.videoMaxDuration" :min="10" :max="300" controls-position="right" />
-          <span class="form-tip">秒</span>
-        </el-form-item>
-        <el-form-item label="视频大小限制">
-          <el-input-number v-model="rulesForm.videoMaxSize" :min="10" :max="200" controls-position="right" />
-          <span class="form-tip">MB</span>
-        </el-form-item>
-        <el-form-item label="AI 每日调用上限">
-          <el-input-number v-model="rulesForm.aiDailyLimit" :min="0" :max="500" controls-position="right" />
-          <span class="form-tip">次/天/用户</span>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="saveRules">保存规则</el-button>
-        </el-form-item>
-      </el-form>
-    </div>
-
     <!-- 管理员管理 -->
     <div v-else-if="activeTab === 'role'" class="base-card" v-loading="roleLoading">
       <div class="card-toolbar">
@@ -574,35 +447,6 @@ onMounted(() => {
           </template>
         </el-table-column>
       </el-table>
-    </div>
-
-    <!-- AI 开关 -->
-    <div v-else-if="activeTab === 'ai'" class="base-card" v-loading="aiLoading">
-      <div class="ai-config">
-        <div class="ai-master">
-          <div class="master-info">
-            <div class="master-title">
-              <el-icon><MagicStick /></el-icon>
-              <span>AI 智能功能总开关</span>
-            </div>
-            <div class="master-desc">关闭后全站所有 AI 功能将自动降级，不影响基础发帖互动业务</div>
-          </div>
-          <el-switch v-model="aiForm.enabled" size="large" />
-        </div>
-        <el-divider />
-        <div class="ai-items">
-          <div v-for="item in aiSwitchItems" :key="item.key" class="ai-item">
-            <div class="ai-item-info">
-              <div class="ai-item-title">{{ item.label }}</div>
-              <div class="ai-item-desc">{{ item.desc }}</div>
-            </div>
-            <el-switch v-model="aiForm[item.key]" :disabled="!aiForm.enabled" />
-          </div>
-        </div>
-        <div class="ai-actions">
-          <el-button type="primary" @click="saveAiSwitch">保存 AI 配置</el-button>
-        </div>
-      </div>
     </div>
 
     <!-- 公告弹窗 -->
@@ -728,69 +572,6 @@ onMounted(() => {
   width: 80px;
   height: 45px;
   border-radius: $radius-sm;
-}
-.form-tip {
-  margin-left: 8px;
-  color: $text-secondary;
-  font-size: 12px;
-}
-.ai-config {
-  padding: 8px 4px;
-}
-.ai-master {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px;
-  background: linear-gradient(135deg, rgba(232, 121, 169, 0.08), rgba(245, 158, 11, 0.05));
-  border: 1px solid rgba(232, 121, 169, 0.3);
-  border-radius: $radius-md;
-}
-.master-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  color: $text-primary;
-  .el-icon { color: $color-primary; font-size: 20px; }
-}
-.master-desc {
-  font-size: 12px;
-  color: $text-secondary;
-  margin-top: 6px;
-}
-.ai-items {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-.ai-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  background: $bg-input;
-  border: 1px solid $border-base;
-  border-radius: $radius-md;
-  transition: $transition-base;
-  &:hover {
-    border-color: $color-primary;
-  }
-}
-.ai-item-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: $text-primary;
-}
-.ai-item-desc {
-  font-size: 12px;
-  color: $text-secondary;
-  margin-top: 4px;
-}
-.ai-actions {
-  margin-top: 24px;
-  text-align: right;
 }
 .card-toolbar {
   display: flex;

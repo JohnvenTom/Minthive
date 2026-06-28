@@ -20,7 +20,6 @@ import com.minthive.security.JwtUtils;
 import com.minthive.security.UserContext;
 import com.minthive.ai.AiContext;
 import com.minthive.service.PostService;
-import com.minthive.service.SensitiveWordService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,8 +41,6 @@ public class PostServiceImpl implements PostService {
 
     private final UserMapper userMapper;
 
-    private final SensitiveWordService sensitiveWordService;
-
     private final AiContext aiContext;
 
     private final CommentMapper commentMapper;
@@ -59,7 +56,6 @@ public class PostServiceImpl implements PostService {
      *
      * @param post 帖子实体
      * @return 发布后的帖子
-     * @throws BusinessException 内容含敏感词时抛出
      */
     @Override
     public Post publish(Post post) {
@@ -69,11 +65,6 @@ public class PostServiceImpl implements PostService {
                 throw new BusinessException(ResultCode.CIRCLE_NOT_EXISTS, "圈子不存在或未上线");
             }
         }
-        // 敏感词过滤
-        if (sensitiveWordService.contains(post.getContent())) {
-            throw new BusinessException(ResultCode.SENSITIVE_WORD, "帖子内容包含敏感词，请修改后发布");
-        }
-        post.setContent(sensitiveWordService.replace(post.getContent()));
         // AI 内容检测
         try {
             var detectResult = aiContext.detectContent(post.getContent(), null);

@@ -9,22 +9,17 @@ import {
   approvePost,
   rejectPost,
   deletePost,
-  getSensitiveWords,
-  addSensitiveWord,
-  deleteSensitiveWord,
-  importSensitiveWords,
   type PostInfo,
-  type ContentQuery,
-  type SensitiveWord
+  type ContentQuery
 } from '@/api/content'
 
 /**
  * ContentAuditPage 内容审核页
- * 功能：待审核列表、通过驳回、已发布管理、敏感词库配置、批量导入
+ * 功能：待审核列表、通过驳回、已发布管理
  * 参数：无
- * 注意事项：通过 Tab 切换待审核/已发布/敏感词库三个视图
+ * 注意事项：通过 Tab 切换待审核/已发布两个视图
  */
-const activeTab = ref<'pending' | 'published' | 'sensitive'>('pending')
+const activeTab = ref<'pending' | 'published'>('pending')
 const loading = ref(false)
 
 // 待审核 / 已发布 共用列表
@@ -65,18 +60,6 @@ const detailImages = computed<string[]>(() => {
 const rejectVisible = ref(false)
 const rejectForm = reactive({ postId: 0, reason: '' })
 
-// 敏感词库
-const sensitiveLoading = ref(false)
-const sensitiveList = ref<SensitiveWord[]>([])
-const sensitiveTotal = ref(0)
-const sensitiveQuery = reactive({ page: 1, pageSize: 10, keyword: '' })
-const newWord = reactive({ word: '', category: '通用' })
-
-/** 批量导入 */
-const importVisible = ref(false)
-const importText = ref('')
-const importCategory = ref('通用')
-
 /**
  * 加载帖子列表（待审核或已发布）
  */
@@ -95,33 +78,13 @@ async function loadPostList() {
 }
 
 /**
- * 加载敏感词列表
- */
-async function loadSensitiveList() {
-  sensitiveLoading.value = true
-  try {
-    const res = await getSensitiveWords(sensitiveQuery)
-    sensitiveList.value = res.list
-    sensitiveTotal.value = res.total
-  } catch (e) {
-    // ignore
-  } finally {
-    sensitiveLoading.value = false
-  }
-}
-
-/**
  * Tab 切换
  * @param tab 目标 tab
  */
 function handleTabChange(tab: string) {
   activeTab.value = tab as any
   query.page = 1
-  if (tab === 'sensitive') {
-    loadSensitiveList()
-  } else {
-    loadPostList()
-  }
+  loadPostList()
 }
 
 /**
@@ -191,59 +154,6 @@ async function handleDelete(row: PostInfo) {
   }
 }
 
-/**
- * 添加敏感词
- */
-async function handleAddWord() {
-  if (!newWord.word) {
-    ElMessage.warning('请输入敏感词')
-    return
-  }
-  try {
-    await addSensitiveWord(newWord.word, newWord.category)
-    ElMessage.success('添加成功')
-    newWord.word = ''
-    loadSensitiveList()
-  } catch (e) {
-    // ignore
-  }
-}
-
-/**
- * 删除敏感词
- * @param row 行数据，el-table 原生插槽 row 类型为 any
- */
-async function handleDeleteWord(row: any) {
-  try {
-    await ElMessageBox.confirm(`确认删除敏感词「${row.word}」？`, '删除确认', { type: 'warning' })
-    await deleteSensitiveWord(row.id)
-    ElMessage.success('已删除')
-    loadSensitiveList()
-  } catch (e) {
-    // ignore
-  }
-}
-
-/**
- * 确认批量导入
- */
-async function confirmImport() {
-  const words = importText.value.split(/[\n,，]/).map((w) => w.trim()).filter(Boolean)
-  if (words.length === 0) {
-    ElMessage.warning('请输入敏感词，每行一个或用逗号分隔')
-    return
-  }
-  try {
-    const res = await importSensitiveWords(words, importCategory.value)
-    ElMessage.success(`成功导入 ${res.imported} 个敏感词`)
-    importVisible.value = false
-    importText.value = ''
-    loadSensitiveList()
-  } catch (e) {
-    // ignore
-  }
-}
-
 onMounted(() => {
   loadPostList()
 })
@@ -260,8 +170,7 @@ onMounted(() => {
       <div
         v-for="tab in [
           { key: 'pending', label: '待审核' },
-          { key: 'published', label: '已发布' },
-          { key: 'sensitive', label: '敏感词库' }
+          { key: 'published', label: '已发布' }
         ]"
         :key="tab.key"
         class="tab-item"
@@ -273,7 +182,6 @@ onMounted(() => {
     </div>
 
     <!-- 帖子列表（待审核 / 已发布） -->
-    <template v-if="activeTab !== 'sensitive'">
       <div class="base-card search-bar">
         <el-form inline>
           <el-form-item label="关键词">
@@ -324,69 +232,6 @@ onMounted(() => {
           </template>
         </DataTable>
       </div>
-    </template>
-
-    <!-- 敏感词库 -->
-    <template v-else>
-      <div class="base-card search-bar">
-        <el-form inline>
-          <el-form-item label="敏感词">
-            <el-input v-model="sensitiveQuery.keyword" placeholder="搜索敏感词" clearable style="width: 220px" @keyup.enter="loadSensitiveList" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :icon="'Search'" @click="loadSensitiveList">查询</el-button>
-            <el-button type="warning" :icon="'Upload'" @click="importVisible = true">批量导入</el-button>
-          </el-form-item>
-        </el-form>
-        <el-divider />
-        <el-form inline>
-          <el-form-item label="新增敏感词">
-            <el-input v-model="newWord.word" placeholder="输入敏感词" style="width: 200px" />
-          </el-form-item>
-          <el-form-item label="分类">
-            <el-select v-model="newWord.category" style="width: 140px">
-              <el-option label="通用" value="通用" />
-              <el-option label="低俗色情" value="低俗色情" />
-              <el-option label="广告引流" value="广告引流" />
-              <el-option label="人身攻击" value="人身攻击" />
-              <el-option label="违法内容" value="违法内容" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :icon="'Plus'" @click="handleAddWord">添加</el-button>
-          </el-form-item>
-        </el-form>
-      </div>
-
-      <div class="base-card table-card">
-        <el-table :data="sensitiveList" v-loading="sensitiveLoading" stripe>
-          <el-table-column type="index" label="#" width="60" align="center" />
-          <el-table-column prop="word" label="敏感词" min-width="200" />
-          <el-table-column prop="category" label="分类" width="160">
-            <template #default="{ row }">
-              <el-tag size="small" effect="dark">{{ row.category }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="createTime" label="创建时间" width="180" />
-          <el-table-column label="操作" width="120" fixed="right">
-            <template #default="{ row }">
-              <el-button text type="danger" size="small" @click="handleDeleteWord(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <div class="table-pagination">
-          <el-pagination
-            v-model:current-page="sensitiveQuery.page"
-            v-model:page-size="sensitiveQuery.pageSize"
-            :total="sensitiveTotal"
-            :page-sizes="[10, 20, 50]"
-            layout="total, prev, pager, next"
-            background
-            @current-change="loadSensitiveList"
-          />
-        </div>
-      </div>
-    </template>
 
     <!-- 详情弹窗 -->
     <el-dialog v-model="detailVisible" title="帖子详情" width="600px">
@@ -433,27 +278,6 @@ onMounted(() => {
       </template>
     </el-dialog>
 
-    <!-- 批量导入弹窗 -->
-    <el-dialog v-model="importVisible" title="批量导入敏感词" width="500px">
-      <el-form label-width="80px">
-        <el-form-item label="分类">
-          <el-select v-model="importCategory" style="width: 200px">
-            <el-option label="通用" value="通用" />
-            <el-option label="低俗色情" value="低俗色情" />
-            <el-option label="广告引流" value="广告引流" />
-            <el-option label="人身攻击" value="人身攻击" />
-            <el-option label="违法内容" value="违法内容" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="敏感词">
-          <el-input v-model="importText" type="textarea" :rows="8" placeholder="每行一个敏感词，或用逗号分隔" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="importVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmImport">确认导入</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 

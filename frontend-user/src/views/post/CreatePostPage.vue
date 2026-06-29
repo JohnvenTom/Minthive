@@ -1152,6 +1152,7 @@ $radius-btn: 10px;
   position: relative;
   border-radius: 12px;
   overflow: hidden;
+  max-width: 480px;
 }
 
 .preview-video {

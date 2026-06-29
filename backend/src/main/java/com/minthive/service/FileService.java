@@ -14,4 +14,11 @@ public interface FileService {
      * @return 可访问 URL
      */
     String upload(MultipartFile file);
+
+    /**
+     * 删除文件
+     *
+     * @param fileUrl 文件访问 URL
+     */
+    void delete(String fileUrl);
 }

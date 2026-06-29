@@ -126,4 +126,22 @@ public class MinioUtil {
     private String buildUrl(String objectName) {
         return minioConfig.getPublicUrl() + "/" + minioConfig.getBucket() + "/" + objectName;
     }
+
+    /**
+     * 从文件 URL 中提取 objectName
+     *
+     * @param fileUrl 文件访问 URL
+     * @return objectName，提取失败返回 null
+     */
+    public String extractObjectName(String fileUrl) {
+        try {
+            String prefix = minioConfig.getPublicUrl() + "/" + minioConfig.getBucket() + "/";
+            if (fileUrl.startsWith(prefix)) {
+                return fileUrl.substring(prefix.length());
+            }
+        } catch (Exception e) {
+            log.error("提取objectName失败: fileUrl={}", fileUrl, e);
+        }
+        return null;
+    }
 }

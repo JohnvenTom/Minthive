@@ -37,3 +37,15 @@ export function uploadVideo(file: File) {
     timeout: 60000
   })
 }
+
+/**
+ * 删除已上传的文件
+ * @param {string} url - 文件访问 URL
+ */
+export function deleteFile(url: string) {
+  return request<void>({
+    url: '/file/delete',
+    method: 'delete',
+    params: { url }
+  })
+}

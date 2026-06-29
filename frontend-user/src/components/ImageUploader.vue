@@ -51,15 +51,16 @@
 <script setup lang="ts">
 /**
  * ImageUploader 图片上传组件
- * @description 选图时仅做本地预览和压缩，不立即上传。父组件在发布时调用 uploadAll() 批量上传到 MinIO。
+ * @description 选图后立即压缩并上传到 MinIO，通过 change 事件同步已上传的 URL 列表。
+ *              父组件在页面卸载时调用 cleanupAll() 删除所有已上传的文件。
  * @param {number} maxCount - 最大上传数量，默认9
- * @emits change - 图片列表变化事件（本地预览阶段发出 File 对象数组，上传完成后发出 URL 数组）
+ * @emits change - 图片列表变化事件（发出已上传成功的 URL 数组）
  */
 
 import { ref } from 'vue'
 import { showToast } from 'vant'
 import { compressImage } from '@/utils/compress'
-import { uploadImage } from '@/api/file'
+import { uploadImage, deleteFile } from '@/api/file'
 
 /** 上传文件项类型 */
 interface UploadItem {
@@ -101,7 +102,7 @@ function triggerInput(): void {
 /**
  * 处理文件选择变化
  * @param {Event} event - 文件选择事件
- * @description 选图后仅压缩并本地预览，不上传到服务器
+ * @description 选图后立即压缩并上传到 MinIO
  */
 async function handleFileChange(event: Event): Promise<void> {
   const target = event.target as HTMLInputElement
@@ -113,92 +114,81 @@ async function handleFileChange(event: Event): Promise<void> {
 
   for (const file of toProcess) {
     try {
-      // 压缩图片，保存压缩后的 File 用于后续上传
       const compressed = await compressImage(file)
       const localUrl = URL.createObjectURL(compressed)
       const item: UploadItem = {
         url: localUrl,
-        status: 'pending',
-        progress: 0,
+        status: 'uploading',
+        progress: 30,
         file: compressed
       }
       fileList.value.push(item)
+
+      // 立即上传
+      uploadItem(item)
     } catch {
       showToast('图片压缩失败')
     }
   }
 
-  // 重置input
   target.value = ''
+}
+
+/**
+ * 上传单张图片到 MinIO
+ * @param {UploadItem} item - 待上传的文件项
+ */
+async function uploadItem(item: UploadItem): Promise<void> {
+  if (!item.file) return
+
+  const progressTimer = setInterval(() => {
+    if (item.progress < 90) {
+      item.progress += Math.random() * 15
+    }
+  }, 200)
+
+  try {
+    const res = await uploadImage(item.file)
+    clearInterval(progressTimer)
+
+    const url = typeof res.data === 'string' ? res.data : res.data?.url || ''
+    if (!url) {
+      throw new Error('上传成功但未返回URL')
+    }
+
+    item.progress = 100
+    item.status = 'done'
+    item.serverUrl = url
+  } catch (err) {
+    clearInterval(progressTimer)
+    console.error('[ImageUploader] 上传失败:', err)
+    item.status = 'error'
+    item.progress = 0
+  }
+
   emitChange()
 }
 
 /**
- * 批量上传所有待上传的图片到 MinIO
- * @returns {Promise<string[]>} 上传成功的图片 URL 数组
- * @throws 上传全部失败时抛出异常
- * @description 由父组件在发布时调用，逐张上传并更新进度
+ * 移除指定索引的图片（同时从服务器删除）
+ * @param {number} idx - 图片索引
  */
-async function uploadAll(): Promise<string[]> {
-  const pendingItems = fileList.value.filter(f => f.status === 'pending' || f.status === 'error')
-  const urls: string[] = []
+async function removeFile(idx: number): Promise<void> {
+  const item = fileList.value[idx]
+  if (!item) return
 
-  for (const item of pendingItems) {
-    if (!item.file) continue
-
+  // 如果已上传到服务器，删除服务器上的文件
+  if (item.serverUrl) {
     try {
-      item.status = 'uploading'
-      item.progress = 30
-
-      // 模拟上传进度
-      const progressTimer = setInterval(() => {
-        if (item.progress < 90) {
-          item.progress += Math.random() * 15
-        }
-      }, 200)
-
-      const res = await uploadImage(item.file!)
-      clearInterval(progressTimer)
-
-      // 后端返回 data 直接是 URL 字符串
-      const url = typeof res.data === 'string' ? res.data : res.data?.url || ''
-      if (!url) {
-        throw new Error('上传成功但未返回URL')
-      }
-
-      item.progress = 100
-      item.status = 'done'
-      item.serverUrl = url
-      urls.push(url)
-    } catch (err) {
-      console.error('[ImageUploader] 上传失败:', err)
-      item.status = 'error'
-      item.progress = 0
+      await deleteFile(item.serverUrl)
+    } catch {
+      console.warn('[ImageUploader] 删除服务器文件失败')
     }
   }
 
+  URL.revokeObjectURL(item.url)
+  fileList.value.splice(idx, 1)
   emitChange()
-
-  // 如果有失败的，提示用户
-  const failedCount = fileList.value.filter(f => f.status === 'error').length
-  if (failedCount > 0) {
-    showToast(`${failedCount}张图片上传失败`)
-  }
-
-  return urls
-}
-
-/**
- * 移除指定索引的图片
- * @param {number} idx - 图片索引
- */
-function removeFile(idx: number): void {
-  const item = fileList.value[idx]
-  if (item) {
-    URL.revokeObjectURL(item.url)
-    fileList.value.splice(idx, 1)
-    emitChange()
-  }
 }
 
 /** 触发change事件，发出当前所有已上传成功的URL列表 */
@@ -209,8 +199,32 @@ function emitChange(): void {
   emit('change', urls)
 }
 
+/**
+ * 获取所有已上传的服务器 URL
+ * @returns {string[]} 已上传的 URL 数组
+ */
+function getUploadedUrls(): string[] {
+  return fileList.value
+    .filter(f => f.status === 'done' && f.serverUrl)
+    .map(f => f.serverUrl!)
+}
+
+/**
+ * 删除所有已上传到服务器的文件（页面卸载时调用）
+ */
+async function cleanupAll(): Promise<void> {
+  const serverUrls = getUploadedUrls()
+  for (const url of serverUrls) {
+    try {
+      await deleteFile(url)
+    } catch {
+      console.warn('[ImageUploader] 清理服务器文件失败:', url)
+    }
+  }
+}
+
 /** 暴露方法给父组件调用 */
-defineExpose({ uploadAll })
+defineExpose({ getUploadedUrls, cleanupAll })
 </script>
 
 <style lang="scss" scoped>

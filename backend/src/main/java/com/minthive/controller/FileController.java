@@ -37,4 +37,16 @@ public class FileController {
     public Result<String> upload(@RequestParam("file") MultipartFile file) {
         return Result.success(fileService.upload(file));
     }
+
+    /**
+     * 删除文件
+     *
+     * @param url 文件访问 URL
+     */
+    @Operation(summary = "删除文件")
+    @DeleteMapping("/delete")
+    public Result<Void> delete(@RequestParam("url") String url) {
+        fileService.delete(url);
+        return Result.success();
+    }
 }

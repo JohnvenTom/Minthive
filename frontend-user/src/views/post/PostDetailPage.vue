@@ -305,7 +305,7 @@
     />
 
     <!-- 图片预览 -->
-    <van-image-preview v-model:show="showPreview" :images="previewImages" :start-position="previewIndex" />
+    <van-image-preview v-model:show="showPreview" :images="previewImages" :start-position="previewIndex" closeable />
   </div>
 </template>
 

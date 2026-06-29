@@ -1,5 +1,20 @@
 <template>
   <div class="reset-page">
+    <!-- 主题切换按钮 -->
+    <button
+      class="theme-toggle"
+      :class="{ 'theme-toggle--light': appStore.theme === 'light' }"
+      @click="appStore.setTheme()"
+      :aria-label="appStore.theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
+    >
+      <svg v-if="appStore.theme === 'dark'" key="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5" />
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+      </svg>
+      <svg v-else key="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+      </svg>
+    </button>
     <!-- 蜂巢粒子背景 -->
     <div class="reset-page__bg">
       <canvas ref="particleCanvas" class="reset-page__canvas"></canvas>
@@ -224,9 +239,11 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, Iphone, Message } from '@element-plus/icons-vue'
 import { sendSmsCode, resetPassword } from '@/api/auth'
+import { useAppStore } from '@/stores/app'
 import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
+const appStore = useAppStore()
 
 const currentStep = ref(1)
 const loading = ref(false)
@@ -486,7 +503,63 @@ onUnmounted(() => {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: $ink-900;
+  --rp-bg: #{$ink-900};
+  --rp-glow-mint: rgba(78, 205, 196, 0.15);
+  --rp-glow-amber: rgba(255, 182, 39, 0.1);
+  --rp-hex-grid: rgba(78, 205, 196, 0.04);
+  background: var(--rp-bg);
+  transition: background-color 0.3s ease;
+}
+
+// ---------- 主题切换按钮 ----------
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 200;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: $ink-300;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all $dur-base $ease-out;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    transform: scale(1.08);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.4s $ease-spring;
+  }
+
+  &--light {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.08);
+    color: $ink-500;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.1);
+      color: $ink-700;
+    }
+  }
+
+  &:active svg {
+    transform: rotate(360deg);
+  }
 }
 
 .reset-page__bg {
@@ -506,7 +579,7 @@ onUnmounted(() => {
 .reset-page__hex-grid {
   position: absolute;
   inset: 0;
-  @include honeycomb-bg(rgba(78, 205, 196, 0.04), 40px);
+  @include honeycomb-bg(var(--rp-hex-grid), 40px);
 }
 
 .reset-page__glow {
@@ -519,7 +592,7 @@ onUnmounted(() => {
     height: 500px;
     top: -10%;
     left: -5%;
-    background: radial-gradient(circle, rgba(78, 205, 196, 0.15) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--rp-glow-mint) 0%, transparent 70%);
   }
 
   &--amber {
@@ -527,7 +600,7 @@ onUnmounted(() => {
     height: 400px;
     bottom: -5%;
     right: -5%;
-    background: radial-gradient(circle, rgba(255, 182, 39, 0.1) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--rp-glow-amber) 0%, transparent 70%);
   }
 }
 
@@ -583,7 +656,7 @@ onUnmounted(() => {
   font-family: $font-heading;
   font-size: 36px;
   font-weight: 700;
-  color: #fff;
+  color: var(--rp-text-primary, #fff);
   line-height: 1.4;
   margin-bottom: $space-4;
 
@@ -597,7 +670,7 @@ onUnmounted(() => {
 
 .brand-desc {
   font-size: 16px;
-  color: $ink-300;
+  color: var(--rp-text-secondary, $ink-300);
   line-height: 1.7;
   margin-bottom: $space-10;
 }
@@ -614,8 +687,8 @@ onUnmounted(() => {
   gap: $space-4;
   padding: $space-4 $space-5;
   border-radius: $radius-md;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(78, 205, 196, 0.1);
+  background: var(--rp-card-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--rp-card-border, rgba(78, 205, 196, 0.1));
   backdrop-filter: blur(8px);
   transition: all $dur-base $ease-out;
 
@@ -647,13 +720,13 @@ onUnmounted(() => {
       font-family: $font-heading;
       font-size: 15px;
       font-weight: 600;
-      color: #fff;
+      color: var(--rp-text-primary, #fff);
       margin-bottom: 2px;
     }
 
     p {
       font-size: 13px;
-      color: $ink-300;
+      color: var(--rp-text-secondary, $ink-300);
     }
   }
 }
@@ -675,8 +748,8 @@ onUnmounted(() => {
   max-width: 440px;
   padding: $space-8 $space-8 $space-6;
   border-radius: $radius-lg;
-  @include glass(20px, rgba(26, 29, 46, 0.75));
-  border: 1px solid rgba(78, 205, 196, 0.1);
+  @include glass(20px, var(--rp-card-glass, rgba(26, 29, 46, 0.75)));
+  border: 1px solid var(--rp-card-border, rgba(78, 205, 196, 0.1));
   box-shadow: $shadow-lg, 0 0 60px rgba(78, 205, 196, 0.05);
   animation: scale-in 0.5s $ease-spring both;
 
@@ -740,7 +813,7 @@ onUnmounted(() => {
     font-family: $font-heading;
     font-size: 24px;
     font-weight: 700;
-    color: #fff;
+    color: var(--rp-text-primary, #fff);
   }
 }
 
@@ -763,9 +836,9 @@ onUnmounted(() => {
   justify-content: center;
   font-size: 12px;
   font-weight: 600;
-  color: $ink-500;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
+  color: var(--rp-text-muted, $ink-500);
+  border: 2px solid var(--rp-step-border, rgba(255, 255, 255, 0.1));
+  background: var(--rp-step-bg, rgba(255, 255, 255, 0.03));
   transition: all $dur-base $ease-out;
   z-index: 1;
 
@@ -788,7 +861,7 @@ onUnmounted(() => {
   height: 2px;
   width: 60px;
   left: calc(50% - 30px);
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--rp-step-border, rgba(255, 255, 255, 0.1));
   transform: translateY(-50%);
   transition: background $dur-base $ease-out;
 
@@ -803,7 +876,7 @@ onUnmounted(() => {
 
 .step-desc {
   font-size: 14px;
-  color: $ink-300;
+  color: var(--rp-text-secondary, $ink-300);
   line-height: 1.6;
   margin-bottom: $space-5;
 }
@@ -814,8 +887,8 @@ onUnmounted(() => {
   }
 
   :deep(.el-input__wrapper) {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(78, 205, 196, 0.1);
+    background: var(--rp-input-bg, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--rp-input-border, rgba(78, 205, 196, 0.1));
     border-radius: $radius-sm;
     box-shadow: none;
     transition: all $dur-fast $ease-out;
@@ -831,15 +904,15 @@ onUnmounted(() => {
   }
 
   :deep(.el-input__inner) {
-    color: #fff;
+    color: var(--rp-input-text, #fff);
 
     &::placeholder {
-      color: $ink-500;
+      color: var(--rp-input-placeholder, $ink-500);
     }
   }
 
   :deep(.el-input__prefix .el-icon) {
-    color: $ink-300;
+    color: var(--rp-text-muted, $ink-300);
   }
 }
 
@@ -867,9 +940,9 @@ onUnmounted(() => {
     }
 
     &:disabled {
-      color: $ink-500;
-      background: rgba(255, 255, 255, 0.03);
-      border-color: rgba(255, 255, 255, 0.06);
+      color: var(--rp-text-muted, $ink-500);
+      background: var(--rp-disabled-bg, rgba(255, 255, 255, 0.03));
+      border-color: var(--rp-disabled-border, rgba(255, 255, 255, 0.06));
     }
   }
 }
@@ -906,13 +979,13 @@ onUnmounted(() => {
     font-size: 15px;
     font-weight: 600;
     border-radius: $radius-sm;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(78, 205, 196, 0.1);
-    color: $ink-300;
+    background: var(--rp-btn-bg, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--rp-btn-border, rgba(78, 205, 196, 0.1));
+    color: var(--rp-text-secondary, $ink-300);
 
     &:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(78, 205, 196, 0.2);
+      background: var(--rp-btn-hover-bg, rgba(255, 255, 255, 0.08));
+      border-color: var(--rp-btn-hover-border, rgba(78, 205, 196, 0.2));
     }
   }
 
@@ -957,6 +1030,50 @@ onUnmounted(() => {
 @include mobile {
   .reset-page {
     padding-top: env(safe-area-inset-top);
+  }
+}
+</style>
+
+<style lang="scss">
+@use '@/styles/variables.scss' as *;
+
+[data-theme="light"] .reset-page {
+  --rp-bg: #{$ink-50};
+  --rp-text-primary: #{$ink-700};
+  --rp-text-secondary: #{$ink-500};
+  --rp-text-muted: #{$ink-300};
+  --rp-card-glass: rgba(255, 255, 255, 0.85);
+  --rp-card-border: rgba(78, 205, 196, 0.15);
+  --rp-input-bg: #fff;
+  --rp-input-border: #{$ink-100};
+  --rp-input-text: #{$ink-700};
+  --rp-input-placeholder: #{$ink-300};
+  --rp-card-bg: rgba(78, 205, 196, 0.04);
+  --rp-btn-bg: rgba(0, 0, 0, 0.03);
+  --rp-btn-border: rgba(0, 0, 0, 0.06);
+  --rp-btn-hover-bg: rgba(0, 0, 0, 0.06);
+  --rp-btn-hover-border: rgba(0, 0, 0, 0.1);
+  --rp-disabled-bg: rgba(0, 0, 0, 0.03);
+  --rp-disabled-border: rgba(0, 0, 0, 0.06);
+  --rp-glow-mint: rgba(78, 205, 196, 0.12);
+  --rp-glow-amber: rgba(255, 182, 39, 0.08);
+  --rp-hex-grid: rgba(78, 205, 196, 0.12);
+  --rp-step-border: rgba(0, 0, 0, 0.08);
+  --rp-step-bg: rgba(0, 0, 0, 0.02);
+
+  .form-card {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  }
+
+  .el-input__wrapper {
+    background: #fff !important;
+    border-color: #{$ink-100} !important;
+  }
+  .el-input__inner {
+    color: #{$ink-700} !important;
+  }
+  .el-input__prefix .el-icon {
+    color: #{$ink-300} !important;
   }
 }
 </style>

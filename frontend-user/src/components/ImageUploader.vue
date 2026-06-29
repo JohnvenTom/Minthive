@@ -141,15 +141,8 @@ async function handleFileChange(event: Event): Promise<void> {
 async function uploadItem(item: UploadItem): Promise<void> {
   if (!item.file) return
 
-  const progressTimer = setInterval(() => {
-    if (item.progress < 90) {
-      item.progress += Math.random() * 15
-    }
-  }, 200)
-
   try {
     const res = await uploadImage(item.file)
-    clearInterval(progressTimer)
 
     const url = typeof res.data === 'string' ? res.data : res.data?.url || ''
     if (!url) {
@@ -160,7 +153,6 @@ async function uploadItem(item: UploadItem): Promise<void> {
     item.status = 'done'
     item.serverUrl = url
   } catch (err) {
-    clearInterval(progressTimer)
     console.error('[ImageUploader] 上传失败:', err)
     item.status = 'error'
     item.progress = 0

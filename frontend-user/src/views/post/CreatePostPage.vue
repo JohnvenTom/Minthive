@@ -395,7 +395,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { useUserStore } from '@/stores/user'
 import { createPost, saveDraft } from '@/api/post'
 import { aiGeneratePost, aiPolishPost, aiCheckContent } from '@/api/ai'
-import { uploadImage, uploadVideo } from '@/api/file'
+import { uploadImage, uploadVideo, deleteFile } from '@/api/file'
 import { getCircles } from '@/api/circle'
 import type { Circle, AiPostDraft } from '@/types'
 
@@ -749,6 +749,7 @@ async function onSaveDraft(): Promise<void> {
       circleId: form.value.circleId
     })
     showToast('草稿已保存')
+    published = true
   } catch {
     showToast('保存失败')
   }
@@ -759,24 +760,16 @@ async function onSaveDraft(): Promise<void> {
 /**
  * 发布帖子
  * @returns {Promise<void>}
- * @description 先上传图片到 MinIO，再调用创建帖子接口，成功后跳转首页
+ * @description 图片已在选择时上传，直接调用创建帖子接口，成功后跳转首页
  */
 async function onPublish(): Promise<void> {
   if (!canPublish.value || publishing.value) return
 
   publishing.value = true
   try {
-    // 先上传图片到 MinIO
-    let imageUrls: string[] = form.value.images
-    if (imageUploaderRef.value && form.value.images.length > 0) {
-      showToast({ message: '图片上传中...', duration: 0, forbidClick: true })
-      imageUrls = await imageUploaderRef.value.uploadAll()
-      form.value.images = imageUrls
-    }
-
     const postData = {
       content: form.value.content,
-      images: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined,
+      images: form.value.images.length > 0 ? JSON.stringify(form.value.images) : undefined,
       video: form.value.video || undefined,
       tags: form.value.topics.length > 0 ? form.value.topics.join(',') : undefined,
       visibility: { public: 0, fans: 1, self: 2 }[form.value.visibility] ?? 0,
@@ -789,6 +782,7 @@ async function onPublish(): Promise<void> {
     } else {
       showToast('发布成功')
     }
+    published = true
     router.replace('/')
   } catch {
     showToast('发布失败，请重试')
@@ -843,6 +837,31 @@ async function fetchCircles(): Promise<void> {
 
 // ---------- 导航 ----------
 
+/** 标记是否已发布成功（发布成功后不清理文件） */
+let published = false
+
+/**
+ * 清理已上传到服务器的文件（图片和视频）
+ */
+async function cleanupUploadedFiles(): Promise<void> {
+  // 清理图片
+  if (imageUploaderRef.value) {
+    try {
+      await imageUploaderRef.value.cleanupAll()
+    } catch {
+      console.warn('清理图片失败')
+    }
+  }
+  // 清理视频
+  if (videoUrl.value) {
+    try {
+      await deleteFile(videoUrl.value)
+    } catch {
+      console.warn('清理视频失败')
+    }
+  }
+}
+
 /**
  * 返回上一页
  */
@@ -856,12 +875,15 @@ function goBack(): void {
     })
       .then(() => {
         onSaveDraft()
+        published = true
         router.back()
       })
-      .catch(() => {
+      .catch(async () => {
+        await cleanupUploadedFiles()
         router.back()
       })
   } else {
+    cleanupUploadedFiles()
     router.back()
   }
 }
@@ -873,10 +895,14 @@ onMounted(() => {
 })
 
 /**
- * 组件卸载时移除全局事件监听
+ * 组件卸载时清理资源
+ * @description 移除全局事件监听，清理未发布的已上传文件
  */
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  if (!published) {
+    cleanupUploadedFiles()
+  }
 })
 </script>
 

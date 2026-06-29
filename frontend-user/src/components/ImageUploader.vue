@@ -124,8 +124,9 @@ async function handleFileChange(event: Event): Promise<void> {
       }
       fileList.value.push(item)
 
-      // 立即上传
-      uploadItem(item)
+      // 通过索引上传，确保操作的是响应式对象
+      const idx = fileList.value.length - 1
+      uploadItem(idx)
     } catch {
       showToast('图片压缩失败')
     }
@@ -136,18 +137,16 @@ async function handleFileChange(event: Event): Promise<void> {
 
 /**
  * 上传单张图片到 MinIO
- * @param {UploadItem} item - 待上传的文件项
+ * @param {number} idx - fileList 中的索引
  */
-async function uploadItem(item: UploadItem): Promise<void> {
-  if (!item.file) return
+async function uploadItem(idx: number): Promise<void> {
+  const item = fileList.value[idx]
+  if (!item?.file) return
 
   try {
     const res = await uploadImage(item.file)
-
     const url = typeof res.data === 'string' ? res.data : res.data?.url || ''
-    if (!url) {
-      throw new Error('上传成功但未返回URL')
-    }
+    if (!url) throw new Error('未返回URL')
 
     item.progress = 100
     item.status = 'done'

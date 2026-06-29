@@ -574,13 +574,21 @@ function getVideoDuration(file: File): Promise<number> {
 }
 
 /**
- * 移除已上传视频
+ * 移除已上传视频（同时从 MinIO 删除）
  */
-function onRemoveVideo(): void {
+async function onRemoveVideo(): Promise<void> {
+  const url = videoUrl.value
   videoUrl.value = ''
   form.value.video = ''
   if (videoInputRef.value) {
     videoInputRef.value.value = ''
+  }
+  if (url) {
+    try {
+      await deleteFile(url)
+    } catch {
+      console.warn('删除视频失败')
+    }
   }
 }
 

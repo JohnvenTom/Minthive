@@ -1056,6 +1056,7 @@ onUnmounted(() => {
 // ---------- 图片展示 ----------
 .post-images {
   margin-bottom: $space-4;
+  max-width: 480px;
 }
 
 .image-grid {
@@ -1110,6 +1111,7 @@ onUnmounted(() => {
   margin-bottom: $space-4;
   border-radius: $radius-md;
   overflow: hidden;
+  max-width: 480px;
 }
 
 .video-player {

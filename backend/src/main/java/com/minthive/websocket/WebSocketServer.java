@@ -16,6 +16,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -138,7 +139,21 @@ public class WebSocketServer {
      */
     @OnError
     public void onError(Session session, Throwable error) {
-        log.error("WebSocket 异常: ", error);
+        log.warn("WebSocket 连接异常，准备清理会话: {}", error.getMessage());
+        Long userId = SESSIONS.entrySet().stream()
+                .filter(e -> e.getValue().equals(session))
+                .map(Map.Entry::getKey)
+                .findFirst().orElse(null);
+        if (userId != null) {
+            SESSIONS.remove(userId);
+            ONLINE_MAP.remove(userId);
+            stringRedisTemplate.delete(RedisConstants.WS_ONLINE_PREFIX + userId);
+            log.warn("用户 {} WebSocket 会话已清理，当前在线人数: {}", userId, SESSIONS.size());
+        }
+        try {
+            if (session.isOpen()) session.close();
+        } catch (IOException ignored) {
+        }
     }
 
     /**

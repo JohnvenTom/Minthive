@@ -42,7 +42,7 @@ ai:
   cloud:
     base-url: https://api.longcat.chat/openai
     api-key: ${AI_CLOUD_DEV_API_KEY:sk-your-openai-api-key}
-    model: LongCat-2.0-Preview
+    model: LongCat-2.0
     timeout: 60000
   local:
     base-url: http://localhost:11434

@@ -38,12 +38,13 @@ let isRedirecting = false
 
 /**
  * 401 跳转登录
+ * @param {string} message - 自定义提示信息(默认: "登录已过期,请重新登录")
  */
-function redirectToLogin(): void {
+function redirectToLogin(message: string = '登录已过期,请重新登录'): void {
   if (isRedirecting) return
   isRedirecting = true
   clearToken()
-  ElMessage.warning('登录已过期，请重新登录')
+  ElMessage.warning(message)
   const redirect = encodeURIComponent(location.pathname + location.search)
   setTimeout(() => {
     location.href = `/login?redirect=${redirect}`
@@ -83,6 +84,20 @@ service.interceptors.response.use(
       redirectToLogin()
       return Promise.reject(new Error(res.msg || '未登录'))
     }
+    
+    /**
+     * 401 未登录或登录失效处理(区分不同场景)
+     * - 1006 TOKEN_EXPIRED: Token自然过期或已登出
+     * - 1007 ACCOUNT_KICKED_OUT: 账号在其他设备登录(被踢下)
+     */
+    if (res.code === 1006 || res.code === 1007) {
+      // 根据错误码显示不同提示
+      const message = res.code === 1007 
+        ? '账号在其他设备登录,当前设备已退出' 
+        : '登录已过期,请重新登录'
+      redirectToLogin(message)
+      return Promise.reject(new Error(res.msg || message))
+    }
     if (res.code === 403) {
       ElMessage.warning(res.msg || 'AI 调用次数已达上限')
       return Promise.reject(new Error(res.msg))
@@ -93,6 +108,7 @@ service.interceptors.response.use(
   (error: AxiosError) => {
     const status = error.response?.status
     if (status === 401) {
+      // HTTP 401状态码统一使用默认提示
       redirectToLogin()
     } else if (status === 403) {
       ElMessage.warning('AI 调用次数已达今日上限')

@@ -10,9 +10,11 @@ import com.minthive.entity.User;
 import com.minthive.mapper.AdminUserMapper;
 import com.minthive.mapper.UserMapper;
 import com.minthive.util.BcryptUtil;
+import com.minthive.util.RedisUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -22,7 +24,9 @@ import java.util.Map;
 /**
  * 管理后台-用户管理控制器
  * <p>功能描述：提供用户列表查询、详情、封禁/解封、密码重置、僵尸清理等管理接口</p>
+ * <p>注意事项：敏感操作(封禁/解封/重置密码)必须清除Redis Token缓存,确保立即生效</p>
  */
+@Slf4j
 @Tag(name = "管理后台-用户管理")
 @RestController
 @RequestMapping("/api/admin/user")
@@ -33,6 +37,7 @@ public class AdminUserController {
     private final AdminUserMapper adminUserMapper;
     private final com.minthive.mapper.PostMapper postMapper;
     private final com.minthive.mapper.FollowMapper followMapper;
+    private final RedisUtil redisUtil; // ✅ 注入Redis工具类(用于清除登录态)
 
     /**
      * 分页查询用户列表（含统计子查询，字段对齐前端 UserInfo）
@@ -105,6 +110,8 @@ public class AdminUserController {
 
     /**
      * 封禁用户
+     * <p>功能描述：将用户状态设为封禁(status=0),并立即清除Redis Token缓存强制退出登录</p>
+     * <p>安全机制：清除Token确保被封禁用户无法继续使用原Token访问系统</p>
      *
      * @param params 包含 userId 的请求体
      * @return 操作结果
@@ -113,15 +120,24 @@ public class AdminUserController {
     @PostMapping("/ban")
     public Result<Void> ban(@RequestBody Map<String, Object> params) {
         Long userId = Long.valueOf(params.get("userId").toString());
+        
+        // 1. 更新数据库状态为封禁
         User update = new User();
         update.setId(userId);
         update.setStatus(0);
         userMapper.updateById(update);
+        
+        // 2. ✅ 清除Redis Token缓存(立即失效,强制退出)
+        redisUtil.deleteLoginToken(userId);
+        log.info("管理员封禁用户: userId={}, 已清除登录态", userId);
+        
         return Result.success();
     }
 
     /**
      * 解封用户
+     * <p>功能描述：将用户状态恢复为正常(status=1),并清除可能残留的旧Token确保安全登录</p>
+     * <p>安全机制：清除被封禁期间可能残留的Token,防止恶意Token继续有效</p>
      *
      * @param params 包含 userId 的请求体
      * @return 操作结果
@@ -130,15 +146,24 @@ public class AdminUserController {
     @PostMapping("/unban")
     public Result<Void> unban(@RequestBody Map<String, Object> params) {
         Long userId = Long.valueOf(params.get("userId").toString());
+        
+        // 1. 更新数据库状态为正常
         User update = new User();
         update.setId(userId);
         update.setStatus(1);
         userMapper.updateById(update);
+        
+        // 2. ✅ 清除可能残留的Token(安全考虑,防止被封禁期间生成的Token继续有效)
+        redisUtil.deleteLoginToken(userId);
+        log.info("管理员解封用户: userId={}, 已清除残留登录态,需重新登录", userId);
+        
         return Result.success();
     }
 
     /**
      * 重置用户密码
+     * <p>功能描述：管理员重置用户密码,并立即清除Redis Token缓存强制重新登录</p>
+     * <p>安全机制：清除Token确保用户无法使用旧密码的Token继续访问,必须用新密码重新登录</p>
      *
      * @param params 包含 userId 和 newPassword
      * @return 操作结果
@@ -148,10 +173,17 @@ public class AdminUserController {
     public Result<Void> resetPassword(@RequestBody Map<String, Object> params) {
         Long userId = Long.valueOf(params.get("userId").toString());
         String newPassword = (String) params.get("newPassword");
+        
+        // 1. 更新数据库密码
         User update = new User();
         update.setId(userId);
         update.setPassword(BcryptUtil.encode(newPassword));
         userMapper.updateById(update);
+        
+        // 2. ✅ 清除Redis Token缓存(强制重新登录验证新密码)
+        redisUtil.deleteLoginToken(userId);
+        log.info("管理员重置密码: userId={}, 已清除登录态,强制重新登录", userId);
+        
         return Result.success();
     }
 

@@ -86,18 +86,29 @@ public class JwtInterceptor implements HandlerInterceptor {
             Integer role = claims.get("role") == null ? 0 : ((Number) claims.get("role")).intValue();
             log.debug("Token解析成功: userId={}, account={}", userId, account);
 
-            // 校验 Redis 中 Token 是否仍然有效(支持登出失效)
+            /**
+             * 校验 Redis 中 Token 是否仍然有效(支持登出失效/异地登录互踢)
+             * - Token不存在: 自然过期或已主动登出 → TOKEN_EXPIRED
+             * - Token存在但不匹配: 异地登录被踢下 → ACCOUNT_KICKED_OUT
+             */
             String redisKey = RedisConstants.LOGIN_TOKEN_PREFIX + userId;
             String cachedToken = stringRedisTemplate.opsForValue().get(redisKey);
             log.debug("Redis校验: key={}, cachedToken存在={}, 是否匹配={}",
                     redisKey,
                     StringUtils.hasText(cachedToken),
                     cachedToken != null && cachedToken.equals(token));
-            if (!StringUtils.hasText(cachedToken) || !cachedToken.equals(token)) {
-                log.warn("Redis Token校验失败: userId={}, redisKey={}, token存在={}, 匹配结果={}",
-                        userId, redisKey, StringUtils.hasText(cachedToken),
-                        cachedToken != null && cachedToken.equals(token));
+            
+            // Token不存在(自然过期/已登出)
+            if (!StringUtils.hasText(cachedToken)) {
+                log.warn("Redis Token不存在: userId={}, redisKey={} (自然过期或已登出)", userId, redisKey);
                 return writeUnauthorized(response, ResultCode.TOKEN_EXPIRED);
+            }
+            
+            // Token不匹配(异地登录被踢下)
+            if (!cachedToken.equals(token)) {
+                log.warn("Redis Token不匹配: userId={}, redisKey={}, 当前Token={}, Redis缓存Token={} (账号在其他设备登录)",
+                        userId, redisKey, token.substring(0, 20) + "...", cachedToken.substring(0, 20) + "...");
+                return writeUnauthorized(response, ResultCode.ACCOUNT_KICKED_OUT);
             }
 
             // 存入上下文

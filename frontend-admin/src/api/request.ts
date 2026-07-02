@@ -66,6 +66,24 @@ service.interceptors.response.use(
       }, 1000)
       return Promise.reject(new Error(res.msg || '未登录'))
     }
+    
+    /**
+     * 401 未登录或登录失效处理(区分不同场景)
+     * - 1006 TOKEN_EXPIRED: Token自然过期或已登出
+     * - 1007 ACCOUNT_KICKED_OUT: 账号在其他设备登录(被踢下)
+     */
+    if (res.code === 1006 || res.code === 1007) {
+      clearToken()
+      // 根据错误码显示不同提示
+      const message = res.code === 1007 
+        ? '账号在其他设备登录,当前设备已退出' 
+        : '登录已过期,请重新登录'
+      ElMessage.error(message)
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 1000)
+      return Promise.reject(new Error(res.msg || message))
+    }
     // 403 无权限
     if (res.code === 403) {
       clearToken()

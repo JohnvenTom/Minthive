@@ -57,26 +57,29 @@ public enum ResultCode {
     /** Token 过期 */
     TOKEN_EXPIRED(1006, "Token已过期"),
 
+    /** 账号在其他设备登录(被踢下) */
+    ACCOUNT_KICKED_OUT(1007, "账号在其他设备登录,当前设备已退出"),
+
     /** 内容违规 */
-    CONTENT_VIOLATION(1007, "内容包含违规信息"),
+    CONTENT_VIOLATION(1008, "内容包含违规信息"),
 
     /** 帖子不存在 */
-    POST_NOT_EXISTS(1008, "帖子不存在"),
+    POST_NOT_EXISTS(1009, "帖子不存在"),
 
     /** 圈子不存在 */
-    CIRCLE_NOT_EXISTS(1009, "圈子不存在"),
+    CIRCLE_NOT_EXISTS(1010, "圈子不存在"),
 
     /** 圈子已满 */
-    CIRCLE_FULL(1010, "圈子成员已满"),
+    CIRCLE_FULL(1011, "圈子成员已满"),
 
     /** 文件上传失败 */
-    FILE_UPLOAD_ERROR(1011, "文件上传失败"),
+    FILE_UPLOAD_ERROR(1012, "文件上传失败"),
 
     /** 文件过大 */
-    FILE_TOO_LARGE(1012, "文件大小超过限制"),
+    FILE_TOO_LARGE(1013, "文件大小超过限制"),
 
     /** AI 服务异常 */
-    AI_SERVICE_ERROR(1013, "AI服务暂时不可用"),
+    AI_SERVICE_ERROR(1014, "AI服务暂时不可用"),
 
     /** 重复操作 */
     DUPLICATE_OPERATION(1015, "请勿重复操作"),

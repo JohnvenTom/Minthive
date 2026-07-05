@@ -36,21 +36,21 @@ public class DynamicBannerRunner implements ApplicationRunner {
             "╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝"
     );
 
-    /** ANSI 颜色码序列（红/黄/绿/青/蓝/品红） */
-    private static final String[] ANSI_COLORS = {
-            "\033[91m",  // BRIGHT_RED
-            "\033[93m",  // BRIGHT_YELLOW
-            "\033[92m",  // BRIGHT_GREEN
-            "\033[96m",  // BRIGHT_CYAN
-            "\033[94m",  // BRIGHT_BLUE
-            "\033[95m"   // BRIGHT_MAGENTA
-    };
-
     /** ANSI 重置码 */
     private static final String ANSI_RESET = "\033[0m";
 
+    /** 彩虹色 RGB 值（红/黄/绿/青/蓝/品红），用于渐变插值 */
+    private static final int[][] RAINBOW_RGB = {
+            {255, 80, 80},    // 红
+            {255, 220, 50},   // 黄
+            {80, 230, 80},    // 绿
+            {50, 220, 220},   // 青
+            {80, 120, 255},   // 蓝
+            {200, 80, 255}    // 品红
+    };
+
     /** 颜色数量 */
-    private static final int NUM_COLORS = ANSI_COLORS.length;
+    private static final int NUM_COLORS = RAINBOW_RGB.length;
 
     /** 颜色偏移量（每行偏移2个色段，形成斜向彩虹） */
     private static final int ROW_SHIFT = 2;
@@ -126,8 +126,8 @@ public class DynamicBannerRunner implements ApplicationRunner {
 
                 drawFrame(frame[0]);
                 System.out.flush();
-                // 每帧偏移一个完整颜色块，确保颜色切换对齐
-                frame[0] = (frame[0] + 1) % NUM_COLORS;
+                // 渐变模式：每帧移动半个颜色块(2.5字符)，完整视觉周期需要2*NUM_COLORS帧
+                frame[0] = (frame[0] + 1) % (2 * NUM_COLORS);
             } catch (Exception e) {
                 scheduler.shutdown();
             }
@@ -135,10 +135,10 @@ public class DynamicBannerRunner implements ApplicationRunner {
     }
 
     /**
-     * 绘制一帧 banner（横向彩虹滚动效果）
+     * 绘制一帧 banner（横向彩虹渐变滚动效果）
      *
-     * <p>原理：每个字符的颜色由 (字符索引 + 行偏移 - 帧偏移) 决定，
-     * 随着帧数递增，颜色整体向右移动，形成彩虹从左向右横向流动的视觉效果。</p>
+     * <p>原理：每个字符的颜色在相邻彩虹色之间线性插值，产生平滑渐变效果；
+     * 使用 ANSI 24-bit 真彩色 \033[38;2;R;G;Bm 输出精确 RGB 颜色。</p>
      *
      * @param colorOffset 帧偏移量（每帧+1，驱动颜色向右滚动）
      */
@@ -153,19 +153,33 @@ public class DynamicBannerRunner implements ApplicationRunner {
             int lineLen = line.length();
             StringBuilder sb = new StringBuilder();
 
-            int prevCi = -1;
+            int prevR = -1, prevG = -1, prevB = -1;
             for (int col = 0; col < lineLen; col++) {
-                // 颜色索引：基于字符位置+行偏移-帧偏移，形成横向滚动
-                // colorOffset * COLOR_BLOCK_WIDTH 确保每帧移动一个完整颜色块
-                int pos = (col + row * ROW_SHIFT - colorOffset * COLOR_BLOCK_WIDTH) % CYCLE_WIDTH;
-                // 处理负数取模
-                if (pos < 0) pos += CYCLE_WIDTH;
-                int ci = pos / COLOR_BLOCK_WIDTH;
+                // 连续位置：字符索引+行偏移-帧偏移，每帧移动半个颜色块实现平滑滚动
+                float pos = col + row * ROW_SHIFT - colorOffset * (COLOR_BLOCK_WIDTH / 2f);
 
-                // 只在颜色变化时输出颜色码，减少转义序列数量
-                if (ci != prevCi) {
-                    sb.append(ANSI_COLORS[ci]);
-                    prevCi = ci;
+                // 归一化到 [0, NUM_COLORS) 的浮点数，实现渐变插值
+                float normalPos = pos / COLOR_BLOCK_WIDTH;
+                normalPos = normalPos % NUM_COLORS;
+                if (normalPos < 0) normalPos += NUM_COLORS;
+
+                // 当前颜色索引和下一颜色索引
+                int ci = (int) normalPos;
+                int ciNext = (ci + 1) % NUM_COLORS;
+                // 插值比例
+                float ratio = normalPos - ci;
+
+                // 线性插值计算 RGB
+                int r = (int) (RAINBOW_RGB[ci][0] + (RAINBOW_RGB[ciNext][0] - RAINBOW_RGB[ci][0]) * ratio);
+                int g = (int) (RAINBOW_RGB[ci][1] + (RAINBOW_RGB[ciNext][1] - RAINBOW_RGB[ci][1]) * ratio);
+                int b = (int) (RAINBOW_RGB[ci][2] + (RAINBOW_RGB[ciNext][2] - RAINBOW_RGB[ci][2]) * ratio);
+
+                // 只在 RGB 变化时输出颜色码，减少转义序列数量
+                if (r != prevR || g != prevG || b != prevB) {
+                    sb.append("\033[38;2;").append(r).append(';').append(g).append(';').append(b).append('m');
+                    prevR = r;
+                    prevG = g;
+                    prevB = b;
                 }
                 sb.append(line.charAt(col));
             }

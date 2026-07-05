@@ -55,8 +55,11 @@ public class DynamicBannerRunner implements ApplicationRunner {
     /** 颜色偏移量（每行偏移2个色段，形成斜向彩虹） */
     private static final int ROW_SHIFT = 2;
 
+    /** 横向滚动：每个彩虹周期的字符宽度（值越小滚动越密） */
+    private static final int CYCLE_WIDTH = 12;
+
     /** 动画帧间隔（毫秒） */
-    private static final long FRAME_INTERVAL_MS = 200;
+    private static final long FRAME_INTERVAL_MS = 120;
 
     /** 动画持续时长（秒） */
     private static final long ANIMATION_DURATION_SEC = 15;
@@ -128,9 +131,12 @@ public class DynamicBannerRunner implements ApplicationRunner {
     }
 
     /**
-     * 绘制一帧 banner
+     * 绘制一帧 banner（横向彩虹滚动效果）
      *
-     * @param colorOffset 颜色偏移量（用于实现颜色流动效果）
+     * <p>原理：每个字符的颜色由 (字符索引 + 行偏移 - 帧偏移) 决定，
+     * 随着帧数递增，颜色整体向右移动，形成彩虹从左向右横向流动的视觉效果。</p>
+     *
+     * @param colorOffset 帧偏移量（每帧+1，驱动颜色向右滚动）
      */
     private void drawFrame(int colorOffset) {
         // 光标移到 banner 起始位置（banner 6行 + 空行1行 = 7行）
@@ -141,20 +147,21 @@ public class DynamicBannerRunner implements ApplicationRunner {
         for (int row = 0; row < BANNER_LINES.size(); row++) {
             String line = BANNER_LINES.get(row);
             int lineLen = line.length();
-            int segLen = lineLen / NUM_COLORS;
             StringBuilder sb = new StringBuilder();
 
-            for (int seg = 0; seg < NUM_COLORS; seg++) {
-                int ci = ((row + seg) * ROW_SHIFT + colorOffset) % NUM_COLORS;
-                int start = Math.max(0, Math.min(seg * segLen - row * ROW_SHIFT, lineLen));
-                int end = Math.max(start, Math.min(
-                        seg < NUM_COLORS - 1 ? (seg + 1) * segLen - row * ROW_SHIFT : lineLen,
-                        lineLen));
+            int prevCi = -1;
+            for (int col = 0; col < lineLen; col++) {
+                // 颜色索引：基于字符位置+行偏移-帧偏移，形成横向滚动
+                // +行偏移产生斜向效果，-帧偏移使颜色向右移动
+                int ci = ((col + row * ROW_SHIFT - colorOffset) % CYCLE_WIDTH + CYCLE_WIDTH) % CYCLE_WIDTH
+                        * NUM_COLORS / CYCLE_WIDTH;
 
-                if (start < end) {
+                // 只在颜色变化时输出颜色码，减少转义序列数量
+                if (ci != prevCi) {
                     sb.append(ANSI_COLORS[ci]);
-                    sb.append(line, start, end);
+                    prevCi = ci;
                 }
+                sb.append(line.charAt(col));
             }
 
             sb.append(ANSI_RESET);

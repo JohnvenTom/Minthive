@@ -4,6 +4,9 @@ server:
     context-path: /
 
 spring:
+  output:
+    ansi:
+      enabled: always
   profiles:
     active: dev
   application:

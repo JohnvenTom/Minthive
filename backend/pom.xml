@@ -159,6 +159,13 @@
             <version>3.0.1</version>
         </dependency>
 
+        <!-- JNA（调用 Windows 原生 API 启用终端 ANSI 颜色支持） -->
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>5.14.0</version>
+        </dependency>
+
         <!-- 测试 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -55,14 +55,17 @@ public class DynamicBannerRunner implements ApplicationRunner {
     /** 颜色偏移量（每行偏移2个色段，形成斜向彩虹） */
     private static final int ROW_SHIFT = 2;
 
-    /** 横向滚动：每个彩虹周期的字符宽度（值越小滚动越密） */
-    private static final int CYCLE_WIDTH = 12;
+    /** 横向滚动：每种颜色的字符宽度 */
+    private static final int COLOR_BLOCK_WIDTH = 5;
+
+    /** 横向滚动：一个彩虹周期的字符宽度（6色×2格=12） */
+    private static final int CYCLE_WIDTH = NUM_COLORS * COLOR_BLOCK_WIDTH;
 
     /** 动画帧间隔（毫秒） */
-    private static final long FRAME_INTERVAL_MS = 120;
+    private static final long FRAME_INTERVAL_MS = 100;
 
     /** 动画持续时长（秒） */
-    private static final long ANIMATION_DURATION_SEC = 15;
+    private static final long ANIMATION_DURATION_SEC = 20;
 
     /** Windows kernel32.dll 中 ENABLE_VIRTUAL_TERMINAL_PROCESSING 标志值 */
     private static final int ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;
@@ -152,9 +155,11 @@ public class DynamicBannerRunner implements ApplicationRunner {
             int prevCi = -1;
             for (int col = 0; col < lineLen; col++) {
                 // 颜色索引：基于字符位置+行偏移-帧偏移，形成横向滚动
-                // +行偏移产生斜向效果，-帧偏移使颜色向右移动
-                int ci = ((col + row * ROW_SHIFT - colorOffset) % CYCLE_WIDTH + CYCLE_WIDTH) % CYCLE_WIDTH
-                        * NUM_COLORS / CYCLE_WIDTH;
+                // 除以COLOR_BLOCK_WIDTH使每种颜色占据指定宽度的字符数
+                int pos = (col + row * ROW_SHIFT - colorOffset) % CYCLE_WIDTH;
+                // 处理负数取模
+                if (pos < 0) pos += CYCLE_WIDTH;
+                int ci = pos / COLOR_BLOCK_WIDTH;
 
                 // 只在颜色变化时输出颜色码，减少转义序列数量
                 if (ci != prevCi) {

@@ -126,6 +126,7 @@ public class DynamicBannerRunner implements ApplicationRunner {
 
                 drawFrame(frame[0]);
                 System.out.flush();
+                // 每帧偏移一个完整颜色块，确保颜色切换对齐
                 frame[0] = (frame[0] + 1) % NUM_COLORS;
             } catch (Exception e) {
                 scheduler.shutdown();
@@ -155,8 +156,8 @@ public class DynamicBannerRunner implements ApplicationRunner {
             int prevCi = -1;
             for (int col = 0; col < lineLen; col++) {
                 // 颜色索引：基于字符位置+行偏移-帧偏移，形成横向滚动
-                // 除以COLOR_BLOCK_WIDTH使每种颜色占据指定宽度的字符数
-                int pos = (col + row * ROW_SHIFT - colorOffset) % CYCLE_WIDTH;
+                // colorOffset * COLOR_BLOCK_WIDTH 确保每帧移动一个完整颜色块
+                int pos = (col + row * ROW_SHIFT - colorOffset * COLOR_BLOCK_WIDTH) % CYCLE_WIDTH;
                 // 处理负数取模
                 if (pos < 0) pos += CYCLE_WIDTH;
                 int ci = pos / COLOR_BLOCK_WIDTH;

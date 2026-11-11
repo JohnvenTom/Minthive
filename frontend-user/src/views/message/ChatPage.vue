@@ -786,6 +786,31 @@ function onWsMessage(data: any): void {
   }
 }
 
+/**
+ * WebSocket 撤回推送处理
+ * @param {any} data - 推送数据，包含 messageId
+ * @description 对方撤回消息时实时从当前列表中移除，避免刷新前看到已撤回内容
+ * @returns {void}
+ */
+function onWsRevoke(data: any): void {
+  if (!data?.messageId) return
+  const index = messages.value.findIndex(m => m.id === data.messageId)
+  if (index >= 0) messages.value.splice(index, 1)
+}
+
+/**
+ * WebSocket 已读回执处理
+ * @param {any} data - 推送数据，包含 peerId
+ * @description 对方阅读后，把自己发给对方的这条会话消息标记为已读
+ * @returns {void}
+ */
+function onWsReadReceipt(data: any): void {
+  if (data?.peerId !== targetUserId.value) return
+  messages.value.forEach(m => {
+    if (m.fromUserId === currentUserId.value) m.read = true
+  })
+}
+
 // ---------- 生命周期 ----------
 onMounted(async () => {
   // 确保当前用户信息已加载（currentUserId 依赖它判断"自己的消息"）
@@ -837,11 +862,15 @@ onMounted(async () => {
   markRead(targetUserId.value)
 
   chatStore.connectWs()
-  wsClient.on('message', onWsMessage)
+  wsClient.on('chat', onWsMessage)
+  wsClient.on('revoke', onWsRevoke)
+  wsClient.on('read_receipt', onWsReadReceipt)
 })
 
 onUnmounted(() => {
-  wsClient.off('message', onWsMessage)
+  wsClient.off('chat', onWsMessage)
+  wsClient.off('revoke', onWsRevoke)
+  wsClient.off('read_receipt', onWsReadReceipt)
 })
 </script>
 

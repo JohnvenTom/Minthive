@@ -30,54 +30,54 @@ public class AiRateLimiter {
     private final AiConfig aiConfig;
 
     /**
-     * 校验当前用户是否超出每日 AI 调用上限
+     * 原子预占一次 AI 调用额度
      *
-     * <p>当 Redis 不可用或用户未登录时自动放行，避免因基础设施故障导致所有 AI 功能不可用</p>
+     * <p>功能描述：用 Redis INCR 的原子性完成"校验 + 计数"，
+     * 避免 checkLimit 与 increment 分离导致的并发超额；超限时回滚本次自增并抛出业务异常</p>
      *
-     * @throws BusinessException 超出上限时抛出
+     * @return 无返回值
+     * @throws BusinessException 当日额度已用完时抛出 AI_RATE_LIMITED
+     * @note Redis 不可用或未登录时放行，与 checkLimit 的降级策略保持一致
      */
-    public void checkLimit() {
+    public void reserve() {
         try {
             Long userId = getUserIdSafe();
-            if (userId == null) {
-                // 未登录用户跳过限流校验（AI 接口配置为免登录）
-                return;
-            }
+            if (userId == null) return;
             String key = buildKey(userId);
-            String countStr = stringRedisTemplate.opsForValue().get(key);
-            int count = countStr == null ? 0 : Integer.parseInt(countStr);
+            Long newCount = stringRedisTemplate.opsForValue().increment(key);
+            if (newCount == null) return;
+            if (newCount == 1L) {
+                stringRedisTemplate.expire(key, computeSecondsUntilEndOfDay(), TimeUnit.SECONDS);
+            }
             int limit = aiConfig.getRateLimit().getDaily();
-            if (count >= limit) {
+            if (newCount > limit) {
+                // 超出上限的这次调用不消耗额度，回滚自增
+                stringRedisTemplate.opsForValue().decrement(key);
                 log.warn("用户 {} 当日AI调用次数已达上限 {}", userId, limit);
                 throw new BusinessException(ResultCode.AI_RATE_LIMITED);
             }
         } catch (BusinessException e) {
-            // 业务异常（超限）继续抛出
             throw e;
         } catch (Exception e) {
-            // Redis 不可用时打印警告并放行，不影响 AI 功能使用
-            log.warn("[AiRateLimiter] 限流校验异常，跳过: {}", e.getMessage());
+            log.warn("[AiRateLimiter] 额度预占异常，跳过: {}", e.getMessage());
         }
     }
 
     /**
-     * 记录一次 AI 调用(计数 +1)
+     * 释放一次已预占的额度
      *
-     * <p>Redis 不可用或未登录时静默跳过，不影响 AI 功能</p>
+     * <p>功能描述：AI 调用失败时把 reserve() 预占的计数回滚，保证失败请求不消耗额度</p>
+     *
+     * @return 无返回值
+     * @note Redis 不可用或未登录时静默跳过
      */
-    public void increment() {
+    public void release() {
         try {
             Long userId = getUserIdSafe();
-            if (userId == null) return; // 未登录不计数
-            String key = buildKey(userId);
-            Long newCount = stringRedisTemplate.opsForValue().increment(key);
-            // 首次调用设置过期时间(到当日 23:59:59)
-            if (newCount != null && newCount == 1L) {
-                long secondsUntilEndOfDay = computeSecondsUntilEndOfDay();
-                stringRedisTemplate.expire(key, secondsUntilEndOfDay, TimeUnit.SECONDS);
-            }
+            if (userId == null) return;
+            stringRedisTemplate.opsForValue().decrement(buildKey(userId));
         } catch (Exception e) {
-            log.warn("[AiRateLimiter] Redis 计数异常，跳过: {}", e.getMessage());
+            log.warn("[AiRateLimiter] 额度回滚异常，跳过: {}", e.getMessage());
         }
     }
 

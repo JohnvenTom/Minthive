@@ -88,10 +88,11 @@ public class CommentServiceImpl implements CommentService {
                     String content = fromNickname + " 回复了你: " + (preview != null ? preview : "");
                     systemMsgService.push(replyTargetUserId, Constants.SYS_MSG_TYPE_REPLY, content, comment.getPostId());
                     WebSocketServer.sendToUser(replyTargetUserId,
-                            WsMessage.of(MessageType.REPLY.getCode(), fromUserId, replyTargetUserId,
+                            WsMessage.ofData(MessageType.REPLY.getCode(),
                                     Map.of("commentId", comment.getId(),
                                             "postId", comment.getPostId(),
-                                            "content", preview)));
+                                            "nickname", fromNickname,
+                                            "content", preview == null ? "" : preview)));
                 }
             }
         } else {
@@ -105,10 +106,11 @@ public class CommentServiceImpl implements CommentService {
                     String content = fromNickname + " 评论了你的动态: " + (preview != null ? preview : "");
                     systemMsgService.push(post.getUserId(), 2, content, comment.getPostId());
                     WebSocketServer.sendToUser(post.getUserId(),
-                            WsMessage.of(MessageType.COMMENT.getCode(), fromUserId, post.getUserId(),
+                            WsMessage.ofData(MessageType.COMMENT.getCode(),
                                     Map.of("commentId", comment.getId(),
                                             "postId", comment.getPostId(),
-                                            "content", preview)));
+                                            "nickname", fromNickname,
+                                            "content", preview == null ? "" : preview)));
                 }
             }
         }

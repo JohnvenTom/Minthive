@@ -537,15 +537,15 @@ onMounted(() => {
   }
   fetchUnreadCount()
   chatStore.connectWs()
-  wsClient.on('message', onWsMessage)
-  wsClient.on('notice', onWsNotify)
+  wsClient.on('chat', onWsMessage)
+  wsClient.on('system', onWsNotify)
   wsClient.on('reply', onWsNotify)
   wsClient.on('comment', onWsNotify)
 })
 
 onUnmounted(() => {
-  wsClient.off('message', onWsMessage)
-  wsClient.off('notice', onWsNotify)
+  wsClient.off('chat', onWsMessage)
+  wsClient.off('system', onWsNotify)
   wsClient.off('reply', onWsNotify)
   wsClient.off('comment', onWsNotify)
 })

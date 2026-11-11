@@ -8,6 +8,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { wsClient } from '@/utils/websocket'
 import { getChatList, getUnreadCount, markRead as markReadApi, sendMessage as sendMessageApi } from '@/api/message'
+import { getPreferences } from '@/utils/preferences'
 import type { Message } from '@/types'
 
 /** 会话项接口 */
@@ -62,13 +63,14 @@ export const useChatStore = defineStore('chat', () => {
       wsConnected.value = false
     })
 
-    wsClient.on('message', (data: Message) => {
+    wsClient.on('chat', (data: Message) => {
       // 收到新消息，更新会话列表中对应会话
       const existingChat = chatList.value.find(c => c.userId === data.fromUserId)
+      const notifyEnabled = getPreferences().notifyChat
       if (existingChat) {
         existingChat.lastMessage = data.content
         existingChat.lastTime = data.createTime
-        if (!currentChat.value || currentChat.value.userId !== data.fromUserId) {
+        if (notifyEnabled && (!currentChat.value || currentChat.value.userId !== data.fromUserId)) {
           existingChat.unread++
           unreadCount.value++
         }
@@ -80,9 +82,9 @@ export const useChatStore = defineStore('chat', () => {
           avatar: data.fromAvatar,
           lastMessage: data.content,
           lastTime: data.createTime,
-          unread: 1
+          unread: notifyEnabled ? 1 : 0
         })
-        unreadCount.value++
+        if (notifyEnabled) unreadCount.value++
       }
     })
 
@@ -112,14 +114,21 @@ export const useChatStore = defineStore('chat', () => {
 
   /**
    * 拉取未读消息统计
-   * @description 从服务端获取各类型未读数量并汇总
-   * @returns {Promise<number>} 未读总数
+   * @description 从服务端获取各类型未读数量，并按用户在设置页关闭的通知类型做过滤
+   * @returns {Promise<number>} 过滤后的未读总数
    * @throws {Error} 网络异常时抛出
    */
   async function fetchUnreadCount(): Promise<number> {
     const res = await getUnreadCount()
     const data = res.data
-    unreadCount.value = (data?.message || 0) + (data?.comment || 0) + (data?.like || 0) + (data?.circle || 0) + (data?.system || 0)
+    const prefs = getPreferences()
+    let total = 0
+    if (prefs.notifyChat) total += data?.message || 0
+    if (prefs.notifyComment) total += data?.comment || 0
+    if (prefs.notifyLike) total += data?.like || 0
+    if (prefs.notifyCircle) total += data?.circle || 0
+    total += data?.system || 0
+    unreadCount.value = total
     return unreadCount.value
   }
 

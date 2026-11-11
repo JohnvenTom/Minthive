@@ -28,8 +28,7 @@ class AiControllerSecurityTest {
         assertSame(unavailable, response.getData());
         assertFalse(response.getData().available);
         assertTrue(response.getMsg().contains("不可用"));
-        verify(limiter).checkLimit();
-        verify(limiter).increment();
+        verify(limiter).reserve();
     }
 
     @Test

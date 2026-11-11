@@ -9,7 +9,11 @@ import com.minthive.common.ResultCode;
 import com.minthive.entity.*;
 import com.minthive.mapper.*;
 import com.minthive.service.MessageService;
+import com.minthive.websocket.MessageType;
+import com.minthive.websocket.WebSocketServer;
+import com.minthive.websocket.WsMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -22,6 +26,7 @@ import java.util.stream.Collectors;
  * <p>私信功能：发送、聊天记录、已读标记、AI代回复撤回、会话列表</p>
  * <p>通知功能：聚合点赞/评论/关注/圈子/系统 五类通知，支持类型筛选与分页</p>
  */
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class MessageServiceImpl implements MessageService {
@@ -49,8 +54,44 @@ public class MessageServiceImpl implements MessageService {
         if (message.getMsgType() == null) {
             message.setMsgType(Constants.MSG_TYPE_TEXT);
         }
+        if (message.getCreateTime() == null) {
+            message.setCreateTime(LocalDateTime.now());
+        }
         messageMapper.insert(message);
+        pushChat(message);
         return message;
+    }
+
+    /**
+     * 向接收方推送新私信
+     *
+     * <p>功能描述：把持久化后的消息连同发送者昵称、头像一起推给接收方，
+     * 接收方前端据此实时追加消息并更新会话列表</p>
+     *
+     * @param message 已入库的消息
+     * @return 无返回值
+     * @throws 无异常抛出：推送失败仅记录日志，不影响消息已入库的事实
+     * @note 推送不是可靠投递，接收方离线时依赖下拉历史记录补齐
+     */
+    private void pushChat(Message message) {
+        try {
+            User sender = userMapper.selectById(message.getFromUserId());
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("id", message.getId());
+            payload.put("fromUserId", message.getFromUserId());
+            payload.put("toUserId", message.getToUserId());
+            payload.put("content", message.getContent());
+            payload.put("msgType", message.getMsgType());
+            payload.put("isRead", message.getIsRead());
+            payload.put("aiReply", message.getAiReply());
+            payload.put("createTime", message.getCreateTime());
+            payload.put("fromNickname", sender == null ? null : sender.getNickname());
+            payload.put("fromAvatar", sender == null ? null : sender.getAvatar());
+            WebSocketServer.sendToUser(message.getToUserId(),
+                    WsMessage.ofData(MessageType.CHAT.getCode(), payload));
+        } catch (Exception e) {
+            log.warn("私信实时推送失败 messageId={}", message.getId(), e);
+        }
     }
 
     /**
@@ -84,6 +125,16 @@ public class MessageServiceImpl implements MessageService {
                 .eq(Message::getToUserId, toUserId)
                 .eq(Message::getIsRead, Constants.READ_STATUS_UNREAD)
                 .set(Message::getIsRead, Constants.READ_STATUS_READ));
+        // 回执给发送方：对方已读，发送方前端可刷新“已读/未读”标记
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("peerId", toUserId);
+            payload.put("read", true);
+            WebSocketServer.sendToUser(fromUserId,
+                    WsMessage.ofData(MessageType.READ_RECEIPT.getCode(), payload));
+        } catch (Exception e) {
+            log.warn("已读回执推送失败 from={} to={}", fromUserId, toUserId, e);
+        }
     }
 
     /**
@@ -103,6 +154,16 @@ public class MessageServiceImpl implements MessageService {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权撤回他人消息");
         }
         messageMapper.deleteById(messageId);
+        // 通知接收方实时移除该消息，避免双方视图不一致
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("messageId", messageId);
+            payload.put("fromUserId", message.getFromUserId());
+            WebSocketServer.sendToUser(message.getToUserId(),
+                    WsMessage.ofData(MessageType.REVOKE.getCode(), payload));
+        } catch (Exception e) {
+            log.warn("撤回消息推送失败 messageId={}", messageId, e);
+        }
     }
 
     /**

@@ -331,29 +331,78 @@
  * @description 用户设置页面，包含账号安全、通知设置、AI功能开关、缓存清理、退出登录、注销账号等
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import NavBar from '@/components/NavBar.vue'
 import { useUserStore } from '@/stores/user'
 import { changePassword } from '@/api/auth'
+import { deactivateAccount } from '@/api/user'
+import { getPreferences, savePreferences } from '@/utils/preferences'
 
 const router = useRouter()
 const userStore = useUserStore()
 
+/** 本地已保存的偏好，用于初始化开关初值 */
+const savedPrefs = getPreferences()
+
 /** 通知开关 */
-const notifyComment = ref(true)
-const notifyLike = ref(true)
-const notifyChat = ref(true)
-const notifyCircle = ref(true)
+const notifyComment = ref(savedPrefs.notifyComment)
+const notifyLike = ref(savedPrefs.notifyLike)
+const notifyChat = ref(savedPrefs.notifyChat)
+const notifyCircle = ref(savedPrefs.notifyCircle)
 
 /** AI 功能开关 */
-const aiAutoReply = ref(false)
-const aiPostHelper = ref(true)
-const aiCommentSuggest = ref(true)
+const aiAutoReply = ref(savedPrefs.aiAutoReply)
+const aiPostHelper = ref(savedPrefs.aiPostHelper)
+const aiCommentSuggest = ref(savedPrefs.aiCommentSuggest)
+
+/**
+ * 任一切换开关时持久化全部偏好
+ * @description 写入 localStorage 后，刷新页面或重新进入设置页仍保持用户选择
+ * @returns {void}
+ */
+watch([notifyComment, notifyLike, notifyChat, notifyCircle, aiAutoReply, aiPostHelper, aiCommentSuggest], () => {
+  savePreferences({
+    notifyComment: notifyComment.value,
+    notifyLike: notifyLike.value,
+    notifyChat: notifyChat.value,
+    notifyCircle: notifyCircle.value,
+    aiAutoReply: aiAutoReply.value,
+    aiPostHelper: aiPostHelper.value,
+    aiCommentSuggest: aiCommentSuggest.value
+  })
+})
+
+/** 清除缓存时需要保留的键：登录态、用户信息、主题与偏好 */
+const PRESERVED_KEYS = ['minthive_token', 'minthive_user', 'minthive_app', 'minthive_prefs']
 
 /** 缓存大小显示 */
-const cacheSize = ref('12.3 MB')
+const cacheSize = ref('0 KB')
+
+/**
+ * 统计本地缓存占用
+ * @returns {string} 形如 "12.3 KB" 的可读大小
+ * @description 仅统计 localStorage 中非登录态的键值，按 UTF-16 每字符 2 字节估算
+ */
+function measureCacheSize(): string {
+  let bytes = 0
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key || PRESERVED_KEYS.includes(key)) continue
+      bytes += (key.length + (localStorage.getItem(key)?.length || 0)) * 2
+    }
+  } catch {
+    return '0 KB'
+  }
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${Math.max(0, Math.round(bytes / 1024))} KB`
+}
+
+onMounted(() => {
+  cacheSize.value = measureCacheSize()
+})
 
 /** 弹窗控制 */
 const showAbout = ref(false)
@@ -519,14 +568,27 @@ function goInterest(): void {
 
 /**
  * 清除缓存
- * @description 清除本地缓存数据并提示用户
+ * @description 实际删除 localStorage 中除登录态、主题与偏好之外的缓存键，
+ *   并重新统计占用，避免只改文案不清理数据
+ * @returns {void}
  */
 function clearCache(): void {
   showConfirmDialog({
     title: '清除缓存',
     message: '确定要清除所有本地缓存数据吗？'
   }).then(() => {
-    cacheSize.value = '0 MB'
+    try {
+      const removable: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && !PRESERVED_KEYS.includes(key)) removable.push(key)
+      }
+      removable.forEach(key => localStorage.removeItem(key))
+    } catch {
+      showToast('缓存清理失败')
+      return
+    }
+    cacheSize.value = measureCacheSize()
     showToast('缓存已清除')
   }).catch(() => {})
 }
@@ -546,14 +608,21 @@ function handleLogout(): void {
 
 /**
  * 注销账号
- * @description 确认后调用注销接口（7天冷静期）
+ * @description 调用后端注销接口进入 7 天冷静期；成功后清理登录态并回到登录页
+ * @returns {void}
  */
 function handleDeleteAccount(): void {
   showConfirmDialog({
     title: '注销账号',
     message: '注销后账号将进入7天冷静期，冷静期结束后所有数据将被永久删除且不可恢复。确定要注销吗？'
-  }).then(() => {
-    showToast('已提交注销申请，7天冷静期后生效')
+  }).then(async () => {
+    try {
+      await deactivateAccount()
+      showToast('已提交注销申请，7天冷静期后生效')
+      await userStore.logout()
+    } catch {
+      showToast('注销申请失败，请稍后再试')
+    }
   }).catch(() => {})
 }
 </script>

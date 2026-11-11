@@ -21,10 +21,11 @@ spring:
           max-wait: 3000ms
 
 # MinIO 本地对象存储配置
-# 注意：endpoint 必须使用客户端可访问的地址，不能用 localhost
+# endpoint 为后端访问地址；public-url 为媒体直链的对外地址。
+# 两者必须与数据库中已存的媒体 URL 前缀一致，后端才能把旧绝对地址改写为票据代理地址。
 minio:
-  endpoint: http://26.141.51.0:9000
-  public-url: http://100.69.234.20:9000
+  endpoint: ${MINIO_ENDPOINT:http://26.141.51.0:9000}
+  public-url: ${MINIO_PUBLIC_URL:http://100.69.234.20:9000}
   access-key: ${MINIO_DEV_ACCESS_KEY:minioadmin}
   secret-key: ${MINIO_DEV_SECRET_KEY:minioadmin}
   bucket: minthive

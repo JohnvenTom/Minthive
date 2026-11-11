@@ -2,6 +2,7 @@ package com.minthive.controller;
 
 import com.minthive.common.Result;
 import com.minthive.common.ResultCode;
+import com.minthive.config.JwtConfig;
 import com.minthive.entity.User;
 import com.minthive.security.UserContext;
 import com.minthive.service.SmsService;
@@ -12,10 +13,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,21 +40,24 @@ public class AuthController {
     private final UserService userService;
     private final SmsService smsService;
     private final RedisUtil redisUtil;
+    private final JwtConfig jwtConfig;
 
     /** 手机号正则校验 */
     private static final String PHONE_REGEX = "^1[3-9]\\d{9}$";
 
     /**
-     * 构造器注入 UserService、SmsService 和 RedisUtil
+     * 构造器注入依赖
      *
      * @param userService 用户服务
      * @param smsService  短信验证码服务
      * @param redisUtil   Redis工具类
+     * @param jwtConfig   JWT 配置（用于解析请求头前缀）
      */
-    public AuthController(UserService userService, SmsService smsService, RedisUtil redisUtil) {
+    public AuthController(UserService userService, SmsService smsService, RedisUtil redisUtil, JwtConfig jwtConfig) {
         this.userService = userService;
         this.smsService = smsService;
         this.redisUtil = redisUtil;
+        this.jwtConfig = jwtConfig;
     }
 
     /**
@@ -156,14 +162,25 @@ public class AuthController {
     /**
      * 退出登录
      *
+     * <p>多端登录场景下只撤销当前请求携带的 Token，其他设备的会话保持有效</p>
+     *
+     * @param authorization 请求头中的凭证（形如 "Bearer {token}"）
      * @return 操作结果
+     * @note 无法解析出 Token 时不做任何撤销，避免误把用户全部设备踢下线
      */
     @Operation(summary = "退出登录")
     @PostMapping("/logout")
-    public Result<Void> logout() {
+    public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
         Long userId = UserContext.requireUserId();
-        if (userId != null) {
-            redisUtil.deleteLoginToken(userId);
+        if (userId == null) {
+            return Result.success();
+        }
+        String prefix = jwtConfig.getPrefix();
+        if (StringUtils.hasText(authorization) && authorization.startsWith(prefix)) {
+            String token = authorization.substring(prefix.length()).trim();
+            if (StringUtils.hasText(token)) {
+                redisUtil.deleteLoginToken(userId, token);
+            }
         }
         return Result.success();
     }

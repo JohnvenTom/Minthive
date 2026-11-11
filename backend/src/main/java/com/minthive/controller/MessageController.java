@@ -45,17 +45,19 @@ public class MessageController {
     }
 
     /**
-     * 查询聊天记录
+     * 查询聊天记录（游标分页）
      *
-     * @param peerId 对方用户ID
-     * @param limit  最大条数
-     * @return 消息列表
+     * @param peerId   对方用户ID
+     * @param beforeId 游标：只返回ID小于该值的更早消息，不传表示加载最新一页
+     * @param limit    每页条数
+     * @return 按ID降序排列的消息列表（前端反转后正序渲染）
      */
     @Operation(summary = "查询聊天记录")
     @GetMapping("/history")
     public Result<List<Message>> history(@RequestParam Long peerId,
-                                         @RequestParam(defaultValue = "100") Integer limit) {
-        return Result.success(messageService.chatHistory(UserContext.getUserId(), peerId, limit));
+                                         @RequestParam(required = false) Long beforeId,
+                                         @RequestParam(defaultValue = "30") Integer limit) {
+        return Result.success(messageService.chatHistory(UserContext.getUserId(), peerId, beforeId, limit));
     }
 
     /**
@@ -114,6 +116,22 @@ public class MessageController {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
         return Result.success(messageService.getNotificationList(UserContext.getUserId(), type, page, pageSize));
+    }
+
+    /**
+     * 标记单条通知已读
+     *
+     * <p>点赞/评论/关注通知写入已读记录，回复/圈子/系统/举报/审核通知更新 system_msg 的已读状态</p>
+     *
+     * @param type 通知类型（like/comment/follow/reply/circle/system/report/audit）
+     * @param id   通知记录ID
+     * @return 操作结果
+     */
+    @Operation(summary = "标记通知已读")
+    @PostMapping("/notifications/read")
+    public Result<Void> markNotificationRead(@RequestParam String type, @RequestParam Long id) {
+        messageService.markNotificationRead(UserContext.getUserId(), type, id);
+        return Result.success();
     }
 
     /**

@@ -94,7 +94,10 @@ public enum ResultCode {
     SMS_SEND_FREQUENT(1018, "验证码发送过于频繁，请稍后再试"),
 
     /** 文件类型不允许 */
-    FILE_TYPE_NOT_ALLOWED(1019, "不支持的文件类型");
+    FILE_TYPE_NOT_ALLOWED(1019, "不支持的文件类型"),
+
+    /** 短信发送失败 */
+    SMS_SEND_FAILED(1020, "短信发送失败，请稍后再试");
 
     /** 状态码 */
     private final Integer code;

@@ -11,8 +11,11 @@ public final class RedisConstants {
     private RedisConstants() {
     }
 
-    /** 登录态 Token 前缀 */
+    /** 登录态 Token 前缀（完整 Key 为 前缀+userId+":"+token摘要，支持同一用户多设备并存） */
     public static final String LOGIN_TOKEN_PREFIX = "minthive:token:";
+
+    /** 用户有效 Token 摘要集合前缀（用于“撤销全部设备”与登出清理） */
+    public static final String LOGIN_TOKEN_SET_PREFIX = "minthive:token:set:";
 
     /** 用户信息缓存前缀 */
     public static final String USER_INFO_PREFIX = "minthive:user:info:";

@@ -245,7 +245,7 @@ import { showToast } from 'vant'
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { useChatStore } from '@/stores/chat'
-import { getNotifications, getUnreadCount } from '@/api/message'
+import { getNotifications, getUnreadCount, markNotificationRead } from '@/api/message'
 import { getAnnouncementList, type Announcement } from '@/api/announcement'
 import { wsClient } from '@/utils/websocket'
 import { formatRelativeTime } from '@/utils/format'
@@ -449,10 +449,20 @@ function openChat(chat: ChatItem): void {
 /**
  * 点击通知项
  * @param {Notification} notify - 通知对象
- * @returns {void}
- * @description 根据通知类型跳转到对应页面
+ * @returns {Promise<void>}
+ * @description 先标记该通知已读并刷新未读统计，再根据通知类型跳转到对应页面；
+ *   标记失败时回滚本地已读态，避免与服务端状态不一致
  */
-function onNotifyClick(notify: Notification): void {
+async function onNotifyClick(notify: Notification): Promise<void> {
+  if (!notify.read) {
+    notify.read = true
+    try {
+      await markNotificationRead(notify.type, notify.id)
+      await fetchUnreadCount()
+    } catch {
+      notify.read = false
+    }
+  }
   if (notify.type === 'like' || notify.type === 'comment' || notify.type === 'reply') {
     router.push(`/post/${notify.targetId}`)
   } else if (notify.type === 'follow') {

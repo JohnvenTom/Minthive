@@ -2,9 +2,11 @@ package com.minthive;
 
 import com.minthive.ai.AiContext;
 import com.minthive.ai.AiService;
+import com.minthive.ai.ImageModerationService;
 import com.minthive.entity.Post;
 import com.minthive.mapper.PostMapper;
 import com.minthive.security.UserContext;
+import com.minthive.service.ActionRateLimiter;
 import com.minthive.service.ContentAccessService;
 import com.minthive.service.impl.PostServiceImpl;
 import org.junit.jupiter.api.AfterEach;
@@ -19,12 +21,16 @@ class PostSecurityTest {
     private final PostMapper posts = mock(PostMapper.class);
     private final AiContext ai = mock(AiContext.class);
     private final ContentAccessService access = mock(ContentAccessService.class);
+    private final ActionRateLimiter limiter = mock(ActionRateLimiter.class);
+    private final ImageModerationService imageModeration = mock(ImageModerationService.class);
 
     private PostServiceImpl service() {
         PostServiceImpl service = mock(PostServiceImpl.class, CALLS_REAL_METHODS);
         ReflectionTestUtils.setField(service, "postMapper", posts);
         ReflectionTestUtils.setField(service, "aiContext", ai);
         ReflectionTestUtils.setField(service, "contentAccessService", access);
+        ReflectionTestUtils.setField(service, "actionRateLimiter", limiter);
+        ReflectionTestUtils.setField(service, "imageModerationService", imageModeration);
         return service;
     }
 
@@ -70,10 +76,13 @@ class PostSecurityTest {
 
     @Test
     void mediaNeverPassesWithoutImageModeration() {
+        when(imageModeration.moderate(anyString(), anyString()))
+                .thenReturn(AiService.AiDetectResult.unavailable("图片审核不可用"));
         Post post = textPost();
         post.setImages("[\"/api/file/content/example\"]");
         service().publish(post);
         assertEquals(0, post.getAuditStatus());
+        verify(imageModeration).moderate(anyString(), anyString());
         verify(ai, never()).detectContent(anyString(), any());
     }
 

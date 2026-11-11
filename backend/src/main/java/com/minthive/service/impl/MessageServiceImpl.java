@@ -38,6 +38,9 @@ public class MessageServiceImpl implements MessageService {
     private final LikeCollectMapper likeCollectMapper;
     private final FollowMapper followMapper;
     private final SystemMsgMapper systemMsgMapper;
+    private final NotificationReadMapper notificationReadMapper;
+
+    private final com.minthive.service.ActionRateLimiter actionRateLimiter;
 
     /**
      * 发送私信
@@ -57,7 +60,13 @@ public class MessageServiceImpl implements MessageService {
         if (message.getCreateTime() == null) {
             message.setCreateTime(LocalDateTime.now());
         }
-        messageMapper.insert(message);
+        actionRateLimiter.reserve(com.minthive.service.ActionRateLimiter.Action.MESSAGE, message.getFromUserId());
+        try {
+            messageMapper.insert(message);
+        } catch (RuntimeException e) {
+            actionRateLimiter.release(com.minthive.service.ActionRateLimiter.Action.MESSAGE, message.getFromUserId());
+            throw e;
+        }
         pushChat(message);
         return message;
     }
@@ -95,20 +104,27 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /**
-     * 查询两人聊天记录
+     * 查询两人聊天记录（游标分页）
      *
-     * @param userId 当前用户ID
-     * @param peerId 对方用户ID
-     * @param limit  最大条数
-     * @return 消息列表
+     * <p>功能描述：按消息ID倒序取一页，传入 beforeId 时只取更早的消息，
+     * 避免深翻页时 LIMIT OFFSET 的扫描成本，也避免新旧消息插入导致错页/重复</p>
+     *
+     * @param userId   当前用户ID
+     * @param peerId   对方用户ID
+     * @param beforeId 游标（上一页最旧一条消息的ID），null 或 0 表示最新一页
+     * @param limit    每页条数，默认30，最大100
+     * @return 按ID降序排列的消息列表
+     * @note 会话双方必须是当前用户与对方，查询条件已限定，不存在越权读取第三人会话
      */
     @Override
-    public List<Message> chatHistory(Long userId, Long peerId, Integer limit) {
+    public List<Message> chatHistory(Long userId, Long peerId, Long beforeId, Integer limit) {
+        int pageSize = limit == null ? 30 : Math.max(1, Math.min(limit, 100));
         LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<Message>()
-                .and(w -> w.eq(Message::getFromUserId, userId).eq(Message::getToUserId, peerId))
-                .or(w -> w.eq(Message::getFromUserId, peerId).eq(Message::getToUserId, userId))
-                .orderByDesc(Message::getCreateTime)
-                .last(limit != null ? "LIMIT " + limit : "");
+                .and(w -> w.and(x -> x.eq(Message::getFromUserId, userId).eq(Message::getToUserId, peerId))
+                        .or(x -> x.eq(Message::getFromUserId, peerId).eq(Message::getToUserId, userId)))
+                .lt(beforeId != null && beforeId > 0, Message::getId, beforeId)
+                .orderByDesc(Message::getId)
+                .last("LIMIT " + pageSize);
         return messageMapper.selectList(wrapper);
     }
 
@@ -135,6 +151,83 @@ public class MessageServiceImpl implements MessageService {
         } catch (Exception e) {
             log.warn("已读回执推送失败 from={} to={}", fromUserId, toUserId, e);
         }
+    }
+
+    /**
+     * 标记单条通知已读
+     *
+     * <p>功能描述：点赞/评论/关注通知没有自己的已读字段，写入 notification_read 记录；
+     * 回复/圈子/系统/举报/审核通知本身存放在 system_msg，直接更新其 is_read</p>
+     *
+     * @param userId 当前登录用户ID
+     * @param type   通知类型（like/comment/follow/reply/circle/system/report/audit）
+     * @param refId  通知记录ID：点赞/评论/关注为业务表主键，其余为 system_msg 主键
+     * @return 无返回值
+     * @throws BusinessException 参数为空或类型不支持时抛出
+     * @note 重复标记为幂等操作，不会产生重复记录
+     */
+    @Override
+    public void markNotificationRead(Long userId, String type, Long refId) {
+        if (userId == null || refId == null || type == null || type.isBlank()) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "通知类型和ID不能为空");
+        }
+        switch (type) {
+            case "like", "comment", "follow" ->
+                    notificationReadMapper.insertIgnore(userId, type, refId);
+            case "reply", "circle", "system", "report", "audit" ->
+                    // 只允许更新属于自己的系统消息，避免越权标记他人通知
+                    systemMsgMapper.update(null, new LambdaUpdateWrapper<SystemMsg>()
+                            .eq(SystemMsg::getId, refId)
+                            .eq(SystemMsg::getUserId, userId)
+                            .set(SystemMsg::getIsRead, Constants.READ_STATUS_READ));
+            default -> throw new BusinessException(ResultCode.PARAM_ERROR, "不支持的通知类型");
+        }
+    }
+
+    /**
+     * 回填点赞/评论/关注通知的已读状态
+     *
+     * <p>功能描述：一次性查询当前用户的全部已读记录，按 type:refId 匹配通知并置为已读；
+     * system_msg 类通知已在构建时读取自身 is_read，此处不覆盖</p>
+     *
+     * @param userId        当前登录用户ID
+     * @param notifications 待回填的通知列表（原地修改 read 字段）
+     * @return 无返回值
+     * @note 已读记录量级与用户通知量级相当，单次查询可接受；列表为空时直接返回
+     */
+    private void applyReadState(Long userId, List<Map<String, Object>> notifications) {
+        if (notifications.isEmpty()) {
+            return;
+        }
+        List<NotificationRead> reads = notificationReadMapper.selectList(
+                new LambdaQueryWrapper<NotificationRead>()
+                        .eq(NotificationRead::getUserId, userId)
+                        .select(NotificationRead::getType, NotificationRead::getRefId));
+        if (reads.isEmpty()) {
+            return;
+        }
+        Set<String> readKeys = reads.stream()
+                .map(r -> r.getType() + ":" + r.getRefId())
+                .collect(Collectors.toSet());
+        for (Map<String, Object> notice : notifications) {
+            if (!Boolean.TRUE.equals(notice.get("read"))) {
+                notice.put("read", readKeys.contains(notice.get("type") + ":" + notice.get("id")));
+            }
+        }
+    }
+
+    /**
+     * 统计某类型通知的已读记录数
+     *
+     * @param userId 当前登录用户ID
+     * @param type   通知类型（like/comment/follow）
+     * @return 已读记录数量
+     * @note 用于未读数 = 事件总数 - 已读数，已读记录可能多于现存事件（取消点赞/删除评论）时由调用方截断为0
+     */
+    private long countReadNotification(Long userId, String type) {
+        return notificationReadMapper.selectCount(new LambdaQueryWrapper<NotificationRead>()
+                .eq(NotificationRead::getUserId, userId)
+                .eq(NotificationRead::getType, type));
     }
 
     /**
@@ -280,6 +373,9 @@ public class MessageServiceImpl implements MessageService {
             allNotifications.addAll(buildSystemMsgNotifications(userId, Constants.SYS_MSG_TYPE_AUDIT, "audit"));
         }
 
+        // ---------- 回填点赞/评论/关注通知的已读态 ----------
+        applyReadState(userId, allNotifications);
+
         // ---------- 全局排序（按时间倒序）----------
         allNotifications.sort((a, b) -> {
             LocalDateTime ta = (LocalDateTime) a.get("createTime");
@@ -326,39 +422,40 @@ public class MessageServiceImpl implements MessageService {
                         .eq(Message::getIsRead, Constants.READ_STATUS_UNREAD));
         unreadMap.put("message", (int) messageUnread);
 
-        // 2. 点赞未读：别人点赞了我帖子的事件数
+        // 2. 点赞未读：点赞事件数 - 已标记已读的数量（取消点赞后可能为负，需截断为0）
         List<Long> myPostIds = getMyPostIds(userId);
         if (!myPostIds.isEmpty()) {
-            long likeUnread = likeCollectMapper.selectCount(
+            long likeTotal = likeCollectMapper.selectCount(
                     new LambdaQueryWrapper<LikeCollect>()
                             .in(LikeCollect::getTargetId, myPostIds)
                             .eq(LikeCollect::getType, Constants.LC_TYPE_LIKE_POST)
                             .ne(LikeCollect::getUserId, userId));
-            unreadMap.put("like", (int) likeUnread);
+            unreadMap.put("like", (int) Math.max(0, likeTotal - countReadNotification(userId, "like")));
         } else {
             unreadMap.put("like", 0);
         }
 
-        // 3. 评论未读：别人评论了我帖子的事件数 + 别人回复了我评论的通知数
-        long commentUnreadCount = 0;
+        // 3. 评论未读：帖子评论事件数 - 已读数量 + 别人回复了我评论的系统通知未读数
+        long postCommentUnread = 0;
         if (!myPostIds.isEmpty()) {
-            commentUnreadCount += commentMapper.selectCount(
+            long postCommentTotal = commentMapper.selectCount(
                     new LambdaQueryWrapper<Comment>()
                             .in(Comment::getPostId, myPostIds)
                             .ne(Comment::getUserId, userId));
+            postCommentUnread = Math.max(0, postCommentTotal - countReadNotification(userId, "comment"));
         }
-        commentUnreadCount += systemMsgMapper.selectCount(
+        long replyUnread = systemMsgMapper.selectCount(
                 new LambdaQueryWrapper<SystemMsg>()
                         .eq(SystemMsg::getUserId, userId)
                         .eq(SystemMsg::getMsgType, Constants.SYS_MSG_TYPE_REPLY)
                         .eq(SystemMsg::getIsRead, Constants.READ_STATUS_UNREAD));
-        unreadMap.put("comment", (int) commentUnreadCount);
+        unreadMap.put("comment", (int) (postCommentUnread + replyUnread));
 
-        // 4. 关注未读：关注我的人数
-        long followUnread = followMapper.selectCount(
+        // 4. 关注未读：关注我的人数 - 已标记已读的数量
+        long followTotal = followMapper.selectCount(
                 new LambdaQueryWrapper<Follow>()
                         .eq(Follow::getFollowUserId, userId));
-        unreadMap.put("follow", (int) followUnread);
+        unreadMap.put("follow", (int) Math.max(0, followTotal - countReadNotification(userId, "follow")));
 
         // 5. 圈子通知未读：system_msg 中 msgType=4 且 isRead=0
         long circleUnread = systemMsgMapper.selectCount(

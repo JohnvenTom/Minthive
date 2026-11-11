@@ -2,11 +2,12 @@ package com.minthive.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minthive.config.CorsConfig;
+import com.minthive.config.CorsProperties;
 import com.minthive.config.JwtConfig;
 import com.minthive.config.WebMvcConfig;
-import com.minthive.common.RedisConstants;
 import com.minthive.entity.User;
 import com.minthive.mapper.UserMapper;
+import com.minthive.util.RedisUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,8 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpMethod;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -40,21 +39,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class JwtMvcSecurityTest {
     @Autowired WebApplicationContext context;
     @Autowired JwtUtils jwt;
-    @Autowired StringRedisTemplate redis;
+    @Autowired RedisUtil redis;
     @Autowired UserMapper users;
     private MockMvc mvc;
-    private ValueOperations<String, String> values;
     private String token;
 
     @BeforeEach
-    @SuppressWarnings("unchecked")
     void setup() {
         UserContext.clear();
         reset(redis, users);
-        values = mock(ValueOperations.class);
-        when(redis.opsForValue()).thenReturn(values);
         token = jwt.generateToken(2L, "alice", 2);
-        when(values.get(RedisConstants.LOGIN_TOKEN_PREFIX + 2L)).thenReturn(token);
+        // 多端登录：只要求当前 Token 仍是有效会话
+        when(redis.hasLoginToken(eq(2L), anyString())).thenReturn(true);
         when(users.selectById(2L)).thenReturn(UserPrivacyTest.privateUser());
         mvc = MockMvcBuilders.webAppContextSetup(context).build();
     }
@@ -90,7 +86,7 @@ class JwtMvcSecurityTest {
 
     @Test
     void revokedTokenOnPublicEndpointCannotBecomeAnonymous() throws Exception {
-        when(values.get(anyString())).thenReturn(null);
+        when(redis.hasLoginToken(eq(2L), anyString())).thenReturn(false);
         mvc.perform(get("/api/user/2").header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
         assertNull(UserContext.get());
@@ -128,7 +124,7 @@ class JwtMvcSecurityTest {
         mvc.perform(get("/api/user/2").header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
         assertNull(UserContext.get());
-        verify(redis).delete(RedisConstants.LOGIN_TOKEN_PREFIX + 2L);
+        verify(redis).deleteLoginToken(2L);
     }
 
     @Test
@@ -140,19 +136,28 @@ class JwtMvcSecurityTest {
     }
 
     @Test
-    void kickedOutTokenCannotUsePublicEndpoint() throws Exception {
-        when(values.get(anyString())).thenReturn("another-active-session");
-        mvc.perform(get("/api/user/2").header("Authorization", "Bearer " + token))
-                .andExpect(status().isUnauthorized());
+    void anotherDeviceSessionDoesNotInvalidateThisToken() throws Exception {
+        // 多端登录：其他设备的登录不再踢掉当前设备的 Token
+        when(redis.hasLoginToken(eq(2L), anyString())).thenReturn(true);
+        mvc.perform(get("/api/post/2").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
         assertNull(UserContext.get());
     }
 
     @Test
-    void bearerCorsPreflightDoesNotGrantCredentialedCrossOriginAccess() throws Exception {
+    void corsOnlyAllowsConfiguredOriginsAndNeverSendsCredentials() throws Exception {
+        // 未列入白名单的来源直接被拒绝
         mvc.perform(options("/api/user/me").header("Origin", "https://untrusted.example")
                         .header("Access-Control-Request-Method", "GET")
                         .header("Access-Control-Request-Headers", "authorization"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist("Access-Control-Allow-Credentials"));
+        // 白名单来源可以通过预检，但不携带凭证
+        mvc.perform(options("/api/user/me").header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "GET")
+                        .header("Access-Control-Request-Headers", "authorization"))
                 .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
                 .andExpect(header().doesNotExist("Access-Control-Allow-Credentials"));
         assertNull(UserContext.get());
     }
@@ -184,7 +189,6 @@ class JwtMvcSecurityTest {
                 .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(
                         "test-only-signing-secret-32-bytes-or-more".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
                 .compact();
-        when(values.get(anyString())).thenReturn(expired);
         mvc.perform(get("/api/post/2").header("Authorization", "Bearer " + expired))
                 .andExpect(status().isUnauthorized());
         assertNull(UserContext.get());
@@ -204,8 +208,13 @@ class JwtMvcSecurityTest {
     @Import({WebMvcConfig.class, CorsConfig.class, JwtInterceptor.class, AdminAuthInterceptor.class, JwtUtils.class})
     static class Config {
         @Bean ObjectMapper objectMapper() { return new ObjectMapper().findAndRegisterModules(); }
-        @Bean StringRedisTemplate redis() { return mock(StringRedisTemplate.class); }
+        @Bean RedisUtil redisUtil() { return mock(RedisUtil.class); }
         @Bean UserMapper users() { return mock(UserMapper.class); }
+        @Bean CorsProperties corsProperties() {
+            CorsProperties properties = new CorsProperties();
+            properties.setAllowedOrigins(java.util.List.of("http://localhost:5173"));
+            return properties;
+        }
         @Bean ProbeController probe() { return new ProbeController(); }
         @Bean JwtConfig jwtConfig() {
             JwtConfig config = new JwtConfig();

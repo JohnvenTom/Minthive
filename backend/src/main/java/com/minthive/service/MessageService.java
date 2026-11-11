@@ -20,14 +20,15 @@ public interface MessageService {
     Message send(Message message);
 
     /**
-     * 查询两人聊天记录
+     * 查询两人聊天记录（游标分页）
      *
      * @param userId   当前用户ID
      * @param peerId   对方用户ID
-     * @param limit    最大条数
-     * @return 消息列表
+     * @param beforeId 游标：只返回ID小于该值的更早消息，null 表示最新一页
+     * @param limit    每页条数（服务端会做上下限保护）
+     * @return 按ID降序排列的消息列表
      */
-    List<Message> chatHistory(Long userId, Long peerId, Integer limit);
+    List<Message> chatHistory(Long userId, Long peerId, Long beforeId, Integer limit);
 
     /**
      * 标记消息已读
@@ -36,6 +37,15 @@ public interface MessageService {
      * @param toUserId   接收方ID
      */
     void markRead(Long fromUserId, Long toUserId);
+
+    /**
+     * 标记单条通知为已读
+     *
+     * @param userId 当前登录用户ID
+     * @param type   通知类型（like/comment/follow/reply/circle/system/report/audit）
+     * @param refId  通知记录ID（点赞/评论/关注为业务表主键，其余为 system_msg 主键）
+     */
+    void markNotificationRead(Long userId, String type, Long refId);
 
     /**
      * 撤回消息（支持普通消息和AI代回复消息）

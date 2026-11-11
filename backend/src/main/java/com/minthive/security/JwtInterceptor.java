@@ -5,16 +5,15 @@ import com.minthive.common.BusinessException;
 import com.minthive.common.Constants;
 import com.minthive.entity.User;
 import com.minthive.mapper.UserMapper;
-import com.minthive.common.RedisConstants;
 import com.minthive.common.Result;
 import com.minthive.common.ResultCode;
 import com.minthive.config.JwtConfig;
+import com.minthive.util.RedisUtil;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
@@ -32,7 +31,7 @@ public class JwtInterceptor implements AsyncHandlerInterceptor {
 
     private final JwtUtils jwtUtils;
     private final JwtConfig jwtConfig;
-    private final StringRedisTemplate stringRedisTemplate;
+    private final RedisUtil redisUtil;
     private final ObjectMapper objectMapper;
     private final UserMapper userMapper;
 
@@ -78,12 +77,9 @@ public class JwtInterceptor implements AsyncHandlerInterceptor {
                 return writeUnauthorized(response, ResultCode.TOKEN_INVALID);
             }
             Long userId = ((Number) subjectId).longValue();
-            String cachedToken = stringRedisTemplate.opsForValue().get(RedisConstants.LOGIN_TOKEN_PREFIX + userId);
-            if (!StringUtils.hasText(cachedToken)) {
+            // 多端登录：只校验当前 Token 是否仍在该用户的有效集合中，不再与其他设备比较
+            if (!redisUtil.hasLoginToken(userId, token)) {
                 return writeUnauthorized(response, ResultCode.TOKEN_EXPIRED);
-            }
-            if (!cachedToken.equals(token)) {
-                return writeUnauthorized(response, ResultCode.ACCOUNT_KICKED_OUT);
             }
             // Redis 只证明会话仍活跃，权限和账号状态必须以当前数据库为准。
             User user = userMapper.selectById(userId);
@@ -92,7 +88,8 @@ public class JwtInterceptor implements AsyncHandlerInterceptor {
                     || !Integer.valueOf(0).equals(user.getDeleted())
                     || user.getRole() == null || user.getRole() < Constants.ROLE_USER
                     || user.getRole() > Constants.ROLE_ADMIN) {
-                stringRedisTemplate.delete(RedisConstants.LOGIN_TOKEN_PREFIX + userId);
+                // 账号状态异常时撤销该用户全部设备的会话
+                redisUtil.deleteLoginToken(userId);
                 return writeUnauthorized(response, ResultCode.UNAUTHORIZED);
             }
             UserContext.set(new LoginUser(userId, user.getAccount(), user.getRole()));

@@ -12,8 +12,11 @@ import com.minthive.service.CircleService;
 import com.minthive.service.FollowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.springframework.http.MediaType;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -30,6 +33,7 @@ import java.util.stream.Collectors;
 @Tag(name = "AI接口")
 @RestController
 @RequestMapping("/api/ai")
+@Validated
 public class AiController {
 
     private final AiContext aiContext;
@@ -55,7 +59,7 @@ public class AiController {
      */
     @Operation(summary = "AI生成帖子文案")
     @PostMapping("/post-content")
-    public Result<List<String>> generatePostContent(@RequestBody PostContentDto dto) {
+    public Result<List<String>> generatePostContent(@RequestBody @Valid PostContentDto dto) {
         List<String> result = withQuota(() -> aiContext.generatePostContent(dto.getKeywords(), dto.getCategory()));
         return Result.success(result);
     }
@@ -68,7 +72,7 @@ public class AiController {
      */
     @Operation(summary = "AI文案润色")
     @PostMapping("/polish")
-    public Result<String> polish(@RequestBody PolishDto dto) {
+    public Result<String> polish(@RequestBody @Valid PolishDto dto) {
         String result = withQuota(() -> aiContext.polishContent(dto.getContent()));
         return Result.success(result);
     }
@@ -81,7 +85,7 @@ public class AiController {
      */
     @Operation(summary = "AI智能评论生成")
     @PostMapping("/comment")
-    public Result<List<String>> generateComment(@RequestBody CommentDto dto) {
+    public Result<List<String>> generateComment(@RequestBody @Valid CommentDto dto) {
         List<String> result = withQuota(() -> aiContext.generateComment(dto.getPostContent(), dto.getCategory()));
         return Result.success(result);
     }
@@ -94,7 +98,7 @@ public class AiController {
      */
     @Operation(summary = "AI私信代回复")
     @PostMapping("/message-reply")
-    public Result<String> messageReply(@RequestBody MessageReplyDto dto) {
+    public Result<String> messageReply(@RequestBody @Valid MessageReplyDto dto) {
         String result = withQuota(() -> aiContext.generateMessageReply(dto.getContext(), dto.getIncomingMessage()));
         return Result.success(result);
     }
@@ -107,7 +111,7 @@ public class AiController {
      */
     @Operation(summary = "AI内容检测")
     @PostMapping("/detect")
-    public Result<AiService.AiDetectResult> detect(@RequestBody DetectDto dto) {
+    public Result<AiService.AiDetectResult> detect(@RequestBody @Valid DetectDto dto) {
         AiService.AiDetectResult result = withQuota(() -> aiContext.detectContent(dto.getText(), dto.getImageBase64()));
         if (result == null) {
             result = AiService.AiDetectResult.unavailable("审核未返回结果");
@@ -128,7 +132,7 @@ public class AiController {
      */
     @Operation(summary = "AI智能问答")
     @PostMapping("/qa")
-    public Result<String> qa(@RequestBody QaDto dto) {
+    public Result<String> qa(@RequestBody @Valid QaDto dto) {
         String result = withQuota(() -> aiContext.smartQa(dto.getQuestion()));
         return Result.success(result);
     }
@@ -144,7 +148,7 @@ public class AiController {
      */
     @Operation(summary = "AI智能问答(流式)")
     @PostMapping(value = "/qa/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter qaStream(@RequestBody QaDto dto) {
+    public SseEmitter qaStream(@RequestBody @Valid QaDto dto) {
         return withQuota(() -> aiContext.smartQaStream(dto.getQuestion(), dto.getHistory()));
     }
 
@@ -161,7 +165,7 @@ public class AiController {
      */
     @Operation(summary = "AI数据感知问答(流式)")
     @PostMapping(value = "/query/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter queryStream(@RequestBody QaDto dto) {
+    public SseEmitter queryStream(@RequestBody @Valid QaDto dto) {
         return withQuota(() -> aiContext.queryStream(dto.getQuestion(), dto.getHistory()));
     }
 
@@ -233,7 +237,9 @@ public class AiController {
      */
     @Data
     public static class PostContentDto {
+        @Size(max = 100, message = "关键词不能超过100字")
         private String keywords;
+        @Size(max = 50, message = "分类不能超过50字")
         private String category;
     }
 
@@ -242,6 +248,7 @@ public class AiController {
      */
     @Data
     public static class PolishDto {
+        @Size(max = 5000, message = "文案不能超过5000字")
         private String content;
     }
 
@@ -250,7 +257,9 @@ public class AiController {
      */
     @Data
     public static class CommentDto {
+        @Size(max = 5000, message = "帖子内容不能超过5000字")
         private String postContent;
+        @Size(max = 50, message = "分类不能超过50字")
         private String category;
     }
 
@@ -259,7 +268,9 @@ public class AiController {
      */
     @Data
     public static class MessageReplyDto {
+        @Size(max = 5000, message = "上下文不能超过5000字")
         private String context;
+        @Size(max = 2000, message = "对方消息不能超过2000字")
         private String incomingMessage;
     }
 
@@ -268,7 +279,9 @@ public class AiController {
      */
     @Data
     public static class DetectDto {
+        @Size(max = 5000, message = "文本不能超过5000字")
         private String text;
+        @Size(max = 8000000, message = "图片过大，无法审核")
         private String imageBase64;
     }
 
@@ -277,8 +290,10 @@ public class AiController {
      */
     @Data
     public static class QaDto {
+        @Size(max = 2000, message = "问题不能超过2000字")
         private String question;
         /** 对话历史（偶数索引为 user，奇数索引为 ai，用于上下文连贯） */
+        @Size(max = 20, message = "对话历史过多")
         private List<String> history;
     }
 }

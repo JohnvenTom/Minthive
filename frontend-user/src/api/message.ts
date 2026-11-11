@@ -14,16 +14,17 @@ export function getChatList() {
 }
 
 /**
- * 获取与某用户的历史消息
- * @param {number} userId
- * @param {number} page
- * @param {number} pageSize
+ * 获取与某用户的历史消息（游标分页）
+ * @param {number} userId - 对方用户ID
+ * @param {number} [beforeId] - 游标：只取ID小于该值的更早消息，不传表示最新一页
+ * @param {number} pageSize - 每页条数，后端上限100
+ * @returns {Promise<{ data: Message[] }>} 按ID降序排列的消息数组
  */
-export function getMessages(userId: number, page = 1, pageSize = 30) {
-  return request<PageResult<Message>>({
+export function getMessages(userId: number, beforeId?: number, pageSize = 30) {
+  return request<Message[]>({
     url: '/message/history',
     method: 'get',
-    params: { peerId: userId, limit: pageSize }
+    params: { peerId: userId, beforeId, limit: pageSize }
   })
 }
 
@@ -75,6 +76,15 @@ export function getNotifications(type?: string, page = 1, pageSize = 20) {
     method: 'get',
     params: { type, page, pageSize }
   })
+}
+
+/**
+ * 标记单条通知已读
+ * @param {string} type - 通知类型（like/comment/follow/reply/circle/system/report/audit）
+ * @param {number} id - 通知记录ID（点赞/评论/关注为业务记录ID，其余为系统消息ID）
+ */
+export function markNotificationRead(type: string, id: number) {
+  return request({ url: '/message/notifications/read', method: 'post', params: { type, id } })
 }
 
 /**

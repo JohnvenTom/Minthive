@@ -1,0 +1,103 @@
+name: minthive
+
+services:
+  mysql:
+    # 建议生产固定到具体小版本/摘要，例如 mysql:8.0.39
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 设置 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: minthive
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../backend/docs/sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ../backend/docs/sql/init_data.sql:/docker-entrypoint-initdb.d/02-init_data.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    # 生产建议固定 RELEASE 标签或镜像摘要
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?请在 .env 设置 MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?请在 .env 设置 MINIO_SECRET_KEY}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/minthive?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ""
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:?请在 .env 设置对外可访问的 MINIO_PUBLIC_URL}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET:-minthive}
+      JWT_SECRET: ${JWT_SECRET:?请在 .env 设置 JWT_SECRET}
+      AI_MODE: ${AI_MODE:-cloud}
+      AI_CLOUD_BASE_URL: ${AI_CLOUD_BASE_URL:-https://api.openai.com}
+      AI_CLOUD_API_KEY: ${AI_CLOUD_API_KEY:-}
+      AI_CLOUD_MODEL: ${AI_CLOUD_MODEL:-gpt-4o-mini}
+      AI_LOCAL_BASE_URL: ${AI_LOCAL_BASE_URL:-http://ollama:11434}
+      AI_LOCAL_MODEL: ${AI_LOCAL_MODEL:-qwen3:7b}
+      SMS_PROVIDER: ${SMS_PROVIDER:?请在 .env 设置 SMS_PROVIDER=http}
+      SMS_HTTP_URL: ${SMS_HTTP_URL:-}
+      SMS_HTTP_TOKEN: ${SMS_HTTP_TOKEN:-}
+      FLYWAY_ENABLED: "true"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "81:81"
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  redis-data:
+  minio-data:

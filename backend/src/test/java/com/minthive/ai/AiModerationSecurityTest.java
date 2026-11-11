@@ -86,17 +86,59 @@ class AiModerationSecurityTest {
     }
 
     @Test
-    void uninspectedImageCannotPassTextOnlyModeration() {
-        assertUnavailable(cloud.detectContent("innocent text", "base64-image"));
-        assertNull(request, "Text-only provider must not masquerade as image moderation");
+    void imageModerationUsesMultimodalRequest() {
+        AiService.AiDetectResult result = cloud.detectContent("innocent text", "base64-image");
+
+        assertTrue(result.available);
+        assertFalse(result.violation);
+        JsonNode messages = request.path("messages");
+        assertEquals("system", messages.path(0).path("role").asText());
+        JsonNode parts = messages.path(1).path("content");
+        assertTrue(parts.isArray());
+        assertEquals("text", parts.path(0).path("type").asText());
+        assertEquals("image_url", parts.path(1).path("type").asText());
+        assertTrue(parts.path(1).path("image_url").path("url").asText()
+                .startsWith("data:image/jpeg;base64,"));
     }
 
     @Test
-    void localPlaceholderIsExplicitlyUnavailable() {
-        AiService.AiDetectResult result = new LocalAiServiceImpl(mock(AiFallback.class))
-                .detectContent("text", null);
+    void imageModerationProviderFailureIsUnavailable() {
+        status = 503;
+        assertUnavailable(cloud.detectContent("text", "base64-image"));
+    }
+
+    @Test
+    void localModerationIsUnavailableWithoutModel() {
+        AiService.AiDetectResult result = localService().detectContent("text", null);
         assertUnavailable(result);
-        assertEquals("本地审核未接入", result.violationType);
+        assertTrue(result.violationType.contains("本地"));
+    }
+
+    @Test
+    void localImageModerationIsUnavailable() {
+        AiConfig localConfig = localConfig();
+        var local = new LocalAiServiceImpl(localConfig, json, mock(AiFallback.class));
+        AiService.AiDetectResult result = local.detectContent("text", "base64-image");
+        assertUnavailable(result);
+        assertTrue(result.violationType.contains("图片"));
+    }
+
+    /**
+     * 构造指向不可用端口的本地 AI 配置，保证测试不依赖真实 Ollama
+     */
+    private AiConfig localConfig() {
+        AiConfig localConfig = new AiConfig();
+        localConfig.getLocal().setBaseUrl("http://127.0.0.1:1");
+        localConfig.getLocal().setModel("qwen3:7b");
+        localConfig.getLocal().setTimeout(300L);
+        return localConfig;
+    }
+
+    /**
+     * 构造本地 AI 服务实例
+     */
+    private LocalAiServiceImpl localService() {
+        return new LocalAiServiceImpl(localConfig(), json, mock(AiFallback.class));
     }
 
     @Test

@@ -43,6 +43,8 @@ public class CommentServiceImpl implements CommentService {
 
     private final com.minthive.service.ContentAccessService contentAccessService;
 
+    private final com.minthive.service.ActionRateLimiter actionRateLimiter;
+
     /**
      * 发表评论
      *
@@ -71,7 +73,13 @@ public class CommentServiceImpl implements CommentService {
         comment.setId(null);
         comment.setLikeCount(0);
         comment.setLiked(false);
-        commentMapper.insert(comment);
+        actionRateLimiter.reserve(com.minthive.service.ActionRateLimiter.Action.COMMENT, comment.getUserId());
+        try {
+            commentMapper.insert(comment);
+        } catch (RuntimeException e) {
+            actionRateLimiter.release(com.minthive.service.ActionRateLimiter.Action.COMMENT, comment.getUserId());
+            throw e;
+        }
 
         Long fromUserId = comment.getUserId();
         boolean isReply = comment.getParentId() != 0L;

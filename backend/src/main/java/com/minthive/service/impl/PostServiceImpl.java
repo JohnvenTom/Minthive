@@ -53,6 +53,10 @@ public class PostServiceImpl implements PostService {
 
     private final com.minthive.service.ContentAccessService contentAccessService;
 
+    private final com.minthive.service.ActionRateLimiter actionRateLimiter;
+
+    private final com.minthive.ai.ImageModerationService imageModerationService;
+
     /**
      * 发布帖子
      *
@@ -63,8 +67,14 @@ public class PostServiceImpl implements PostService {
     public Post publish(Post post) {
         prepareNewPost(post, post.getUserId());
         post.setSharePostId(null);
-        post.setAuditStatus(moderate(post));
-        postMapper.insert(post);
+        actionRateLimiter.reserve(com.minthive.service.ActionRateLimiter.Action.POST, post.getUserId());
+        try {
+            post.setAuditStatus(moderate(post));
+            postMapper.insert(post);
+        } catch (RuntimeException e) {
+            actionRateLimiter.release(com.minthive.service.ActionRateLimiter.Action.POST, post.getUserId());
+            throw e;
+        }
         return post;
     }
 
@@ -91,13 +101,18 @@ public class PostServiceImpl implements PostService {
     }
 
     private int moderate(Post post) {
-        if ((post.getImages() != null && !post.getImages().isBlank() && !"[]".equals(post.getImages()))
-                || (post.getVideo() != null && !post.getVideo().isBlank())) {
+        // 视频内容审核尚未接入，一律转人工
+        if (post.getVideo() != null && !post.getVideo().isBlank()) {
             return Constants.AUDIT_PENDING;
         }
+        boolean hasImages = post.getImages() != null && !post.getImages().isBlank()
+                && !"[]".equals(post.getImages());
         try {
-            var result = aiContext.detectContent(post.getContent(), null);
-            return result != null && result.available && !result.violation ? Constants.AUDIT_PASS : Constants.AUDIT_PENDING;
+            var result = hasImages
+                    ? imageModerationService.moderate(post.getContent(), post.getImages())
+                    : aiContext.detectContent(post.getContent(), null);
+            return result != null && result.available && !result.violation
+                    ? Constants.AUDIT_PASS : Constants.AUDIT_PENDING;
         } catch (Exception e) {
             log.warn("内容检测不可用，转入人工审核");
             return Constants.AUDIT_PENDING;
@@ -404,8 +419,14 @@ public class PostServiceImpl implements PostService {
         shared.setSharePostId(sharePostId);
         shared.setVisibility(0);
         shared.setCircleId(null);
-        shared.setAuditStatus(moderate(shared));
-        postMapper.insert(shared);
+        actionRateLimiter.reserve(com.minthive.service.ActionRateLimiter.Action.POST, userId);
+        try {
+            shared.setAuditStatus(moderate(shared));
+            postMapper.insert(shared);
+        } catch (RuntimeException e) {
+            actionRateLimiter.release(com.minthive.service.ActionRateLimiter.Action.POST, userId);
+            throw e;
+        }
         return shared;
     }
 

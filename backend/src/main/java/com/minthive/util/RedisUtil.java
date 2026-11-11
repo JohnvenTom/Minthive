@@ -178,6 +178,8 @@ public class RedisUtil {
             stringRedisTemplate.delete(keys);
         }
         stringRedisTemplate.delete(setKey);
+        // 撤销全部登录态时同步断开该用户所有 WebSocket，防止已撤销 Token 继续接收推送
+        com.minthive.websocket.WebSocketServer.closeSessions(userId);
     }
 
     /**

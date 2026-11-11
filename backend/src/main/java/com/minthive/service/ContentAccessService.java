@@ -100,6 +100,20 @@ public class ContentAccessService {
         return Objects.equals(circle.getType(), 0) || isCircleMember(circle, viewerId) || isAdmin(viewerId);
     }
 
+    /**
+     * 判断查看者能否看到圈子详情中的受限字段（公告、活动量）
+     *
+     * @param circle   圈子实体
+     * @param viewerId 查看者用户ID（可为空，表示匿名）
+     * @return true=公开圈或查看者是该圈成员/圈主/管理员；false=私密圈且无成员身份
+     * @note 列表、搜索、推荐接口与详情接口必须使用同一判定，避免私密圈公告经公开列表泄露
+     */
+    public boolean canViewCircleDetails(Circle circle, Long viewerId) {
+        if (circle == null) return false;
+        if (!Objects.equals(circle.getType(), Constants.CIRCLE_TYPE_PRIVATE)) return true;
+        return isCircleMember(circle, viewerId) || isAdmin(viewerId);
+    }
+
     public void requireCircleReadable(Long circleId, Long viewerId) {
         if (!canReadCircle(circleId, viewerId)) throw new BusinessException(ResultCode.FORBIDDEN, "无权查看圈内内容");
     }

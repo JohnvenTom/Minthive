@@ -8,6 +8,7 @@ import com.minthive.security.UserContext;
 import com.minthive.service.SmsService;
 import com.minthive.service.UserService;
 import com.minthive.util.RedisUtil;
+import com.minthive.websocket.WebSocketServer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
@@ -180,6 +181,8 @@ public class AuthController {
             String token = authorization.substring(prefix.length()).trim();
             if (StringUtils.hasText(token)) {
                 redisUtil.deleteLoginToken(userId, token);
+                // 同步断开当前设备的长连接，避免已撤销 Token 继续接收推送
+                WebSocketServer.closeSession(userId, token);
             }
         }
         return Result.success();

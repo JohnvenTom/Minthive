@@ -71,6 +71,11 @@ file:
   video-max-size: 20
   video-max-duration: 60
 
+# 生产关闭 MyBatis SQL 明文日志：避免手机号、私信内容、密码哈希等敏感参数写入日志
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
 # 日志级别
 logging:
   level:

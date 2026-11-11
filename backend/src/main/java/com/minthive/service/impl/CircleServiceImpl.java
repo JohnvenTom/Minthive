@@ -137,7 +137,32 @@ public class CircleServiceImpl implements CircleService {
         Page<Circle> result = circleMapper.selectPage(new Page<>(current, size), wrapper);
         fillCategoryName(result.getRecords());
         fillPostCount(result.getRecords());
+        maskPrivateDetails(result.getRecords());
         return result;
+    }
+
+    /**
+     * 抹除私密圈中对当前查看者不可见的字段
+     *
+     * <p>功能描述：圈子列表/搜索/推荐接口会直接序列化 Circle 实体，
+     * 私密圈的公告与活动量仅应对正式成员、圈主和管理员可见，这里统一置空/清零，
+     * 避免仅靠详情接口做遮蔽而被列表接口绕过</p>
+     *
+     * @param circles 待输出的圈子列表（原地修改）
+     * @return 无返回值
+     * @note 公开圈、成员、圈主与管理员的数据保持不变
+     */
+    private void maskPrivateDetails(List<Circle> circles) {
+        if (circles == null || circles.isEmpty()) {
+            return;
+        }
+        Long viewerId = contentAccessService.currentUserId();
+        for (Circle circle : circles) {
+            if (!contentAccessService.canViewCircleDetails(circle, viewerId)) {
+                circle.setNotice(null);
+                circle.setPostCount(0);
+            }
+        }
     }
 
     /**
@@ -387,6 +412,7 @@ public class CircleServiceImpl implements CircleService {
         List<Circle> list = circleMapper.selectList(wrapper);
         fillCategoryName(list);
         fillPostCount(list);
+        maskPrivateDetails(list);
 
         // 个性化排序
         try {

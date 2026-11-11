@@ -6,6 +6,7 @@ import com.minthive.config.JwtConfig;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -28,6 +29,22 @@ import java.util.Map;
 public class JwtUtils {
 
     private final JwtConfig jwtConfig;
+
+    /**
+     * 启动时校验签名密钥
+     *
+     * <p>功能描述：拒绝空密钥或长度不足 32 字节的密钥，避免使用弱密钥签发 Token；
+     * 生产与开发环境都必须通过环境变量注入密钥</p>
+     *
+     * @throws IllegalStateException 密钥缺失或强度不足时抛出，使应用启动失败（fail fast）
+     */
+    @PostConstruct
+    void validateSigningKey() {
+        String secret = jwtConfig.getSecret();
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("jwt.secret 未配置或长度不足 32 字节，请通过 JWT_SECRET/JWT_DEV_SECRET 注入");
+        }
+    }
 
     /**
      * 生成 JWT Token

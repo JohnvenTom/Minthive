@@ -17,6 +17,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,6 +38,9 @@ public class WebSocketServer {
 
     /** userId -> 在线标记(用于多实例场景，本实例使用本地 Map) */
     private static final ConcurrentHashMap<Long, Boolean> ONLINE_MAP = new ConcurrentHashMap<>();
+
+    /** Session -> 建立连接时使用的 Token，用于推送前重新校验登录态是否已被撤销 */
+    private static final ConcurrentHashMap<Session, String> SESSION_TOKENS = new ConcurrentHashMap<>();
 
     private static JwtUtils jwtUtils;
 
@@ -112,6 +116,7 @@ public class WebSocketServer {
         }
         // 同一用户可同时存在多个设备连接，全部保留
         SESSIONS.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).add(session);
+        SESSION_TOKENS.put(session, token);
         ONLINE_MAP.put(userId, true);
         // Redis 记录在线状态
         stringRedisTemplate.opsForValue().set(RedisConstants.WS_ONLINE_PREFIX + userId, "1");
@@ -175,6 +180,7 @@ public class WebSocketServer {
      * @return 无返回值
      */
     private static void removeSession(Long userId, Session session) {
+        SESSION_TOKENS.remove(session);
         Set<Session> sessions = SESSIONS.get(userId);
         if (sessions == null) {
             return;
@@ -222,8 +228,14 @@ public class WebSocketServer {
         }
         try {
             String text = objectMapper.writeValueAsString(message);
-            // 多端登录：推送到该用户全部在线设备
-            sessions.forEach(session -> sendText(session, text));
+            // 多端登录：推送到该用户全部在线设备；推送前重新校验 Token，已撤销的连接立即断开
+            for (Session session : List.copyOf(sessions)) {
+                if (isSessionAuthorized(userId, session)) {
+                    sendText(session, text);
+                } else {
+                    dropRevokedSession(userId, session);
+                }
+            }
         } catch (Exception e) {
             log.error("推送消息失败: userId={}", userId, e);
         }
@@ -237,9 +249,113 @@ public class WebSocketServer {
     public static void broadcast(WsMessage message) {
         try {
             String text = objectMapper.writeValueAsString(message);
-            SESSIONS.forEach((userId, sessions) -> sessions.forEach(session -> sendText(session, text)));
+            SESSIONS.forEach((userId, sessions) -> {
+                for (Session session : List.copyOf(sessions)) {
+                    if (isSessionAuthorized(userId, session)) {
+                        sendText(session, text);
+                    } else {
+                        dropRevokedSession(userId, session);
+                    }
+                }
+            });
         } catch (Exception e) {
             log.error("广播消息失败", e);
+        }
+    }
+
+    /**
+     * 关闭指定用户的单个设备连接
+     *
+     * <p>功能描述：登出时只断开当前设备的长连接，其他设备的会话保持可用</p>
+     *
+     * @param userId 用户ID
+     * @param token  当前设备使用的 Token
+     * @return 无返回值
+     * @note 如果连接已不存在则不做任何处理，属于幂等操作
+     */
+    public static void closeSession(Long userId, String token) {
+        if (userId == null || token == null) {
+            return;
+        }
+        Set<Session> sessions = SESSIONS.get(userId);
+        if (sessions == null) {
+            return;
+        }
+        for (Session session : List.copyOf(sessions)) {
+            if (token.equals(SESSION_TOKENS.get(session))) {
+                removeSession(userId, session);
+                closeQuietly(session);
+            }
+        }
+    }
+
+    /**
+     * 关闭指定用户的全部设备连接
+     *
+     * <p>功能描述：封禁、改密、注销、角色变更等“撤销全部登录态”场景下，
+     * 同步断掉所有 WebSocket，避免已撤销的 Token 继续接收私信与通知</p>
+     *
+     * @param userId 用户ID
+     * @return 无返回值
+     * @note 清理在线标记与 Redis 在线 Key，可重复调用
+     */
+    public static void closeSessions(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        Set<Session> sessions = SESSIONS.remove(userId);
+        ONLINE_MAP.remove(userId);
+        if (stringRedisTemplate != null) {
+            stringRedisTemplate.delete(RedisConstants.WS_ONLINE_PREFIX + userId);
+        }
+        if (sessions == null) {
+            return;
+        }
+        for (Session session : sessions) {
+            SESSION_TOKENS.remove(session);
+            closeQuietly(session);
+        }
+        log.info("用户 {} 全部 WebSocket 会话已撤销，当前在线连接数: {}", userId, onlineCount());
+    }
+
+    /**
+     * 判断连接携带的 Token 是否仍是有效登录态
+     *
+     * @param userId  用户ID
+     * @param session 会话
+     * @return true=Token 仍有效；false=已登出/封禁/改密后被撤销
+     */
+    private static boolean isSessionAuthorized(Long userId, Session session) {
+        String token = SESSION_TOKENS.get(session);
+        return token != null && redisUtil != null && redisUtil.hasLoginToken(userId, token);
+    }
+
+    /**
+     * 丢弃已撤销登录态的连接
+     *
+     * @param userId  用户ID
+     * @param session 会话
+     * @return 无返回值
+     */
+    private static void dropRevokedSession(Long userId, Session session) {
+        removeSession(userId, session);
+        closeQuietly(session);
+        log.info("用户 {} 的 WebSocket 连接因登录态失效被关闭", userId);
+    }
+
+    /**
+     * 静默关闭会话
+     *
+     * @param session 待关闭会话
+     * @return 无返回值
+     */
+    private static void closeQuietly(Session session) {
+        try {
+            if (session.isOpen()) {
+                session.close();
+            }
+        } catch (IOException ignored) {
+            // 关闭失败无需向上抛出，连接最终会由容器回收
         }
     }
 

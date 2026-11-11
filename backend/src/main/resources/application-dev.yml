@@ -31,8 +31,9 @@ minio:
   bucket: minthive
 
 # JWT 配置
+# 签名密钥必须由 .env 或环境变量提供，禁止在源码中保留默认值（缺失时应用启动失败）
 jwt:
-  secret: ${JWT_DEV_SECRET:minthive-secret-key-2024-very-long-and-secure-for-jwt-signing-please-change-in-production}
+  secret: ${JWT_DEV_SECRET}
   expire: 604800  # 单位秒，7天
   header: Authorization
   prefix: "Bearer "

@@ -1,5 +1,6 @@
 package com.minthive.controller;
 
+import com.minthive.audit.AuditIdentity;
 import com.minthive.common.Result;
 import com.minthive.common.ResultCode;
 import com.minthive.config.JwtConfig;
@@ -72,6 +73,8 @@ public class AuthController {
     @Operation(summary = "发送短信验证码")
     @PostMapping("/sms")
     public Result<Void> sendSms(@RequestBody @Validated SmsDto dto) {
+        // 匿名操作只记录手机号指纹，不记录验证码
+        AuditIdentity.mark(null, dto.getPhone());
         smsService.sendCode(dto.getPhone(), dto.getScene());
         return Result.success();
     }
@@ -85,6 +88,7 @@ public class AuthController {
     @Operation(summary = "用户注册")
     @PostMapping("/register")
     public Result<Map<String, Object>> register(@RequestBody @Validated RegisterDto dto) {
+        AuditIdentity.mark(dto.getAccount(), dto.getPhone());
         // 先注册获取用户
         User user = userService.registerWithCode(dto.getAccount(), dto.getPassword(), dto.getPhone(), dto.getCode());
         // 注册成功后生成Token
@@ -105,6 +109,7 @@ public class AuthController {
     @Operation(summary = "用户登录（密码模式）")
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody @Validated LoginDto dto) {
+        AuditIdentity.mark(dto.getAccount(), null);
         String token = userService.login(dto.getAccount(), dto.getPassword());
         User user = userService.getByAccount(dto.getAccount());
         Map<String, Object> data = buildLoginData(token, user);
@@ -122,6 +127,7 @@ public class AuthController {
     @Operation(summary = "用户登录（验证码模式）")
     @PostMapping("/login/sms")
     public Result<Map<String, Object>> loginBySms(@RequestBody @Validated SmsLoginDto dto) {
+        AuditIdentity.mark(null, dto.getPhone());
         String token = userService.loginBySms(dto.getPhone(), dto.getCode());
         // 通过手机号查用户信息返回
         User user = userService.getByPhone(dto.getPhone());
@@ -140,6 +146,7 @@ public class AuthController {
     @Operation(summary = "重置密码")
     @PostMapping("/reset")
     public Result<Void> resetPassword(@RequestBody @Validated ResetPasswordDto dto) {
+        AuditIdentity.mark(null, dto.getPhone());
         userService.resetPassword(dto.getPhone(), dto.getCode(), dto.getPassword());
         return Result.success();
     }

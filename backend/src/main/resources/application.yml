@@ -67,6 +67,16 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-}] %logger{36} - %msg%n"
 
+# 操作审计：非 GET 写请求记录表级前后值，异步批量落库
+app:
+  audit:
+    enabled: ${AUDIT_ENABLED:true}
+    queue-capacity: ${AUDIT_QUEUE_CAPACITY:5000}
+    batch-size: ${AUDIT_BATCH_SIZE:200}
+    snapshot-max-bytes: ${AUDIT_SNAPSHOT_MAX_BYTES:65536}
+    trusted-proxies: ${AUDIT_TRUSTED_PROXIES:127.0.0.1,::1,0:0:0:0:0:0:0:1}
+    exclude-tables: ${AUDIT_EXCLUDE_TABLES:}
+
 # 短信验证码通道：log=本地日志（仅开发），http=HTTP 网关
 sms:
   provider: ${SMS_PROVIDER:log}

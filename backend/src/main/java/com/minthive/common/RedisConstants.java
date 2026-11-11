@@ -50,6 +50,9 @@ public final class RedisConstants {
     /** WebSocket 在线用户前缀 */
     public static final String WS_ONLINE_PREFIX = "minthive:ws:online:";
 
+    /** 审计日志丢弃/失败计数 */
+    public static final String AUDIT_DROPPED_PREFIX = "minthive:audit:dropped";
+
     /** 短信验证码前缀 */
     public static final String SMS_CODE_PREFIX = "minthive:sms:code:";
 

@@ -376,6 +376,7 @@ public class AdminUserController {
         update.setId(userId);
         update.setRole(role);
         userMapper.updateById(update);
+        redisUtil.deleteLoginToken(userId);
         return Result.success();
     }
 
@@ -392,6 +393,7 @@ public class AdminUserController {
         update.setId(userId);
         update.setRole(Constants.ROLE_USER);
         userMapper.updateById(update);
+        redisUtil.deleteLoginToken(userId);
         return Result.success();
     }
 

@@ -152,6 +152,7 @@ import { useUserStore } from '@/stores/user'
 import { updateProfile } from '@/api/user'
 import { compressImage } from '@/utils/compress'
 import { uploadImage } from '@/api/file'
+import type { User } from '@/types'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -164,7 +165,7 @@ const form = ref({
   nickname: '',
   bio: '',
   avatar: '',
-  gender: 0,
+  gender: 0 as User['gender'],
   birthday: ''
 })
 
@@ -207,14 +208,8 @@ const hasChanges = computed(() => {
 
 /** 兴趣标签预览文字 */
 const interestPreview = computed(() => {
-  const tags = userStore.userInfo?.interestTags
-  if (!tags) return ''
-  try {
-    const arr = JSON.parse(tags)
-    return Array.isArray(arr) ? arr.slice(0, 3).join(' / ') + (arr.length > 3 ? '...' : '') : ''
-  } catch {
-    return tags.length > 15 ? tags.slice(0, 15) + '...' : tags
-  }
+  const tags = userStore.userInfo?.interests ?? []
+  return tags.slice(0, 3).join(' / ') + (tags.length > 3 ? '...' : '')
 })
 
 /**

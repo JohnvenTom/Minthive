@@ -191,6 +191,7 @@
 
         <EmptyState
           v-else-if="!loadingPosts && !postList.length"
+          title="暂无动态"
           description="圈内暂无动态，快来发第一篇吧~"
         />
 
@@ -224,8 +225,8 @@
     <!-- 圈子不存在 -->
     <EmptyState
       v-else
+      title="圈子不存在"
       description="圈子不存在或已被解散"
-      icon="error"
     />
 
     <!-- 私密圈申请弹窗 -->
@@ -343,8 +344,6 @@
       v-model:show="showShareSheet"
       :post-id="shareTargetPostId || 0"
       @shared="onShared"
-      @click-share="(id: number) => goPostDetail(id)"
-      @click-user="router.push(`/profile/${$event}`)"
     />
   </div>
 </template>
@@ -760,7 +759,7 @@ async function onDeletePost(postId: number): Promise<void> {
  * @param {number} visibility - 目标可见性(0=公开 2=仅自己隐藏)
  * @returns {Promise<void>}
  */
-async function onToggleVisibility(postId: number, visibility: number): Promise<void> {
+async function onToggleVisibility(postId: number, visibility: Post['visibility']): Promise<void> {
   try {
     await togglePostVisibility(postId, { visibility })
     const post = findPost(postId)

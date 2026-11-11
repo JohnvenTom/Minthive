@@ -33,16 +33,20 @@ public class UserContext {
         return CONTEXT.get();
     }
 
-    /**
-     * 获取当前登录用户ID
-     *
-     * @return 用户ID
-     * @throws IllegalStateException 未登录时抛出
-     */
+    /** 获取已验证的当前用户ID；公开请求未登录时返回 null。 */
     public static Long getUserId() {
         return Optional.ofNullable(CONTEXT.get())
                 .map(LoginUser::getUserId)
-                .orElseThrow(() -> new IllegalStateException("当前线程未设置登录用户"));
+                .orElse(null);
+    }
+
+    /** 私有业务入口要求已认证身份，绝不自行解析请求凭证。 */
+    public static Long requireUserId() {
+        Long userId = getUserId();
+        if (userId == null) {
+            throw new com.minthive.common.BusinessException(com.minthive.common.ResultCode.UNAUTHORIZED);
+        }
+        return userId;
     }
 
     /**

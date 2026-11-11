@@ -4,6 +4,7 @@ import com.minthive.ai.AiContext;
 import com.minthive.ai.AiRateLimiter;
 import com.minthive.ai.AiService;
 import com.minthive.common.Result;
+import com.minthive.common.ResultCode;
 import com.minthive.entity.Circle;
 import com.minthive.entity.User;
 import com.minthive.security.UserContext;
@@ -117,6 +118,14 @@ public class AiController {
         aiRateLimiter.checkLimit();
         AiService.AiDetectResult result = aiContext.detectContent(dto.getText(), dto.getImageBase64());
         aiRateLimiter.increment();
+        if (result == null) {
+            result = AiService.AiDetectResult.unavailable("审核未返回结果");
+        }
+        if (!result.available) {
+            // 保留 data 中的旧字段，但不能以成功审核响应掩盖不可用状态。
+            return new Result<>(ResultCode.AI_SERVICE_ERROR.getCode(),
+                    "内容审核不可用：" + result.violationType, result, null);
+        }
         return Result.success(result);
     }
 

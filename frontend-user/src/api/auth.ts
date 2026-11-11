@@ -3,8 +3,16 @@
  * @module api/auth
  */
 
-import { request } from './request'
-import type { User } from '@/types'
+import { request, mappedRequest } from './request'
+import type { AxiosRequestConfig } from 'axios'
+import { normalizeUser, type UserResponse } from './normalize'
+import { requestUser } from './user'
+
+function requestLogin(config: AxiosRequestConfig) {
+  return mappedRequest(config, (data: { token: string; user: UserResponse }) => ({
+    ...data, user: normalizeUser(data.user)
+  }))
+}
 
 /**
  * 账号密码登录
@@ -13,7 +21,7 @@ import type { User } from '@/types'
  * @returns {Promise<{token: string, user: User}>}
  */
 export function loginByPassword(account: string, password: string) {
-  return request<{ token: string; user: User }>({
+  return requestLogin({
     url: '/auth/login',
     method: 'post',
     data: { account, password }
@@ -26,7 +34,7 @@ export function loginByPassword(account: string, password: string) {
  * @param {string} code
  */
 export function loginBySms(phone: string, code: string) {
-  return request<{ token: string; user: User }>({
+  return requestLogin({
     url: '/auth/login/sms',
     method: 'post',
     data: { phone, code }
@@ -43,7 +51,7 @@ export function register(data: {
   phone: string
   code: string
 }) {
-  return request<{ token: string; user: User }>({
+  return requestLogin({
     url: '/auth/register',
     method: 'post',
     data
@@ -88,5 +96,5 @@ export function changePassword(oldPassword: string, newPassword: string) {
  * 获取当前用户信息
  */
 export function getCurrentUser() {
-  return request<User>({ url: '/user/me', method: 'get' })
+  return requestUser({ url: '/user/me', method: 'get' })
 }

@@ -15,6 +15,9 @@ import com.minthive.mapper.PostMapper;
 import com.minthive.mapper.UserMapper;
 import com.minthive.mapper.FollowMapper;
 import com.minthive.security.JwtUtils;
+import com.minthive.security.UserContext;
+import com.minthive.dto.PublicUserDto;
+import com.minthive.service.ContentAccessService;
 import com.minthive.service.UserService;
 import com.minthive.service.SmsService;
 import com.minthive.util.BcryptUtil;
@@ -57,7 +60,21 @@ public class UserServiceImpl implements UserService {
 
     private final FollowMapper followMapper;
 
+    private final ContentAccessService contentAccessService;
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private void requireLoginAllowed(User user) {
+        if (!Integer.valueOf(Constants.USER_STATUS_NORMAL).equals(user.getStatus())) {
+            throw new BusinessException(ResultCode.USER_BANNED);
+        }
+        if (!Integer.valueOf(Constants.CANCEL_STATUS_NORMAL).equals(user.getCancelStatus())
+                || !Integer.valueOf(0).equals(user.getDeleted())
+                || user.getRole() == null || user.getRole() < Constants.ROLE_USER
+                || user.getRole() > Constants.ROLE_ADMIN) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "账号已注销或不可登录");
+        }
+    }
 
     /**
      * 用户注册
@@ -105,9 +122,7 @@ public class UserServiceImpl implements UserService {
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_EXISTS);
         }
-        if (Constants.USER_STATUS_BANNED == user.getStatus()) {
-            throw new BusinessException(ResultCode.USER_BANNED);
-        }
+        requireLoginAllowed(user);
         if (!BcryptUtil.matches(password, user.getPassword())) {
             throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
@@ -183,6 +198,13 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public User update(User user) {
+        // 全部字段为 null 时 updateById 会生成无 SET 子句的非法 SQL，直接返回当前用户
+        if (user.getNickname() == null && user.getBio() == null && user.getGender() == null
+                && user.getBirthday() == null && user.getAvatar() == null
+                && user.getInterestTags() == null && user.getPhone() == null
+                && user.getPassword() == null && user.getStatus() == null) {
+            return userMapper.selectById(user.getId());
+        }
         userMapper.updateById(user);
         return userMapper.selectById(user.getId());
     }
@@ -245,11 +267,12 @@ public class UserServiceImpl implements UserService {
         }
         wrapper.orderByDesc(User::getRegisterTime);
         Page<User> page = userMapper.selectPage(new Page<>(current, size), wrapper);
-        // 脱敏：清除密码字段 + 填充统计数据
-        page.getRecords().forEach(u -> {
-            u.setPassword(null);
-            enrichUserStats(u);
-        });
+        // 搜索为公开接口，只返回显式公开投影，不返回账号/画像等私有字段。
+        page.setRecords(page.getRecords().stream().map(u -> {
+            User profile = PublicUserDto.from(u);
+            enrichUserStats(profile);
+            return profile;
+        }).toList());
         return page;
     }
 
@@ -317,9 +340,7 @@ public class UserServiceImpl implements UserService {
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_EXISTS);
         }
-        if (Constants.USER_STATUS_BANNED == user.getStatus()) {
-            throw new BusinessException(ResultCode.USER_BANNED);
-        }
+        requireLoginAllowed(user);
         String token = jwtUtils.generateToken(user.getId(), user.getAccount(), user.getRole());
         redisUtil.cacheLoginToken(user.getId(), token);
         // 更新最近登录时间
@@ -437,20 +458,19 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 查询指定用户的已审核帖子列表（分页）
+     * 查询指定用户对当前访问者可见的帖子列表（分页）
      *
-     * <p>功能描述：根据用户ID查询该用户所有审核通过的帖子，按发布时间倒序排列</p>
+     * <p>使用统一内容可见性规则，按发布时间倒序排列；本人和管理员权限由该规则决定。</p>
      *
      * @param userId  目标用户ID
      * @param current 当前页码（从1开始）
      * @param size    每页条数
-     * @return 分页帖子列表（仅包含 auditStatus=1 的帖子）
+     * @return 当前访问者有权阅读的分页帖子列表
      */
     @Override
     public Page<Post> getUserPosts(Long userId, long current, long size) {
-        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+        LambdaQueryWrapper<Post> wrapper = contentAccessService.visiblePosts(UserContext.getUserId())
                 .eq(Post::getUserId, userId)
-                .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
                 .orderByDesc(Post::getCreateTime);
         Page<Post> result = postMapper.selectPage(new Page<>(current, size), wrapper);
         postService.enrichPageCounts(result);
@@ -485,8 +505,9 @@ public class UserServiceImpl implements UserService {
         java.util.List<Long> postIds = lcPage.getRecords().stream()
                 .map(LikeCollect::getTargetId)
                 .collect(java.util.stream.Collectors.toList());
-        // 3. 根据 ID 列表批量查询帖子
-        java.util.List<Post> posts = postMapper.selectBatchIds(postIds);
+        // 历史点赞/收藏不是永久阅读授权；私有化、退出圈子后仍需重新校验可见性。
+        java.util.List<Post> posts = postMapper.selectList(
+                contentAccessService.visiblePosts(UserContext.requireUserId()).in(Post::getId, postIds));
         // 4. 组装分页结果
         Page<Post> result = new Page<>(current, size, lcPage.getTotal());
         result.setRecords(posts);
@@ -522,8 +543,9 @@ public class UserServiceImpl implements UserService {
         java.util.List<Long> postIds = lcPage.getRecords().stream()
                 .map(LikeCollect::getTargetId)
                 .collect(java.util.stream.Collectors.toList());
-        // 3. 根据 ID 列表批量查询帖子
-        java.util.List<Post> posts = postMapper.selectBatchIds(postIds);
+        // 历史点赞/收藏不是永久阅读授权；私有化、退出圈子后仍需重新校验可见性。
+        java.util.List<Post> posts = postMapper.selectList(
+                contentAccessService.visiblePosts(UserContext.requireUserId()).in(Post::getId, postIds));
         // 4. 组装分页结果
         Page<Post> result = new Page<>(current, size, lcPage.getTotal());
         result.setRecords(posts);

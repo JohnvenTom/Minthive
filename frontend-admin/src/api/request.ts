@@ -51,10 +51,9 @@ service.interceptors.request.use(
 /** 响应拦截器：统一处理业务码 */
 service.interceptors.response.use(
   (response: AxiosResponse) => {
+    if (response.config.responseType === 'blob') return response
     const res = response.data as ApiResponse
     if (res.code === 200) {
-      // 将业务数据挂回 response.data，保持 AxiosResponse 结构以通过类型校验
-      response.data = res.data as any
       return response
     }
     // 401 未登录
@@ -126,8 +125,13 @@ service.interceptors.response.use(
  * @param url 请求地址
  * @param params 查询参数
  */
-export function get<T = unknown>(url: string, params?: object, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-  return service.get(url, { params, ...config }).then((res) => res.data as ApiResponse<T>)
+export function get(url: string, params: object | undefined, config: AxiosRequestConfig & { responseType: 'blob' }): Promise<Blob>
+export function get<T = unknown>(url: string, params?: object, config?: AxiosRequestConfig): Promise<T>
+export function get<T = unknown>(url: string, params?: object, config?: AxiosRequestConfig): Promise<T | Blob> {
+  if (config?.responseType === 'blob') {
+    return service.get<Blob>(url, { params, ...config }).then(res => res.data)
+  }
+  return service.get<ApiResponse<T>>(url, { params, ...config }).then((res) => res.data.data)
 }
 
 /**
@@ -135,8 +139,8 @@ export function get<T = unknown>(url: string, params?: object, config?: AxiosReq
  * @param url 请求地址
  * @param data 请求体
  */
-export function post<T = unknown>(url: string, data?: object, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-  return service.post(url, data, config).then((res) => res.data as ApiResponse<T>)
+export function post<T = unknown>(url: string, data?: object, config?: AxiosRequestConfig): Promise<T> {
+  return service.post<ApiResponse<T>>(url, data, config).then((res) => res.data.data)
 }
 
 /**
@@ -144,8 +148,8 @@ export function post<T = unknown>(url: string, data?: object, config?: AxiosRequ
  * @param url 请求地址
  * @param data 请求体
  */
-export function put<T = unknown>(url: string, data?: object, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-  return service.put(url, data, config).then((res) => res.data as ApiResponse<T>)
+export function put<T = unknown>(url: string, data?: object, config?: AxiosRequestConfig): Promise<T> {
+  return service.put<ApiResponse<T>>(url, data, config).then((res) => res.data.data)
 }
 
 /**
@@ -153,8 +157,8 @@ export function put<T = unknown>(url: string, data?: object, config?: AxiosReque
  * @param url 请求地址
  * @param params 查询参数
  */
-export function del<T = unknown>(url: string, params?: object, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-  return service.delete(url, { params, ...config }).then((res) => res.data as ApiResponse<T>)
+export function del<T = unknown>(url: string, params?: object, config?: AxiosRequestConfig): Promise<T> {
+  return service.delete<ApiResponse<T>>(url, { params, ...config }).then((res) => res.data.data)
 }
 
 export default service

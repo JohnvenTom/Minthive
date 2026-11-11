@@ -3,18 +3,18 @@ package com.minthive.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.Result;
+import com.minthive.dto.PublicUserDto;
 import com.minthive.entity.Post;
 import com.minthive.entity.User;
 import com.minthive.mapper.FollowMapper;
 import com.minthive.entity.Follow;
 import com.minthive.security.UserContext;
 import com.minthive.service.UserService;
-import com.minthive.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 
@@ -28,19 +28,10 @@ public class UserController {
 
     private final UserService userService;
     private final FollowMapper followMapper;
-    private final JwtUtil jwtUtil;
 
-    /**
-     * 构造器注入
-     *
-     * @param userService 用户服务
-     * @param followMapper 关注关系 Mapper（用于查询关注状态）
-     * @param jwtUtil      JWT 工具（用于从请求头手动解析 Token 获取用户ID）
-     */
-    public UserController(UserService userService, FollowMapper followMapper, JwtUtil jwtUtil) {
+    public UserController(UserService userService, FollowMapper followMapper) {
         this.userService = userService;
         this.followMapper = followMapper;
-        this.jwtUtil = jwtUtil;
     }
 
     /**
@@ -50,23 +41,8 @@ public class UserController {
      */
     @Operation(summary = "查询当前用户信息")
     @GetMapping("/me")
-    public Result<User> me(HttpServletRequest request) {
-        Long userId;
-        try {
-            userId = UserContext.getUserId();
-        } catch (Exception e) {
-            String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                try {
-                    userId = jwtUtil.getUserIdFromToken(authHeader.substring(7));
-                } catch (Exception ignored) {
-                    return Result.error(401, "未登录或 Token 已过期");
-                }
-            } else {
-                return Result.error(401, "未登录");
-            }
-        }
-        User user = userService.getById(userId);
+    public Result<User> me() {
+        User user = userService.getById(UserContext.requireUserId());
         enrichUserStats(user);
         return Result.success(user);
     }
@@ -79,25 +55,10 @@ public class UserController {
      */
     @Operation(summary = "根据ID查询用户")
     @GetMapping("/{id}")
-    public Result<User> getById(@PathVariable Long id, HttpServletRequest request) {
-        User user = userService.getById(id);
+    public Result<PublicUserDto> getById(@PathVariable Long id) {
+        PublicUserDto user = PublicUserDto.from(userService.getById(id));
         enrichUserStats(user);
-        // /api/user/{id} 为公开接口（excludePathPatterns），JWT 拦截器跳过该路径
-        // 需要双通道识别当前登录用户：优先 UserContext，失败则手动从请求头解析 Token
-        Long currentUserId = null;
-        try {
-            currentUserId = UserContext.getUserId();
-        } catch (Exception e) {
-            // 未登录或公开接口未设置 UserContext，尝试从请求头手动解析 Token
-            String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                try {
-                    currentUserId = jwtUtil.getUserIdFromToken(authHeader.substring(7));
-                } catch (Exception ignored) {
-                    // Token 无效或过期，currentUserId 保持 null
-                }
-            }
-        }
+        Long currentUserId = UserContext.getUserId();
         // 查询当前登录用户是否已关注该用户，附加 isFollowing 字段
         if (currentUserId != null && !currentUserId.equals(id)) {
             long count = followMapper.selectCount(new LambdaQueryWrapper<Follow>()
@@ -127,8 +88,16 @@ public class UserController {
      */
     @Operation(summary = "更新用户信息")
     @PutMapping
-    public Result<User> update(@RequestBody User user) {
-        user.setId(UserContext.getUserId());
+    public Result<User> update(@RequestBody UserUpdateDto dto) {
+        // 严禁直接绑定 User 实体更新：role/status/password 等敏感列一旦随请求体进入
+        // updateById（非空字段全更新）即构成批量赋值提权，此处仅映射白名单字段
+        User user = new User();
+        user.setId(UserContext.requireUserId());
+        user.setNickname(dto.getNickname());
+        user.setBio(dto.getBio());
+        user.setGender(dto.getGender());
+        user.setBirthday(dto.getBirthday());
+        user.setAvatar(dto.getAvatar());
         return Result.success(userService.update(user));
     }
 
@@ -137,18 +106,13 @@ public class UserController {
      *
      * <p>功能描述：接收前端选中的兴趣标签列表，转为逗号分隔字符串存入数据库</p>
      *
-     * @param dto     兴趣标签请求体（包含 interests 列表）
-     * @param request HTTP 请求对象（用于备用 Token 解析）
+     * @param dto 兴趣标签请求体（包含 interests 列表）
      * @return 操作结果（成功/未登录 401）
      */
     @Operation(summary = "更新兴趣标签")
     @PutMapping("/interests")
-    public Result<Void> updateInterests(@RequestBody InterestsDto dto, HttpServletRequest request) {
-        // 双通道获取当前用户ID：优先 UserContext（正常认证流程），失败则手动从请求头解析 Token（防御性兜底）
-        Long userId = resolveUserId(request);
-        if (userId == null) {
-            return Result.error(401, "请先登录");
-        }
+    public Result<Void> updateInterests(@RequestBody InterestsDto dto) {
+        Long userId = UserContext.requireUserId();
         // 参数校验：防止空指针异常，允许传入空列表（表示清空兴趣标签）
         List<String> interests = dto.getInterests();
         if (interests == null) {
@@ -175,7 +139,7 @@ public class UserController {
     @Operation(summary = "修改密码")
     @PutMapping("/password")
     public Result<Void> changePassword(@RequestBody ChangePasswordDto dto) {
-        userService.changePassword(UserContext.getUserId(), dto.getOldPassword(), dto.getNewPassword());
+        userService.changePassword(UserContext.requireUserId(), dto.getOldPassword(), dto.getNewPassword());
         return Result.success();
     }
 
@@ -187,7 +151,7 @@ public class UserController {
     @Operation(summary = "注销账号")
     @DeleteMapping("/cancel")
     public Result<Void> cancel() {
-        userService.cancelAccount(UserContext.getUserId());
+        userService.cancelAccount(UserContext.requireUserId());
         return Result.success();
     }
 
@@ -211,7 +175,7 @@ public class UserController {
     @Operation(summary = "更新头像")
     @PutMapping("/avatar")
     public Result<Void> updateAvatar(@RequestBody AvatarDto dto) {
-        userService.updateAvatar(UserContext.getUserId(), dto.getAvatar());
+        userService.updateAvatar(UserContext.requireUserId(), dto.getAvatar());
         return Result.success();
     }
 
@@ -244,14 +208,9 @@ public class UserController {
      */
     @Operation(summary = "当前用户收藏列表")
     @GetMapping("/collects")
-    public Result<Page<Post>> getCollects(HttpServletRequest request,
-                                          @RequestParam(defaultValue = "1") long current,
+    public Result<Page<Post>> getCollects(@RequestParam(defaultValue = "1") long current,
                                           @RequestParam(defaultValue = "10") long size) {
-        Long currentUserId = resolveUserId(request);
-        if (currentUserId == null) {
-            return Result.error(401, "请先登录");
-        }
-        return Result.success(userService.getCollects(currentUserId, current, size));
+        return Result.success(userService.getCollects(UserContext.requireUserId(), current, size));
     }
 
     /**
@@ -259,45 +218,15 @@ public class UserController {
      *
      * <p>功能描述：通过 like_collect 表关联 post 表，获取当前登录用户点赞的帖子列表</p>
      *
-     * @param request HTTP 请求对象（用于从请求头解析 Token）
      * @param current 当前页码（默认1）
      * @param size    每页条数（默认10）
      * @return 分页点赞帖子列表
      */
     @Operation(summary = "当前用户点赞列表")
     @GetMapping("/likes")
-    public Result<Page<Post>> getLikes(HttpServletRequest request,
-                                       @RequestParam(defaultValue = "1") long current,
+    public Result<Page<Post>> getLikes(@RequestParam(defaultValue = "1") long current,
                                        @RequestParam(defaultValue = "10") long size) {
-        Long currentUserId = resolveUserId(request);
-        if (currentUserId == null) {
-            return Result.error(401, "请先登录");
-        }
-        return Result.success(userService.getLikes(currentUserId, current, size));
-    }
-
-    /**
-     * 双通道获取当前登录用户ID
-     *
-     * <p>优先从 UserContext 获取（正常认证接口），失败则手动从请求头解析 Token（公开接口）</p>
-     *
-     * @param request HTTP 请求对象
-     * @return 当前登录用户ID，未登录时返回 null
-     */
-    private Long resolveUserId(HttpServletRequest request) {
-        try {
-            return UserContext.getUserId();
-        } catch (Exception e) {
-            String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                try {
-                    return jwtUtil.getUserIdFromToken(authHeader.substring(7));
-                } catch (Exception ignored) {
-                    // Token 无效或过期
-                }
-            }
-            return null;
-        }
+        return Result.success(userService.getLikes(UserContext.requireUserId(), current, size));
     }
 
     /**
@@ -306,6 +235,29 @@ public class UserController {
     @lombok.Data
     public static class AvatarDto {
         /** 头像URL地址 */
+        private String avatar;
+    }
+
+    /**
+     * 更新用户信息请求 DTO
+     *
+     * <p>字段白名单：仅开放个人资料字段，role/status/password/phone 等敏感列一律不可通过本接口修改</p>
+     */
+    @lombok.Data
+    public static class UserUpdateDto {
+        /** 昵称 */
+        private String nickname;
+
+        /** 个人简介 */
+        private String bio;
+
+        /** 性别:0未知 1男 2女 */
+        private Integer gender;
+
+        /** 生日 */
+        private LocalDate birthday;
+
+        /** 头像URL */
         private String avatar;
     }
 }

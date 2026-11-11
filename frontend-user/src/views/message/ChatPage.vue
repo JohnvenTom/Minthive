@@ -494,7 +494,7 @@ async function onImageSelected(event: Event): Promise<void> {
   try {
     showToast('上传中...')
     const res = await uploadImage(file)
-    const url = res.data?.url
+    const url = res.data
     if (url) {
       const msg = await chatStore.sendMessage(targetUserId.value, url, 'image')
       messages.value.push(normalizeMessage(msg))
@@ -565,7 +565,7 @@ async function onAiReply(): Promise<void> {
     const fullContext = `${systemPrompt}\n\n【聊天记录】\n${historyContext}`
 
     const res = await aiReplyMessage(fullContext, incomingMsg)
-    const content = typeof res.data === 'string' ? res.data : res.data?.content
+    const content = res.data
     if (content) {
       // 如果输入框有内容，先发送用户自己的消息
       const pendingContent = inputText.value.trim()

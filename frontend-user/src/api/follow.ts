@@ -3,8 +3,9 @@
  * @module api/follow
  */
 
-import { request } from './request'
-import type { User, PageResult } from '@/types'
+import { request, mappedRequest } from './request'
+import { normalizeUser, type UserResponse } from './normalize'
+import { requestUserPage } from './user'
 
 /**
  * 关注/取消关注
@@ -31,10 +32,10 @@ export function checkFollowStatus(userId: number) {
  * @param {number} userId
  */
 export function getFollowing(userId: number, page = 1, pageSize = 20) {
-  return request<PageResult<User>>({
+  return requestUserPage({
     url: `/follow/${userId}/following`,
     method: 'get',
-    params: { page, pageSize }
+    params: { current: page, size: pageSize }
   })
 }
 
@@ -43,10 +44,10 @@ export function getFollowing(userId: number, page = 1, pageSize = 20) {
  * @param {number} userId
  */
 export function getFollowers(userId: number, page = 1, pageSize = 20) {
-  return request<PageResult<User>>({
+  return requestUserPage({
     url: `/follow/${userId}/followers`,
     method: 'get',
-    params: { page, pageSize }
+    params: { current: page, size: pageSize }
   })
 }
 
@@ -54,5 +55,5 @@ export function getFollowers(userId: number, page = 1, pageSize = 20) {
  * AI 推荐好友
  */
 export function getRecommendUsers() {
-  return request<User[]>({ url: '/follow/recommend', method: 'get' })
+  return mappedRequest({ url: '/follow/recommend', method: 'get' }, (users: UserResponse[]) => users.map(normalizeUser))
 }

@@ -34,6 +34,7 @@ public class AdminReportController {
     private final com.minthive.mapper.PostMapper postMapper;
     private final com.minthive.mapper.CommentMapper commentMapper;
     private final SystemMsgMapper systemMsgMapper;
+    private final com.minthive.util.RedisUtil redisUtil;
 
     /**
      * 分页查询举报工单列表（关联用户表 + 内容表，字段名对齐前端 ReportWorkOrder 类型）
@@ -250,6 +251,7 @@ public class AdminReportController {
         userUpdate.setId(accusedId);
         userUpdate.setStatus(0); // 封禁
         userMapper.updateById(userUpdate);
+        redisUtil.deleteLoginToken(accusedId);
     }
 
     /**

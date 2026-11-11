@@ -33,6 +33,8 @@ public class CommentController {
 
     private final PostService postService;
 
+    private final com.minthive.service.ContentAccessService contentAccessService;
+
     /**
      * 构造器注入
      *
@@ -41,11 +43,14 @@ public class CommentController {
      * @param aiUserLogService   AI用户行为日志服务
      * @param postService        帖子服务
      */
-    public CommentController(CommentService commentService, LikeCollectService likeCollectService, AiUserLogService aiUserLogService, PostService postService) {
+    public CommentController(CommentService commentService, LikeCollectService likeCollectService,
+                             AiUserLogService aiUserLogService, PostService postService,
+                             com.minthive.service.ContentAccessService contentAccessService) {
         this.commentService = commentService;
         this.likeCollectService = likeCollectService;
         this.aiUserLogService = aiUserLogService;
         this.postService = postService;
+        this.contentAccessService = contentAccessService;
     }
 
     /**
@@ -125,7 +130,9 @@ public class CommentController {
     @Operation(summary = "点赞评论")
     @PostMapping("/{id}/like")
     public Result<Void> like(@PathVariable Long id) {
-        likeCollectService.like(UserContext.getUserId(), id, Constants.LC_TYPE_LIKE_COMMENT);
+        Long userId = UserContext.getUserId();
+        contentAccessService.requireCommentReadable(id, userId);
+        likeCollectService.like(userId, id, Constants.LC_TYPE_LIKE_COMMENT);
         return Result.success();
     }
 

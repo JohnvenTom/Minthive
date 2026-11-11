@@ -91,7 +91,10 @@ public enum ResultCode {
     SMS_CODE_ERROR(1017, "验证码错误或已过期"),
 
     /** 验证码发送频繁 */
-    SMS_SEND_FREQUENT(1018, "验证码发送过于频繁，请稍后再试");
+    SMS_SEND_FREQUENT(1018, "验证码发送过于频繁，请稍后再试"),
+
+    /** 文件类型不允许 */
+    FILE_TYPE_NOT_ALLOWED(1019, "不支持的文件类型");
 
     /** 状态码 */
     private final Integer code;

@@ -136,6 +136,7 @@ import { aiQueryStream } from '@/api/ai'
 import type { NavigationAction } from '@/api/ai'
 import { useAppStore } from '@/stores/app'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
 interface MessageSegment {
   type: 'text' | 'navigation'
@@ -295,7 +296,9 @@ function navigateTo(item: NavigationAction): void {
  * 导航卡片图标
  */
 function renderMarkdown(text: string): string {
-  return marked.parse(text, { async: false }) as string
+  // AI 回复会拼接帖子标题/正文/昵称等用户可控内容，marked 默认不净化 HTML，
+  // 必须经 DOMPurify 过滤后才能进 v-html（防存储型 XSS）
+  return DOMPurify.sanitize(marked.parse(text, { async: false }) as string)
 }
 
 function navIcon(type: string): string {

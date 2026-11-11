@@ -9,9 +9,10 @@ import { computed } from 'vue'
  *   - type: 业务类型，决定状态映射 user / audit / workorder / circle / common
  */
 const props = withDefaults(defineProps<{
-  status: string
+  status?: string
   type?: 'user' | 'audit' | 'workorder' | 'circle' | 'common'
 }>(), {
+  status: '',
   type: 'common'
 })
 
@@ -48,7 +49,7 @@ const statusMap: Record<string, Record<string, { label: string; color: string }>
 /** 当前状态配置 */
 const config = computed(() => {
   const map = statusMap[props.type] || statusMap.common
-  return map[props.status] || { label: props.status, color: 'info' }
+  return map[props.status] || { label: props.status || '—', color: 'info' }
 })
 </script>
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="loading-spinner" :class="[`is-${size}`, { 'is-ai': aiMode }]">
+  <div class="loading-spinner" :class="[`is-${sizeClass}`, { 'is-ai': aiMode }]">
     <div class="loading-spinner__hex-wrap">
       <!-- 外层蜂巢 -->
       <svg class="loading-spinner__hex loading-spinner__hex--outer" :style="sizeStyle" viewBox="0 0 56 64" fill="none">
@@ -42,8 +42,8 @@
 import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{
-  /** 尺寸：sm/md/lg */
-  size?: 'sm' | 'md' | 'lg'
+  /** 预设尺寸或像素宽度；small 为 sm 的别名 */
+  size?: 'sm' | 'md' | 'lg' | 'small' | number
   /** 是否为AI专属加载模式 */
   aiMode?: boolean
 }>(), {
@@ -58,16 +58,21 @@ const sizeMap = {
   lg: 72
 }
 
+const sizeClass = computed(() => props.size === 'small' ? 'sm' : props.size)
+const sizePixels = computed(() => typeof props.size === 'number'
+  ? props.size
+  : sizeMap[props.size === 'small' ? 'sm' : props.size])
+
 /** 外层尺寸样式 */
 const sizeStyle = computed(() => ({
-  width: `${sizeMap[props.size]}px`,
-  height: `${sizeMap[props.size] * 1.14}px`
+  width: `${sizePixels.value}px`,
+  height: `${sizePixels.value * 1.14}px`
 }))
 
 /** 内层尺寸样式 */
 const innerSizeStyle = computed(() => ({
-  width: `${sizeMap[props.size] * 0.65}px`,
-  height: `${sizeMap[props.size] * 0.65 * 1.14}px`
+  width: `${sizePixels.value * 0.65}px`,
+  height: `${sizePixels.value * 0.65 * 1.14}px`
 }))
 </script>
 

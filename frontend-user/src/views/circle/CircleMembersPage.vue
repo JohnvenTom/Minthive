@@ -36,6 +36,7 @@
 
     <EmptyState
       v-else-if="!loading && !memberList.length"
+      title="暂无成员"
       :description="keyword ? '没有找到匹配的成员' : '圈子暂无其他成员'"
     />
 

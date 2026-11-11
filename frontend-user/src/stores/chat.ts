@@ -177,6 +177,6 @@ export const useChatStore = defineStore('chat', () => {
 }, {
   persist: {
     key: 'minthive_chat',
-    pick: ['unreadCount']
+    paths: ['unreadCount']
   }
 })

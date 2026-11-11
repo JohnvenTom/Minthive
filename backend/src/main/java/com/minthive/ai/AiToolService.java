@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.entity.*;
 import com.minthive.mapper.*;
+import com.minthive.service.ContentAccessService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,35 +29,48 @@ public class AiToolService {
     private final AnnouncementMapper announcementMapper;
     private final CircleCategoryMapper circleCategoryMapper;
     private final MessageMapper messageMapper;
+    private final ContentAccessService contentAccessService;
 
-    public ToolResult execute(IntentParser.ParsedIntent intent) {
+    /** viewerId 必须由请求线程捕获，不能来自模型参数或异步 ThreadLocal。 */
+    public ToolResult execute(IntentParser.ParsedIntent intent, Long viewerId) {
+        if (intent == null || intent.getType() == null) return null;
+        Map<String, Object> params = intent.getParams() == null
+                ? new HashMap<>() : new HashMap<>(intent.getParams());
+        if (intent.getType() == IntentParser.IntentType.GET_MESSAGES
+                || intent.getType() == IntentParser.IntentType.GET_MESSAGE_CENTER
+                || intent.getType() == IntentParser.IntentType.GET_NOTIFICATIONS
+                || intent.getType() == IntentParser.IntentType.GET_COLLECTIONS) {
+            // 工具入口本身也是权限边界，调用者不得以模型 userId 读取他人私有数据。
+            params.put("userId", viewerId);
+        }
+        intent = new IntentParser.ParsedIntent(intent.getType(), params);
         return switch (intent.getType()) {
-            case GET_POST -> getPostDetail((Long) intent.getParams().get("id"));
-            case GET_CIRCLE -> getCircleDetail((Long) intent.getParams().get("id"));
-            case GET_USER -> getUserDetail((Long) intent.getParams().get("id"));
-            case GET_STATS -> getPlatformStats();
-            case SEARCH_POSTS -> searchPosts((String) intent.getParams().get("keyword"));
-            case GET_TRENDING -> getTrendingPosts();
-            case GET_LATEST_POSTS -> getLatestPosts();
-            case GET_RECOMMEND -> getRecommendPosts();
+            case GET_POST -> getPostDetail(toLong(intent.getParams().get("id")), viewerId);
+            case GET_CIRCLE -> getCircleDetail(toLong(intent.getParams().get("id")), viewerId);
+            case GET_USER -> getUserDetail(toLong(intent.getParams().get("id")), viewerId);
+            case GET_STATS -> getPlatformStats(viewerId);
+            case SEARCH_POSTS -> searchPosts((String) intent.getParams().get("keyword"), viewerId);
+            case GET_TRENDING -> getTrendingPosts(viewerId);
+            case GET_LATEST_POSTS -> getLatestPosts(viewerId);
+            case GET_RECOMMEND -> getRecommendPosts(viewerId);
             case GET_NOTIFICATIONS -> getNotifications(toLong(intent.getParams().get("userId")));
             case GET_ANNOUNCEMENTS -> getAnnouncements();
             case GET_FOLLOWERS -> getFollowers(toLong(intent.getParams().get("userId")));
             case GET_FOLLOWING -> getFollowing(toLong(intent.getParams().get("userId")));
-            case GET_POST_LIKES -> getPostLikes(toLong(intent.getParams().get("postId")));
-            case GET_COLLECTIONS -> getCollections(toLong(intent.getParams().get("userId")));
-            case SEARCH_POSTS_BY_TAGS -> searchPostsByTags((String) intent.getParams().get("keyword"));
+            case GET_POST_LIKES -> getPostLikes(toLong(intent.getParams().get("postId")), viewerId);
+            case GET_COLLECTIONS -> getCollections(viewerId);
+            case SEARCH_POSTS_BY_TAGS -> searchPostsByTags((String) intent.getParams().get("keyword"), viewerId);
             case SEARCH_CIRCLES_BY_CATEGORY -> searchCirclesByCategory((String) intent.getParams().get("keyword"));
             case GET_MESSAGES -> getMessages(toLong(intent.getParams().get("userId")));
             case GET_MESSAGE_CENTER -> getMessageCenter(toLong(intent.getParams().get("userId")));
             case GET_NEW_USERS -> getNewUsers();
-            case GET_CIRCLE_POSTS -> getCirclePosts(toLong(intent.getParams().get("circleId")));
+            case GET_CIRCLE_POSTS -> getCirclePosts(toLong(intent.getParams().get("circleId")), viewerId);
             case GET_HOT_CIRCLES -> getHotCircles();
-            case GET_USER_POSTS -> getUserPosts(toLong(intent.getParams().get("userId")));
+            case GET_USER_POSTS -> getUserPosts(toLong(intent.getParams().get("userId")), viewerId);
             case SEARCH_CIRCLES -> searchCircles((String) intent.getParams().get("keyword"));
             case SEARCH_USERS -> searchUsers((String) intent.getParams().get("keyword"));
-            case GET_COMMENTS -> getComments(toLong(intent.getParams().get("postId")));
-            case GET_DAILY_STATS -> getDailyStats();
+            case GET_COMMENTS -> getComments(toLong(intent.getParams().get("postId")), viewerId);
+            case GET_DAILY_STATS -> getDailyStats(viewerId);
             default -> null;
         };
     }
@@ -67,12 +81,10 @@ public class AiToolService {
         return (Long) v;
     }
 
-    private ToolResult getPostDetail(Long id) {
+    private ToolResult getPostDetail(Long id, Long viewerId) {
         try {
-            Post post = postMapper.selectById(id);
-            if (post == null) {
-                return ToolResult.failure("get_post", "未找到ID为 " + id + " 的帖子");
-            }
+            Post post = id == null ? null : postMapper.selectById(id);
+            contentAccessService.requireReadable(post, viewerId);
             User author = userMapper.selectById(post.getUserId());
             long likeCount = likeCollectMapper.selectCount(
                     new LambdaQueryWrapper<LikeCollect>()
@@ -114,7 +126,7 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getCircleDetail(Long id) {
+    private ToolResult getCircleDetail(Long id, Long viewerId) {
         try {
             Circle circle = circleMapper.selectById(id);
             if (circle == null) {
@@ -123,7 +135,7 @@ public class AiToolService {
             long memberCount = circleUserMapper.selectCount(
                     new LambdaQueryWrapper<CircleUser>().eq(CircleUser::getCircleId, id));
             long postCount = postMapper.selectCount(
-                    new LambdaQueryWrapper<Post>().eq(Post::getCircleId, id).eq(Post::getDeleted, 0));
+                    contentAccessService.visiblePosts(viewerId).eq(Post::getCircleId, id).eq(Post::getDeleted, 0));
 
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("id", circle.getId());
@@ -154,14 +166,14 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getUserDetail(Long id) {
+    private ToolResult getUserDetail(Long id, Long viewerId) {
         try {
             User user = userMapper.selectById(id);
             if (user == null) {
                 return ToolResult.failure("get_user", "未找到ID为 " + id + " 的用户");
             }
             long postCount = postMapper.selectCount(
-                    new LambdaQueryWrapper<Post>().eq(Post::getUserId, id));
+                    contentAccessService.visiblePosts(viewerId).eq(Post::getUserId, id));
             long fanCount = 0L;
 
             Map<String, Object> data = new LinkedHashMap<>();
@@ -192,16 +204,16 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getPlatformStats() {
+    private ToolResult getPlatformStats(Long viewerId) {
         try {
             long userCount = userMapper.selectCount(new QueryWrapper<>());
             long postCount = postMapper.selectCount(
-                    new LambdaQueryWrapper<Post>().eq(Post::getDeleted, 0));
+                    contentAccessService.visiblePosts(viewerId).eq(Post::getDeleted, 0));
             long commentCount = commentMapper.selectCount(new QueryWrapper<>());
             long circleCount = circleMapper.selectCount(
                     new LambdaQueryWrapper<Circle>().eq(Circle::getDeleted, 0));
             long todayPostCount = postMapper.selectCount(
-                    new LambdaQueryWrapper<Post>()
+                    contentAccessService.visiblePosts(viewerId)
                             .eq(Post::getDeleted, 0)
                             .ge(Post::getCreateTime, LocalDateTime.now().withHour(0).withMinute(0).withSecond(0)));
 
@@ -227,13 +239,12 @@ public class AiToolService {
         }
     }
 
-    private ToolResult searchPosts(String keyword) {
+    private ToolResult searchPosts(String keyword, Long viewerId) {
         try {
             List<Post> posts = postMapper.selectPage(
                     new Page<>(1, 5),
-                    new LambdaQueryWrapper<Post>()
+                    contentAccessService.visiblePosts(viewerId)
                             .like(Post::getContent, keyword)
-                            .eq(Post::getDeleted, 0)
                             .orderByDesc(Post::getCreateTime)
             ).getRecords();
 
@@ -270,9 +281,12 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getTrendingPosts() {
+    private ToolResult getTrendingPosts(Long viewerId) {
         try {
-            Page<Post> page = postMapper.selectHotFeed(new Page<>(1, 5));
+            Page<Post> page = postMapper.selectPage(new Page<>(1, 5),
+                    contentAccessService.visiblePosts(viewerId)
+                            .last("ORDER BY (SELECT COUNT(*) FROM like_collect lc "
+                                    + "WHERE lc.target_id = post.id AND lc.type = 1) DESC, post.create_time DESC"));
             List<Post> posts = page.getRecords();
 
             if (posts.isEmpty()) {
@@ -307,14 +321,11 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getLatestPosts() {
+    private ToolResult getLatestPosts(Long viewerId) {
         try {
             List<Post> posts = postMapper.selectPage(
                     new Page<>(1, 5),
-                    new LambdaQueryWrapper<Post>()
-                            .eq(Post::getDeleted, 0)
-                            .eq(Post::getAuditStatus, 1)
-                            .eq(Post::getVisibility, 0)
+                    contentAccessService.visiblePosts(viewerId)
                             .orderByDesc(Post::getCreateTime)
             ).getRecords();
 
@@ -350,9 +361,15 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getRecommendPosts() {
+    private ToolResult getRecommendPosts(Long viewerId) {
         try {
-            Page<Post> page = postMapper.selectRecommendFeed(new Page<>(1, 5));
+            Page<Post> page = postMapper.selectPage(new Page<>(1, 5),
+                    contentAccessService.visiblePosts(viewerId)
+                            .last("ORDER BY ((SELECT COUNT(*) FROM like_collect lc "
+                                    + "WHERE lc.target_id = post.id AND lc.type = 1) + "
+                                    + "(SELECT COUNT(*) FROM comment c WHERE c.post_id = post.id) * 2 + "
+                                    + "(SELECT COUNT(*) FROM like_collect lcc "
+                                    + "WHERE lcc.target_id = post.id AND lcc.type = 3) * 3) DESC, post.create_time DESC"));
             List<Post> posts = page.getRecords();
 
             if (posts.isEmpty()) {
@@ -539,15 +556,10 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getPostLikes(Long postId) {
+    private ToolResult getPostLikes(Long postId, Long viewerId) {
         try {
-            if (postId == null) {
-                return ToolResult.failure("get_post_likes", "请指定帖子ID");
-            }
-            Post post = postMapper.selectById(postId);
-            if (post == null) {
-                return ToolResult.failure("get_post_likes", "未找到该帖子");
-            }
+            Post post = postId == null ? null : postMapper.selectById(postId);
+            contentAccessService.requireReadable(post, viewerId);
             List<LikeCollect> likes = likeCollectMapper.selectList(
                     new LambdaQueryWrapper<LikeCollect>()
                             .eq(LikeCollect::getTargetId, postId)
@@ -586,27 +598,23 @@ public class AiToolService {
             if (userId == null) {
                 return ToolResult.failure("get_collections", "请指定用户ID");
             }
-            List<LikeCollect> collects = likeCollectMapper.selectList(
-                    new LambdaQueryWrapper<LikeCollect>()
-                            .eq(LikeCollect::getUserId, userId)
-                            .eq(LikeCollect::getType, 3)
-                            .orderByDesc(LikeCollect::getCreateTime)
-                            .last("LIMIT 10"));
+            // 在数据库分页前约束可见性，不先读取收藏再过滤或泄漏不可见收藏数量。
+            List<Post> collects = postMapper.selectPage(new Page<>(1, 10),
+                    contentAccessService.visiblePosts(userId)
+                            .apply("EXISTS (SELECT 1 FROM like_collect lc WHERE lc.target_id = post.id "
+                                    + "AND lc.type = 3 AND lc.user_id = {0})", userId)
+                            .orderByDesc(Post::getCreateTime)).getRecords();
 
             if (collects.isEmpty()) {
-                return ToolResult.failure("get_collections", "该用户暂无收藏");
+                return ToolResult.failure("get_collections", "该用户暂无可见收藏");
             }
 
             List<NavigationAction> nav = new ArrayList<>();
             StringBuilder sb = new StringBuilder("📑 用户 ").append(userId).append(" 的收藏（共 ").append(collects.size()).append(" 篇）：\n");
             for (int i = 0; i < collects.size(); i++) {
-                LikeCollect lc = collects.get(i);
-                Post p = postMapper.selectById(lc.getTargetId());
-                String content = p != null ? truncate(p.getContent(), 50) : ("帖子" + lc.getTargetId());
-                sb.append("• ").append(content).append("\n");
-                if (p != null) {
-                    nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post", truncate(p.getContent(), 30)));
-                }
+                Post p = collects.get(i);
+                sb.append("• ").append(truncate(p.getContent(), 50)).append("\n");
+                nav.add(new NavigationAction("查看帖子" + (i + 1), "/post/" + p.getId(), "post", truncate(p.getContent(), 30)));
             }
 
             return ToolResult.builder()
@@ -759,18 +767,15 @@ public class AiToolService {
         }
     }
 
-    private ToolResult searchPostsByTags(String keyword) {
+    private ToolResult searchPostsByTags(String keyword, Long viewerId) {
         try {
             if (keyword == null || keyword.isBlank()) {
                 return ToolResult.failure("search_posts_by_tags", "请指定标签关键词");
             }
             List<Post> posts = postMapper.selectPage(
                     new Page<>(1, 5),
-                    new LambdaQueryWrapper<Post>()
+                    contentAccessService.visiblePosts(viewerId)
                             .like(Post::getTags, keyword)
-                            .eq(Post::getDeleted, 0)
-                            .eq(Post::getAuditStatus, 1)
-                            .eq(Post::getVisibility, 0)
                             .orderByDesc(Post::getCreateTime)
             ).getRecords();
 
@@ -894,7 +899,7 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getCirclePosts(Long circleId) {
+    private ToolResult getCirclePosts(Long circleId, Long viewerId) {
         try {
             Circle circle = circleMapper.selectById(circleId);
             if (circle == null) {
@@ -902,9 +907,8 @@ public class AiToolService {
             }
             List<Post> posts = postMapper.selectPage(
                     new Page<>(1, 5),
-                    new LambdaQueryWrapper<Post>()
+                    contentAccessService.visiblePosts(viewerId)
                             .eq(Post::getCircleId, circleId)
-                            .eq(Post::getDeleted, 0)
                             .orderByDesc(Post::getCreateTime)
             ).getRecords();
 
@@ -965,7 +969,7 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getUserPosts(Long userId) {
+    private ToolResult getUserPosts(Long userId, Long viewerId) {
         try {
             User user = userMapper.selectById(userId);
             if (user == null) {
@@ -973,9 +977,8 @@ public class AiToolService {
             }
             List<Post> posts = postMapper.selectPage(
                     new Page<>(1, 5),
-                    new LambdaQueryWrapper<Post>()
+                    contentAccessService.visiblePosts(viewerId)
                             .eq(Post::getUserId, userId)
-                            .eq(Post::getDeleted, 0)
                             .orderByDesc(Post::getCreateTime)
             ).getRecords();
 
@@ -1073,12 +1076,10 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getComments(Long postId) {
+    private ToolResult getComments(Long postId, Long viewerId) {
         try {
-            Post post = postMapper.selectById(postId);
-            if (post == null) {
-                return ToolResult.failure("get_comments", "未找到ID为 " + postId + " 的帖子");
-            }
+            Post post = postId == null ? null : postMapper.selectById(postId);
+            contentAccessService.requireReadable(post, viewerId);
             List<Comment> comments = commentMapper.selectList(
                     new LambdaQueryWrapper<Comment>()
                             .eq(Comment::getPostId, postId)
@@ -1111,11 +1112,11 @@ public class AiToolService {
         }
     }
 
-    private ToolResult getDailyStats() {
+    private ToolResult getDailyStats(Long viewerId) {
         try {
             LocalDateTime today = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
             long todayPosts = postMapper.selectCount(
-                    new LambdaQueryWrapper<Post>().eq(Post::getDeleted, 0).ge(Post::getCreateTime, today));
+                    contentAccessService.visiblePosts(viewerId).eq(Post::getDeleted, 0).ge(Post::getCreateTime, today));
             long todayComments = commentMapper.selectCount(
                     new LambdaQueryWrapper<Comment>().ge(Comment::getCreateTime, today));
             long todayUsers = userMapper.selectCount(

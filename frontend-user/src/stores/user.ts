@@ -103,6 +103,6 @@ export const useUserStore = defineStore('user', () => {
 }, {
   persist: {
     key: 'minthive_user',
-    pick: ['token']
+    paths: ['token']
   }
 })

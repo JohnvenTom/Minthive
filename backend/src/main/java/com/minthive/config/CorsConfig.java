@@ -21,12 +21,13 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                // 允许所有来源(开发环境)，生产环境应替换为具体域名
-                .allowedOriginPatterns("*")
+                // 前端显式发送 Bearer Token，不使用跨站 Cookie/环境凭证。
+                // 保留无凭证跨源访问，禁止任意来源与 credential 组合。
+                .allowedOrigins("*")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
-                .allowedHeaders("*")
+                .allowedHeaders("Authorization", "Content-Type", "Accept", "Range")
                 .exposedHeaders("Authorization", "Content-Disposition")
-                .allowCredentials(true)
+                .allowCredentials(false)
                 .maxAge(3600);
     }
 }

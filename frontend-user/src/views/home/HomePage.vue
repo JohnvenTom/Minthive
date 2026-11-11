@@ -272,7 +272,7 @@ async function fetchFeed(isRefresh = false): Promise<void> {
   try {
     const res = await getFeed(activeTab.value, currentPage.value, pageSize)
     const pageData = res.data || {}
-    const list: Post[] = pageData.records || []
+    const list: Post[] = pageData.list
 
     // 对 liked/collected 做布尔值兜底，确保 null/undefined → false
     // 避免后续 !post.liked 切换时出现 !!undefined = true 的异常行为
@@ -424,7 +424,7 @@ async function onDeletePost(postId: number): Promise<void> {
  * @param {number} visibility - 目标可见性(0=公开 2=隐藏)
  * @description 调用接口切换可见性，更新本地数据
  */
-async function onToggleVisibility(postId: number, visibility: number): Promise<void> {
+async function onToggleVisibility(postId: number, visibility: Post['visibility']): Promise<void> {
   try {
     await togglePostVisibility(postId, visibility)
     const post = posts.value.find(p => p.id === postId)

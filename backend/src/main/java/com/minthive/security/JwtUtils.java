@@ -46,6 +46,7 @@ public class JwtUtils {
         Date expiration = new Date(now.getTime() + jwtConfig.getExpire() * 1000);
         return Jwts.builder()
                 .claims(claims)
+                .id(java.util.UUID.randomUUID().toString())
                 .subject(account)
                 .issuedAt(now)
                 .expiration(expiration)

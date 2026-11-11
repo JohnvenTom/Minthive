@@ -727,8 +727,7 @@ async function onUserFollow(userId: number, follow: boolean): Promise<void> {
     // 更新本地用户列表中的关注状态
     const user = users.value.find(u => u.id === userId)
     if (user) {
-      ;(user as any).isFollowing = follow
-      ;(user as any).isFollowed = follow
+      user.isFollowing = follow
     }
     showToast(follow ? '关注成功' : '已取消关注')
   } catch {
@@ -854,7 +853,7 @@ async function onDeletePost(postId: number): Promise<void> {
  * @param {number} postId - 帖子ID
  * @param {number} visibility - 目标可见性(0=公开 2=隐藏)
  */
-async function onToggleVisibility(postId: number, visibility: number): Promise<void> {
+async function onToggleVisibility(postId: number, visibility: Post['visibility']): Promise<void> {
   try {
     await togglePostVisibility(postId, visibility)
     const post = posts.value.find(p => p.id === postId)

@@ -255,7 +255,7 @@ const emit = defineEmits<{
   /** 删除帖子事件（仅自己的帖子） */
   (e: 'deletePost', id: number): void
   /** 隐藏/公开帖子事件（仅自己的帖子） */
-  (e: 'toggleVisibility', id: number, visibility: number): void
+  (e: 'toggleVisibility', id: number, visibility: Post['visibility']): void
 }>()
 
 /** 用户状态（用于判断是否为帖子作者） */
@@ -278,16 +278,8 @@ const isOwner = computed(() => {
 /** 默认头像 */
 const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect fill="#4ECDC4" width="40" height="40"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16">U</text></svg>')
 
-/**
- * 解析图片列表（后端 images 字段为 JSON 字符串，需解析为数组）
- * @returns {string[]} 图片 URL 数组
- */
-const imageList = computed<string[]>(() => {
-  const raw = props.post.images
-  if (!raw) return []
-  if (Array.isArray(raw)) return raw
-  try { return JSON.parse(raw) } catch { return [] }
-})
+/** 图片已由 API 层解析为 URL 数组。 */
+const imageList = computed(() => props.post.images)
 
 /** 是否展开全文 */
 const expanded = ref(false)

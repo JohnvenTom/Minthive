@@ -107,13 +107,7 @@ public class LocalAiServiceImpl implements AiService {
      */
     @Override
     public AiDetectResult detectContent(String text, String imageBase64) {
-        try {
-            log.info("[LocalAI] 内容检测");
-            return new AiDetectResult(false, "无", "low");
-        } catch (Exception e) {
-            log.error("[LocalAI] 内容检测异常: ", e);
-            return new AiDetectResult(false, "检测异常", "low");
-        }
+        return AiDetectResult.unavailable("本地审核未接入");
     }
 
     /**

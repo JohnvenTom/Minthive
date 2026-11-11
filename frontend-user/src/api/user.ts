@@ -3,23 +3,38 @@
  * @module api/user
  */
 
-import { request } from './request'
-import type { User, Post, PageResult } from '@/types'
+import { request, mappedRequest } from './request'
+import type { AxiosRequestConfig } from 'axios'
+import type { User } from '@/types'
+import { mapPage, normalizeUser } from './normalize'
+import { requestPostPage } from './post'
+
+export function requestUser(config: AxiosRequestConfig) {
+  return mappedRequest(config, normalizeUser)
+}
+
+export function requestUserPage(config: AxiosRequestConfig) {
+  return mappedRequest(config, mapPage(normalizeUser))
+}
+
+export type ProfileUpdate = Partial<Pick<User, 'nickname' | 'bio' | 'gender' | 'avatar'>> & {
+  birthday?: string | null
+}
 
 /**
  * 获取用户主页信息
  * @param {number} userId
  */
 export function getUserProfile(userId: number) {
-  return request<User>({ url: `/user/${userId}`, method: 'get' })
+  return requestUser({ url: `/user/${userId}`, method: 'get' })
 }
 
 /**
  * 更新个人资料
- * @param {Partial<User>} data
+ * @param {ProfileUpdate} data
  */
-export function updateProfile(data: Partial<User>) {
-  return request<User>({ url: '/user', method: 'put', data })
+export function updateProfile(data: ProfileUpdate) {
+  return requestUser({ url: '/user', method: 'put', data })
 }
 
 /**
@@ -45,10 +60,10 @@ export function updateInterests(interests: string[]) {
  * @param {number} pageSize
  */
 export function getUserPosts(userId: number, page = 1, pageSize = 10) {
-  return request<PageResult<Post>>({
+  return requestPostPage({
     url: `/user/${userId}/posts`,
     method: 'get',
-    params: { page, pageSize }
+    params: { current: page, size: pageSize }
   })
 }
 
@@ -56,10 +71,10 @@ export function getUserPosts(userId: number, page = 1, pageSize = 10) {
  * 获取用户收藏的动态
  */
 export function getUserCollects(page = 1, pageSize = 10) {
-  return request<PageResult<Post>>({
+  return requestPostPage({
     url: '/user/collects',
     method: 'get',
-    params: { page, pageSize }
+    params: { current: page, size: pageSize }
   })
 }
 
@@ -67,10 +82,10 @@ export function getUserCollects(page = 1, pageSize = 10) {
  * 获取用户点赞的动态
  */
 export function getUserLikes(page = 1, pageSize = 10) {
-  return request<PageResult<Post>>({
+  return requestPostPage({
     url: '/user/likes',
     method: 'get',
-    params: { page, pageSize }
+    params: { current: page, size: pageSize }
   })
 }
 

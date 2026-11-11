@@ -6,6 +6,9 @@ import { ElementPlusResolver, VantResolver } from 'unplugin-vue-components/resol
 import path from 'path'
 
 // Vite 配置：MintHive 用户端开发服务器与构建配置
+// PROXY_TARGET 可覆盖后端代理目标（默认 8080），例如本机 8080 被其他服务占用时：
+//   PROXY_TARGET=http://localhost:8081 npm run dev
+const proxyTarget = process.env.PROXY_TARGET || 'http://localhost:8080'
 export default defineConfig(({ mode }) => ({
   plugins: [
     vue(),
@@ -36,11 +39,11 @@ export default defineConfig(({ mode }) => ({
     open: false,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: proxyTarget,
         changeOrigin: true
       },
       '/ws': {
-        target: 'ws://localhost:8080',
+        target: proxyTarget.replace(/^http/, 'ws'),
         ws: true,
         changeOrigin: true
       }

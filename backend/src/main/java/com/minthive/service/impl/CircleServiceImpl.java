@@ -54,6 +54,10 @@ public class CircleServiceImpl implements CircleService {
 
     private final TagMappingService tagMappingService;
 
+    private final com.minthive.service.ContentAccessService contentAccessService;
+
+    private final com.minthive.mapper.UserMapper userMapper;
+
     /**
      * 创建圈子
      * <p>支持传入 categoryId（预设分类）或自动创建自定义分类</p>
@@ -144,24 +148,78 @@ public class CircleServiceImpl implements CircleService {
      */
     @Override
     @Transactional
-    public void join(Long circleId, Long userId) {
+    public void join(Long circleId, Long userId, String reason) {
         Circle circle = getByIdForUser(circleId);
-        // 校验是否已加入
-        Long exist = circleUserMapper.selectCount(new LambdaQueryWrapper<CircleUser>()
+        if (userId == null) throw new BusinessException(ResultCode.UNAUTHORIZED);
+        if (userId.equals(circle.getOwnerId())) throw new BusinessException(ResultCode.DUPLICATE_OPERATION, "圈主无需加入");
+        CircleUser existing = circleUserMapper.selectOne(new LambdaQueryWrapper<CircleUser>()
                 .eq(CircleUser::getCircleId, circleId)
                 .eq(CircleUser::getUserId, userId));
-        if (exist > 0) {
+        if (existing != null && existing.getAuditStatus() != null && existing.getAuditStatus() == 1) {
             throw new BusinessException(ResultCode.DUPLICATE_OPERATION, "已加入该圈子");
         }
-        CircleUser cu = new CircleUser();
-        cu.setCircleId(circleId);
-        cu.setUserId(userId);
-        cu.setRole(Constants.CIRCLE_MEMBER_NORMAL);
-        cu.setAuditStatus(1);
-        circleUserMapper.insert(cu);
-        // 成员数 +1
-        circle.setMemberCount(circle.getMemberCount() + 1);
-        circleMapper.updateById(circle);
+        if (existing != null && existing.getAuditStatus() != null && existing.getAuditStatus() == 0) {
+            throw new BusinessException(ResultCode.DUPLICATE_OPERATION, "入圈申请审核中");
+        }
+        long joined = circleUserMapper.selectCount(new LambdaQueryWrapper<CircleUser>()
+                .eq(CircleUser::getUserId, userId).eq(CircleUser::getAuditStatus, 1));
+        if (joined >= Constants.MAX_CIRCLE_JOIN) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "最多加入" + Constants.MAX_CIRCLE_JOIN + "个圈子");
+        }
+        boolean needsReview = Integer.valueOf(Constants.CIRCLE_TYPE_PRIVATE).equals(circle.getType());
+        if (existing == null) {
+            CircleUser member = new CircleUser();
+            member.setCircleId(circleId);
+            member.setUserId(userId);
+            member.setRole(Constants.CIRCLE_MEMBER_NORMAL);
+            member.setAuditStatus(needsReview ? 0 : 1);
+            circleUserMapper.insert(member);
+        } else {
+            existing.setAuditStatus(needsReview ? 0 : 1);
+            circleUserMapper.updateById(existing);
+        }
+        if (!needsReview) incrementMemberCount(circleId, 1);
+    }
+
+    @Override
+    @Transactional
+    public void reviewJoin(Long circleId, Long operatorId, Long userId, boolean approve) {
+        Circle circle = getByIdForUser(circleId);
+        if (!circle.getOwnerId().equals(operatorId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "只有圈主才能审批入圈申请");
+        }
+        CircleUser member = circleUserMapper.selectOne(new LambdaQueryWrapper<CircleUser>()
+                .eq(CircleUser::getCircleId, circleId).eq(CircleUser::getUserId, userId));
+        if (member == null || member.getAuditStatus() == null || member.getAuditStatus() != 0) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "申请不存在或已处理");
+        }
+        member.setAuditStatus(approve ? 1 : 2);
+        circleUserMapper.updateById(member);
+        if (approve) incrementMemberCount(circleId, 1);
+    }
+
+    @Override
+    public List<Map<String, Object>> listJoinRequests(Long circleId, Long operatorId) {
+        Circle circle = getByIdForUser(circleId);
+        if (!circle.getOwnerId().equals(operatorId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "只有圈主才能查看入圈申请");
+        }
+        List<CircleUser> requests = circleUserMapper.selectList(new LambdaQueryWrapper<CircleUser>()
+                .eq(CircleUser::getCircleId, circleId).eq(CircleUser::getAuditStatus, 0)
+                .orderByAsc(CircleUser::getJoinTime));
+        if (requests.isEmpty()) return Collections.emptyList();
+        Map<Long, com.minthive.entity.User> users = userMapper.selectBatchIds(
+                requests.stream().map(CircleUser::getUserId).toList()).stream()
+                .collect(Collectors.toMap(com.minthive.entity.User::getId, Function.identity()));
+        return requests.stream().map(request -> {
+            com.minthive.entity.User user = users.get(request.getUserId());
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("userId", request.getUserId());
+            item.put("nickname", user != null ? user.getNickname() : "未知用户");
+            item.put("avatar", user != null ? user.getAvatar() : "");
+            item.put("applyTime", request.getJoinTime());
+            return item;
+        }).toList();
     }
 
     /**
@@ -173,14 +231,21 @@ public class CircleServiceImpl implements CircleService {
     @Override
     @Transactional
     public void leave(Long circleId, Long userId) {
-        circleUserMapper.delete(new LambdaQueryWrapper<CircleUser>()
-                .eq(CircleUser::getCircleId, circleId)
-                .eq(CircleUser::getUserId, userId));
         Circle circle = getByIdForUser(circleId);
-        if (circle.getMemberCount() > 0) {
-            circle.setMemberCount(circle.getMemberCount() - 1);
-            circleMapper.updateById(circle);
+        if (circle.getOwnerId().equals(userId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "圈主不能退出自己的圈子");
         }
+        CircleUser member = circleUserMapper.selectOne(new LambdaQueryWrapper<CircleUser>()
+                .eq(CircleUser::getCircleId, circleId).eq(CircleUser::getUserId, userId));
+        if (member == null) throw new BusinessException(ResultCode.NOT_FOUND, "未加入该圈子");
+        circleUserMapper.deleteById(member.getId());
+        if (Integer.valueOf(1).equals(member.getAuditStatus())) incrementMemberCount(circleId, -1);
+    }
+
+    private void incrementMemberCount(Long circleId, int delta) {
+        circleMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Circle>()
+                .eq(Circle::getId, circleId)
+                .setSql("member_count = GREATEST(member_count + (" + delta + "), 0)"));
     }
 
     /**
@@ -208,9 +273,10 @@ public class CircleServiceImpl implements CircleService {
     @Override
     public Page<Post> getCirclePosts(Long id, long current, long size) {
         getByIdForUser(id);
-        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+        Long viewerId = contentAccessService.currentUserId();
+        contentAccessService.requireCircleReadable(id, viewerId);
+        LambdaQueryWrapper<Post> wrapper = contentAccessService.visiblePosts(viewerId)
                 .eq(Post::getCircleId, id)
-                .eq(Post::getAuditStatus, 1)
                 .orderByDesc(Post::getCreateTime);
         Page<Post> result = postMapper.selectPage(new Page<>(current, size), wrapper);
         postService.enrichPageCounts(result);

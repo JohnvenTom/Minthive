@@ -46,8 +46,28 @@ public interface CircleService {
      *
      * @param circleId 圈子ID
      * @param userId   用户ID
+     * @param reason   私密圈申请理由（可空，不持久化）
      */
-    void join(Long circleId, Long userId);
+    void join(Long circleId, Long userId, String reason);
+
+    /**
+     * 圈主审批入圈申请
+     *
+     * @param circleId   圈子ID
+     * @param operatorId 圈主用户ID
+     * @param userId     申请用户ID
+     * @param approve    true通过 false驳回
+     */
+    void reviewJoin(Long circleId, Long operatorId, Long userId, boolean approve);
+
+    /**
+     * 查询待审批的入圈申请
+     *
+     * @param circleId   圈子ID
+     * @param operatorId 圈主用户ID
+     * @return 申请列表（含用户昵称、头像、申请时间）
+     */
+    List<Map<String, Object>> listJoinRequests(Long circleId, Long operatorId);
 
     /**
      * 退出圈子

@@ -147,7 +147,7 @@ public class AuthController {
     @Operation(summary = "获取当前用户信息")
     @GetMapping("/info")
     public Result<Map<String, Object>> getInfo() {
-        Long userId = UserContext.getUserId();
+        Long userId = UserContext.requireUserId();
         User user = userService.getById(userId);
         Map<String, Object> data = buildUserInfoData(user);
         return Result.success(data);
@@ -161,7 +161,7 @@ public class AuthController {
     @Operation(summary = "退出登录")
     @PostMapping("/logout")
     public Result<Void> logout() {
-        Long userId = UserContext.getUserId();
+        Long userId = UserContext.requireUserId();
         if (userId != null) {
             redisUtil.deleteLoginToken(userId);
         }

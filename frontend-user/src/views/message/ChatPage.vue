@@ -318,7 +318,7 @@ const sending = ref(false)
 const loading = ref(false)
 const loadingMore = ref(false)
 const aiReplying = ref(false)
-const currentPage = ref(1)
+/** 是否还有更早的历史消息（按每页条数是否取满判断） */
 const hasMore = ref(true)
 const previewVisible = ref(false)
 const previewUrl = ref('')
@@ -392,28 +392,20 @@ function normalizeMessage(raw: any): Message {
  * 加载聊天消息列表
  * @param {boolean} isRefresh - 是否为刷新操作
  * @returns {Promise<void>}
- * @description 从服务端获取与当前聊天对象的历史消息；
- *   后端按时间降序返回（方便分页），前端反转后按时间正序渲染（旧→新）
+ * @description 从服务端获取与当前聊天对象最新一页历史消息；
+ *   后端按ID降序返回（方便游标分页），前端反转后按时间正序渲染（旧→新）
  */
 async function fetchMessages(isRefresh = false): Promise<void> {
   if (isRefresh) {
-    currentPage.value = 1
     hasMore.value = true
   }
   loading.value = true
   try {
-    const res = await getMessages(targetUserId.value, currentPage.value, 30)
-    // 兼容后端返回：可能是数组（List<Message>），也可能是分页对象（含 list 字段）
-    const data = res.data
-    let list: Message[] = (Array.isArray(data) ? data : (data?.list || [])).map(normalizeMessage)
+    const res = await getMessages(targetUserId.value, undefined, 30)
     // 后端降序返回（最新在前），反转后变为正序（旧消息在前，新消息在后）
-    list = list.reverse()
-    if (isRefresh || currentPage.value === 1) {
-      messages.value = list
-    } else {
-      messages.value = [...list, ...messages.value]
-    }
-    hasMore.value = Array.isArray(data) ? list.length >= 30 : (data?.hasMore ?? false)
+    const list = (res.data || []).map(normalizeMessage).reverse()
+    messages.value = list
+    hasMore.value = list.length >= 30
     await nextTick()
     scrollToBottom()
   } catch {
@@ -426,22 +418,21 @@ async function fetchMessages(isRefresh = false): Promise<void> {
 /**
  * 加载更多历史消息
  * @returns {Promise<void>}
- * @description 向上翻页加载更早的消息，反转后插入列表顶部
+ * @description 以当前列表最旧一条消息的ID作为游标加载更早消息，反转后插入列表顶部；
+ *   相比页码分页不会因新消息插入而出现重复或漏读
  */
 async function loadMore(): Promise<void> {
   if (loadingMore.value || !hasMore.value) return
+  const beforeId = messages.value[0]?.id
+  if (!beforeId) return
   loadingMore.value = true
-  currentPage.value++
   const prevHeight = messageListRef.value?.scrollHeight || 0
   try {
-    const res = await getMessages(targetUserId.value, currentPage.value, 30)
-    // 兼容后端返回：可能是数组（List<Message>），也可能是分页对象（含 list 字段）
-    const data = res.data
-    let list: Message[] = (Array.isArray(data) ? data : (data?.list || [])).map(normalizeMessage)
+    const res = await getMessages(targetUserId.value, beforeId, 30)
     // 反转：后端降序返回，前端需要正序（旧→新）插入顶部
-    list = list.reverse()
+    const list = (res.data || []).map(normalizeMessage).reverse()
     messages.value = [...list, ...messages.value]
-    hasMore.value = Array.isArray(data) ? list.length >= 30 : (data?.hasMore ?? false)
+    hasMore.value = list.length >= 30
     await nextTick()
     // 保持滚动位置
     if (messageListRef.value) {
@@ -494,7 +485,7 @@ async function onImageSelected(event: Event): Promise<void> {
   try {
     showToast('上传中...')
     const res = await uploadImage(file)
-    const url = res.data?.url
+    const url = res.data
     if (url) {
       const msg = await chatStore.sendMessage(targetUserId.value, url, 'image')
       messages.value.push(normalizeMessage(msg))
@@ -565,7 +556,7 @@ async function onAiReply(): Promise<void> {
     const fullContext = `${systemPrompt}\n\n【聊天记录】\n${historyContext}`
 
     const res = await aiReplyMessage(fullContext, incomingMsg)
-    const content = typeof res.data === 'string' ? res.data : res.data?.content
+    const content = res.data
     if (content) {
       // 如果输入框有内容，先发送用户自己的消息
       const pendingContent = inputText.value.trim()
@@ -786,6 +777,31 @@ function onWsMessage(data: any): void {
   }
 }
 
+/**
+ * WebSocket 撤回推送处理
+ * @param {any} data - 推送数据，包含 messageId
+ * @description 对方撤回消息时实时从当前列表中移除，避免刷新前看到已撤回内容
+ * @returns {void}
+ */
+function onWsRevoke(data: any): void {
+  if (!data?.messageId) return
+  const index = messages.value.findIndex(m => m.id === data.messageId)
+  if (index >= 0) messages.value.splice(index, 1)
+}
+
+/**
+ * WebSocket 已读回执处理
+ * @param {any} data - 推送数据，包含 peerId
+ * @description 对方阅读后，把自己发给对方的这条会话消息标记为已读
+ * @returns {void}
+ */
+function onWsReadReceipt(data: any): void {
+  if (data?.peerId !== targetUserId.value) return
+  messages.value.forEach(m => {
+    if (m.fromUserId === currentUserId.value) m.read = true
+  })
+}
+
 // ---------- 生命周期 ----------
 onMounted(async () => {
   // 确保当前用户信息已加载（currentUserId 依赖它判断"自己的消息"）
@@ -837,11 +853,15 @@ onMounted(async () => {
   markRead(targetUserId.value)
 
   chatStore.connectWs()
-  wsClient.on('message', onWsMessage)
+  wsClient.on('chat', onWsMessage)
+  wsClient.on('revoke', onWsRevoke)
+  wsClient.on('read_receipt', onWsReadReceipt)
 })
 
 onUnmounted(() => {
-  wsClient.off('message', onWsMessage)
+  wsClient.off('chat', onWsMessage)
+  wsClient.off('revoke', onWsRevoke)
+  wsClient.off('read_receipt', onWsReadReceipt)
 })
 </script>
 

@@ -93,17 +93,25 @@ public interface AiService {
      * AI 内容检测结果封装
      */
     class AiDetectResult {
-        /** 是否违规 */
+        /** 是否实际完成审核；不可用不代表安全 */
+        public boolean available = true;
+        /** 是否违规（仅 available=true 时有效） */
         public boolean violation;
-        /** 违规类型 */
+        /** 违规类型；不可用时为原因 */
         public String violationType;
-        /** 风险等级: low/medium/high */
+        /** 风险等级: low/medium/high；不可用时为 unknown */
         public String riskLevel;
 
         public AiDetectResult(boolean violation, String violationType, String riskLevel) {
             this.violation = violation;
             this.violationType = violationType;
             this.riskLevel = riskLevel;
+        }
+
+        public static AiDetectResult unavailable(String reason) {
+            AiDetectResult result = new AiDetectResult(false, reason, "unknown");
+            result.available = false;
+            return result;
         }
     }
 }

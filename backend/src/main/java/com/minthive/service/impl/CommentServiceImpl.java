@@ -41,6 +41,10 @@ public class CommentServiceImpl implements CommentService {
 
     private final SystemMsgService systemMsgService;
 
+    private final com.minthive.service.ContentAccessService contentAccessService;
+
+    private final com.minthive.service.ActionRateLimiter actionRateLimiter;
+
     /**
      * 发表评论
      *
@@ -49,18 +53,38 @@ public class CommentServiceImpl implements CommentService {
      */
     @Override
     public Comment publish(Comment comment) {
+        if (comment.getUserId() == null) throw new BusinessException(ResultCode.UNAUTHORIZED);
+        if (comment.getPostId() == null || comment.getContent() == null || comment.getContent().isBlank()
+                || comment.getContent().length() > 1000) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "评论内容不能为空且不能超过1000字");
+        }
+        Post targetPost = postMapper.selectById(comment.getPostId());
+        contentAccessService.requireReadable(targetPost, comment.getUserId());
         if (comment.getParentId() == null) {
             comment.setParentId(0L);
         }
+        Comment parentComment = null;
+        if (comment.getParentId() != 0L) {
+            parentComment = commentMapper.selectById(comment.getParentId());
+            if (parentComment == null || !comment.getPostId().equals(parentComment.getPostId())) {
+                throw new BusinessException(ResultCode.PARAM_ERROR, "回复的评论不属于该帖子");
+            }
+        }
+        comment.setId(null);
         comment.setLikeCount(0);
         comment.setLiked(false);
-        commentMapper.insert(comment);
+        actionRateLimiter.reserve(com.minthive.service.ActionRateLimiter.Action.COMMENT, comment.getUserId());
+        try {
+            commentMapper.insert(comment);
+        } catch (RuntimeException e) {
+            actionRateLimiter.release(com.minthive.service.ActionRateLimiter.Action.COMMENT, comment.getUserId());
+            throw e;
+        }
 
         Long fromUserId = comment.getUserId();
-        boolean isReply = comment.getParentId() != null && comment.getParentId() != 0L;
+        boolean isReply = comment.getParentId() != 0L;
 
         if (isReply) {
-            Comment parentComment = commentMapper.selectById(comment.getParentId());
             if (parentComment != null) {
                 Long replyTargetUserId = comment.getReplyToId() != null
                         ? comment.getReplyToId() : parentComment.getUserId();
@@ -72,16 +96,17 @@ public class CommentServiceImpl implements CommentService {
                     String content = fromNickname + " 回复了你: " + (preview != null ? preview : "");
                     systemMsgService.push(replyTargetUserId, Constants.SYS_MSG_TYPE_REPLY, content, comment.getPostId());
                     WebSocketServer.sendToUser(replyTargetUserId,
-                            WsMessage.of(MessageType.REPLY.getCode(), fromUserId, replyTargetUserId,
+                            WsMessage.ofData(MessageType.REPLY.getCode(),
                                     Map.of("commentId", comment.getId(),
                                             "postId", comment.getPostId(),
-                                            "content", preview)));
+                                            "nickname", fromNickname,
+                                            "content", preview == null ? "" : preview)));
                 }
             }
         } else {
-            if (comment.getPostId() != null) {
-                Post post = postMapper.selectById(comment.getPostId());
-                if (post != null && !post.getUserId().equals(fromUserId)) {
+            if (targetPost != null) {
+                Post post = targetPost;
+                if (!post.getUserId().equals(fromUserId)) {
                     User fromUser = userMapper.selectById(fromUserId);
                     String fromNickname = fromUser != null ? fromUser.getNickname() : "有人";
                     String preview = comment.getContent() != null && comment.getContent().length() > 50
@@ -89,10 +114,11 @@ public class CommentServiceImpl implements CommentService {
                     String content = fromNickname + " 评论了你的动态: " + (preview != null ? preview : "");
                     systemMsgService.push(post.getUserId(), 2, content, comment.getPostId());
                     WebSocketServer.sendToUser(post.getUserId(),
-                            WsMessage.of(MessageType.COMMENT.getCode(), fromUserId, post.getUserId(),
+                            WsMessage.ofData(MessageType.COMMENT.getCode(),
                                     Map.of("commentId", comment.getId(),
                                             "postId", comment.getPostId(),
-                                            "content", preview)));
+                                            "nickname", fromNickname,
+                                            "content", preview == null ? "" : preview)));
                 }
             }
         }
@@ -111,6 +137,7 @@ public class CommentServiceImpl implements CommentService {
      */
     @Override
     public Page<Comment> pageByPost(long current, long size, Long postId, Long userId) {
+        contentAccessService.requireReadable(postMapper.selectById(postId), userId);
         LambdaQueryWrapper<Comment> countWrapper = new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getPostId, postId)
                 .eq(Comment::getParentId, 0L);

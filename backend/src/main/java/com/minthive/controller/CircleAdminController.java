@@ -36,6 +36,14 @@ public class CircleAdminController {
     @Operation(summary = "圈主更新圈子信息")
     @PutMapping
     public Result<Circle> update(@RequestBody Circle circle) {
+        // 校验操作者为圈主；ownerId/status/recommend 等敏感字段不接受客户端提交
+        // （转让圈主走 /transfer，上架审批走管理端，防止越权抢圈/自审自批）
+        assertOwner(circle.getId());
+        circle.setOwnerId(null);
+        circle.setStatus(null);
+        circle.setRecommend(null);
+        circle.setMemberCount(null);
+        circle.setDeleted(null);
         return Result.success(circleService.update(circle));
     }
 
@@ -66,6 +74,28 @@ public class CircleAdminController {
         data.put("page", p.getCurrent());
         data.put("pageSize", p.getSize());
         return Result.success(data);
+    }
+
+    /**
+     * 待审批入圈申请（仅圈主可操作）
+     */
+    @Operation(summary = "入圈申请列表")
+    @GetMapping("/join-requests")
+    public Result<java.util.List<Map<String, Object>>> joinRequests(@RequestParam Long circleId) {
+        return Result.success(circleService.listJoinRequests(circleId, UserContext.getUserId()));
+    }
+
+    /**
+     * 审批入圈申请（仅圈主可操作）
+     */
+    @Operation(summary = "审批入圈申请")
+    @PostMapping("/join-review")
+    public Result<Void> reviewJoin(@RequestBody Map<String, Object> params) {
+        Long circleId = Long.valueOf(params.get("circleId").toString());
+        Long userId = Long.valueOf(params.get("userId").toString());
+        boolean approve = Boolean.parseBoolean(String.valueOf(params.get("approve")));
+        circleService.reviewJoin(circleId, UserContext.getUserId(), userId, approve);
+        return Result.success();
     }
 
     /**
@@ -107,6 +137,8 @@ public class CircleAdminController {
     @Operation(summary = "发布圈子公告")
     @PutMapping("/notice")
     public Result<Void> publishNotice(@RequestParam Long circleId, @RequestParam String notice) {
+        // 仅圈主可发布公告
+        assertOwner(circleId);
         Circle update = new Circle();
         update.setId(circleId);
         update.setNotice(notice);

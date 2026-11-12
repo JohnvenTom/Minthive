@@ -174,7 +174,7 @@ async function fetchData(isLoadMore = false): Promise<void> {
   try {
     const res = await getShareChain(props.postId, currentPage.value, pageSize)
     const pageData = res.data || {}
-    const newList: Post[] = pageData.records || []
+    const newList: Post[] = pageData.list
 
     // 对 liked/collected 做布尔值兜底
     newList.forEach(p => {

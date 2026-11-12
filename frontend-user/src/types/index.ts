@@ -4,7 +4,7 @@
  */
 
 // ---------- 通用响应 ----------
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   code: number
   msg: string
   data: T
@@ -49,7 +49,8 @@ export interface Post {
   images: string[]
   video: string
   topics: string[]
-  visibility: 'public' | 'fans' | 'self'
+  /** 后端枚举：0公开、1仅粉丝、2仅自己 */
+  visibility: 0 | 1 | 2
   circleId: number | null
   circleName?: string
   likeCount: number

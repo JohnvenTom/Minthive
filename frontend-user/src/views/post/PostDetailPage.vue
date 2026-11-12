@@ -224,6 +224,8 @@
           </span>
         </Transition>
         <input
+          id="comment-input"
+          name="comment"
           v-model="commentText"
           class="comment-input"
           :placeholder="replyTarget ? '写回复...' : '写评论...'"
@@ -266,10 +268,10 @@
 
     <!-- 举报弹窗 -->
     <ReportDialog
-      v-model:show="showReportDialog"
+      v-model:visible="showReportDialog"
       :target-id="reportTargetId"
       target-type="comment"
-      @submitted="onReportSubmitted"
+      @success="onReportSubmitted"
     />
 
     <!-- 帖子操作弹窗 -->
@@ -282,24 +284,27 @@
 
     <!-- 分享面板 -->
     <ShareSheet
+      v-if="post"
       v-model:show="showShareSheet"
-      :post-id="post?.id"
+      :post-id="post.id"
       :post-content="post?.content"
       @shared="onShared"
     />
 
     <!-- 转发链弹窗 -->
     <ShareChainDialog
+      v-if="post"
       v-model:show="showShareChain"
-      :post-id="post?.id"
+      :post-id="post.id"
       @click-share="router.push(`/post/${$event}`)"
       @click-user="router.push(`/profile/${$event}`)"
     />
 
     <!-- 编辑帖子弹窗 -->
     <EditPostDialog
+      v-if="post"
       v-model:show="showEditDialog"
-      :post-id="post?.id"
+      :post-id="post.id"
       :content="post?.content || ''"
       @saved="onPostSaved"
     />
@@ -310,7 +315,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 import CommentItem from '@/components/CommentItem.vue'
@@ -375,16 +380,8 @@ const showPreview = ref(false)
 const previewImages = ref<string[]>([])
 const previewIndex = ref(0)
 
-/**
- * 解析图片列表（后端 images 字段为 JSON 字符串，需解析为数组）
- * @returns {string[]} 图片 URL 数组
- */
-const imageList = computed<string[]>(() => {
-  const raw = post.value?.images
-  if (!raw) return []
-  if (Array.isArray(raw)) return raw
-  try { return JSON.parse(raw) } catch { return [] }
-})
+/** 图片已由 API 层解析为 URL 数组。 */
+const imageList = computed(() => post.value?.images ?? [])
 
 // ---------- 帖子操作 ----------
 const showPostActions = ref(false)
@@ -724,17 +721,7 @@ async function onAiComment(): Promise<void> {
 
   try {
     const res = await aiGenerateComment(post.value?.content || '')
-    // 后端返回的是字符串数组（每条评论一个字符串），需转换为 AiCommentSuggestion 对象格式
-    const raw = res.data
-    if (Array.isArray(raw) && typeof raw[0] === 'string') {
-      const tones = ['幽默', '共鸣', '提问']
-      aiSuggestions.value = (raw as string[]).map((text, idx) => ({
-        content: text.trim(),
-        tone: tones[idx] || `建议${idx + 1}`
-      }))
-    } else {
-      aiSuggestions.value = raw || []
-    }
+    aiSuggestions.value = res.data
     showAiPanel.value = true
   } catch {
     showToast('AI 生成失败，请重试')

@@ -2,12 +2,26 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.minthive.mapper.PostMapper">
 
+    <sql id="publicPostConditions">
+        p.audit_status = 1
+        AND p.visibility = 0
+        AND p.deleted = 0
+        AND (p.circle_id IS NULL OR EXISTS (
+            SELECT 1 FROM circle c WHERE c.id = p.circle_id
+            AND c.deleted = 0 AND c.status = 1 AND c.type = 0))
+        AND (p.share_post_id IS NULL OR EXISTS (
+            SELECT 1 FROM post original WHERE original.id = p.share_post_id
+            AND original.deleted = 0 AND original.audit_status = 1 AND original.visibility = 0
+            AND original.share_post_id IS NULL
+            AND (original.circle_id IS NULL OR EXISTS (
+                SELECT 1 FROM circle oc WHERE oc.id = original.circle_id
+                AND oc.deleted = 0 AND oc.status = 1 AND oc.type = 0))))
+    </sql>
+
     <select id="selectHotFeed" resultType="com.minthive.entity.Post">
         SELECT p.*
         FROM post p
-        WHERE p.audit_status = 1
-          AND p.visibility = 0
-          AND p.deleted = 0
+        WHERE <include refid="publicPostConditions"/>
         ORDER BY (
             SELECT COUNT(*)
             FROM like_collect lc
@@ -18,9 +32,7 @@
     <select id="selectRecommendFeed" resultType="com.minthive.entity.Post">
         SELECT p.*
         FROM post p
-        WHERE p.audit_status = 1
-          AND p.visibility = 0
-          AND p.deleted = 0
+        WHERE <include refid="publicPostConditions"/>
         ORDER BY (
             (SELECT COUNT(*) FROM like_collect lc WHERE lc.target_id = p.id AND lc.type = 1) * 1 +
             (SELECT COUNT(*) FROM comment c WHERE c.post_id = p.id) * 2 +
@@ -31,9 +43,7 @@
     <select id="selectCandidatePool" resultType="com.minthive.entity.Post">
         SELECT p.*
         FROM post p
-        WHERE p.audit_status = 1
-          AND p.visibility = 0
-          AND p.deleted = 0
+        WHERE <include refid="publicPostConditions"/>
         ORDER BY p.create_time DESC
         LIMIT #{limit}
     </select>
@@ -41,7 +51,8 @@
     <select id="selectByIdsOrdered" resultType="com.minthive.entity.Post">
         SELECT p.*
         FROM post p
-        WHERE p.id IN
+        WHERE p.deleted = 0
+          AND p.id IN
         <foreach collection="ids" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>

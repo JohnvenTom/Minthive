@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: 'minthive',
   webDir: 'dist',
   server: {
-    androidScheme: 'http',
-    cleartext: true,
+    // 正式包使用 https scheme，避免 WebView 默认放开明文流量
+    androidScheme: 'https',
   },
   plugins: {
     SplashScreen: {

@@ -22,6 +22,7 @@ const menuItems = [
   { index: '/content', title: '内容审核', icon: 'Document' },
   { index: '/circle', title: '圈子管理', icon: 'Connection' },
   { index: '/report', title: '举报工单', icon: 'Warning' },
+  { index: '/audit', title: '操作审计', icon: 'Tickets' },
   { index: '/config', title: '系统配置', icon: 'Setting' }
 ]
 

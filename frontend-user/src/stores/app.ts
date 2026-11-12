@@ -79,6 +79,6 @@ export const useAppStore = defineStore('app', () => {
 }, {
   persist: {
     key: 'minthive_app',
-    pick: ['theme']
+    paths: ['theme']
   }
 })

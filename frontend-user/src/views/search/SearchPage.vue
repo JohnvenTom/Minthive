@@ -515,7 +515,7 @@ async function onUserFollow(userId: number, willFollow: boolean): Promise<void> 
   try {
     await toggleFollow(userId, willFollow)
     user.isFollowing = willFollow
-    user.followerCount += willFollow ? 1 : -1
+    user.fanCount = Math.max(0, user.fanCount + (willFollow ? 1 : -1))
     showToast(willFollow ? '已关注' : '已取消关注')
   } catch {
     showToast('操作失败')

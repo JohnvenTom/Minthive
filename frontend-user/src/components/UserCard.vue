@@ -40,7 +40,7 @@
  * @description 展示用户信息，包含六边形头像、昵称、简介、兴趣标签和关注按钮
  * @param {User} user - 用户数据对象
  * @param {boolean} showFollow - 是否显示关注按钮，默认true
- * @emits follow - 关注/取关事件，参数为用户ID
+ * @emits follow - 关注/取关事件，参数为用户ID和目标关注状态
  * @emits click - 卡片点击事件，参数为用户ID
  */
 
@@ -61,7 +61,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   /** 关注/取关事件 */
-  (e: 'follow', id: number): void
+  (e: 'follow', id: number, willFollow: boolean): void
   /** 卡片点击事件 */
   (e: 'click', id: number): void
 }>()
@@ -71,10 +71,10 @@ const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="ht
 
 /**
  * 是否已关注
- * @description 从 user 对象的 isFollowing/isFollowed 字段读取初始状态，
+ * @description 从 user 对象的 isFollowing 字段读取初始状态，
  *   确保关注列表中的用户默认显示为已关注状态
  */
-const isFollowed = computed(() => !!(props.user as any).isFollowing || !!(props.user as any).isFollowed)
+const isFollowed = computed(() => !!props.user.isFollowing)
 
 /**
  * 处理关注/取关

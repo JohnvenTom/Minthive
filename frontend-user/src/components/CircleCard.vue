@@ -104,11 +104,8 @@ const bannerStyle = computed(() => ({
     : $gradMint
 }))
 
-/** 判断圈子是否为私密（兼容后端返回的字符串"private"/整数1两种格式） */
-const isPrivate = computed(() => {
-  const t = props.circle.type
-  return t === 'private' || t === 1
-})
+/** API 层已统一圈子类型。 */
+const isPrivate = computed(() => props.circle.type === 'private')
 
 /** 获取SCSS变量值（用于JS中） */
 const $gradMint = 'linear-gradient(135deg, #6BCB77 0%, #4ECDC4 100%)'

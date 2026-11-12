@@ -189,15 +189,25 @@
                COALESCE(p.interactionCount, 0)AS interactionCount
         FROM circle c
         LEFT JOIN (
-            SELECT circle_id,
-                   COUNT(*)                                                    AS postCount,
-                   (SELECT COUNT(*) FROM like_collect lc WHERE lc.target_id = post.id AND lc.type = 1)
-                 + (SELECT COUNT(*) FROM comment cm WHERE cm.post_id = post.id AND cm.deleted = 0)
-                 + (SELECT COUNT(*) FROM like_collect lc2 WHERE lc2.target_id = post.id AND lc2.type = 3)
-                                                                                    AS interactionCount
-            FROM post
-            WHERE deleted = 0
-            GROUP BY circle_id
+            SELECT p.circle_id,
+                   COUNT(*) AS postCount,
+                   COALESCE(SUM(COALESCE(lc.interactions, 0)), 0)
+                 + COALESCE(SUM(COALESCE(cmc.comments, 0)), 0) AS interactionCount
+            FROM post p
+            LEFT JOIN (
+                SELECT target_id, COUNT(*) AS interactions
+                FROM like_collect
+                WHERE type IN (1, 3)
+                GROUP BY target_id
+            ) lc ON lc.target_id = p.id
+            LEFT JOIN (
+                SELECT post_id, COUNT(*) AS comments
+                FROM comment
+                WHERE deleted = 0
+                GROUP BY post_id
+            ) cmc ON cmc.post_id = p.id
+            WHERE p.deleted = 0
+            GROUP BY p.circle_id
         ) p ON c.id = p.circle_id
         WHERE c.deleted = 0 AND c.status = 1
         ORDER BY interactionCount DESC, postCount DESC

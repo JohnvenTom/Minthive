@@ -2,153 +2,128 @@ package com.minthive.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minthive.common.BusinessException;
+import com.minthive.common.Constants;
+import com.minthive.entity.User;
+import com.minthive.mapper.UserMapper;
 import com.minthive.common.Result;
 import com.minthive.common.ResultCode;
 import com.minthive.config.JwtConfig;
+import com.minthive.util.RedisUtil;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
-import org.springframework.web.servlet.HandlerInterceptor;
-
-import com.minthive.common.RedisConstants;
+import org.springframework.web.cors.CorsUtils;
+import org.springframework.web.servlet.AsyncHandlerInterceptor;
 
 import java.util.List;
+import java.util.Set;
 
-/**
- * JWT 拦截器
- *
- * <p>功能描述：拦截用户端请求，校验 JWT Token 合法性，并将登录用户信息存入 UserContext</p>
- * <p>注意事项：放行路径在 WebMvcConfig 中配置；请求结束后必须清理 ThreadLocal</p>
- */
+/** 所有 API 的认证入口：公开接口可不带凭证，但携带凭证时必须完整验证。 */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class JwtInterceptor implements HandlerInterceptor {
+public class JwtInterceptor implements AsyncHandlerInterceptor {
 
     private final JwtUtils jwtUtils;
-
     private final JwtConfig jwtConfig;
-
-    private final StringRedisTemplate stringRedisTemplate;
-
+    private final RedisUtil redisUtil;
     private final ObjectMapper objectMapper;
+    private final UserMapper userMapper;
 
-    private static final org.springframework.util.AntPathMatcher PATH_MATCHER = new org.springframework.util.AntPathMatcher();
-
+    private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
+    private static final Set<String> PUBLIC_POST_PATHS = Set.of(
+            "/api/auth/login", "/api/auth/login/sms", "/api/auth/register",
+            "/api/auth/sms", "/api/auth/reset");
     private static final List<String> PUBLIC_GET_PATTERNS = List.of(
-            "/api/post/{id}",
-            "/api/circle/{id}"
-    );
+            "/api/post/feed", "/api/post/search", "/api/post/page", "/api/post/{id:[0-9]+}",
+            "/api/circle/page", "/api/circle/categories", "/api/circle/recommend",
+            "/api/circle/{id:[0-9]+}", "/api/circle/{id:[0-9]+}/posts",
+            "/api/user/{id:[0-9]+}", "/api/user/{id:[0-9]+}/posts",
+            "/api/search", "/api/search/user", "/api/search/post", "/api/search/circle", "/api/search/hot",
+            "/api/comment/page", "/api/announcement/latest", "/api/announcement/list", "/api/config/banners",
+            // 媒体代理使用独立短时票据鉴权，不接受登录 JWT 替代票据。
+            "/api/file/content/{object:[A-Za-z0-9_-]+}");
 
-    /**
-     * 请求前置处理：校验 Token
-     * <p>GET 请求的公开路径（帖子详情、圈子详情等）允许无 token 访问；
-     * 其他方法或非公开路径必须携带有效 token。</p>
-     *
-     * @param request  HTTP 请求
-     * @param response HTTP 响应
-     * @param handler  处理器
-     * @return true 放行 / false 拦截
-     * @throws Exception 异常
-     */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        // CORS 预检请求（OPTIONS）直接放行，由 CorsConfig 处理跨域响应头
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+        // preHandle 拒绝的请求不会触发自身 afterCompletion，也要确保线程上没有遗留身份。
+        UserContext.clear();
+        if (CorsUtils.isPreFlightRequest(request)) {
             return true;
         }
-        // 从请求头获取 Token
+        String path = request.getRequestURI().substring(request.getContextPath().length());
         String header = request.getHeader(jwtConfig.getHeader());
-        if (!StringUtils.hasText(header) || !header.startsWith(jwtConfig.getPrefix())) {
-            // 无 token 时，允许已声明的公开 GET 路径放行（公开展示无需登录）
-            if ("GET".equalsIgnoreCase(request.getMethod())) {
-                String path = request.getRequestURI();
-                for (String pattern : PUBLIC_GET_PATTERNS) {
-                    if (PATH_MATCHER.match(pattern, path)) {
-                        return true;
-                    }
-                }
-            }
-            return writeUnauthorized(response, ResultCode.UNAUTHORIZED);
+        if (header == null) {
+            return allowsAnonymous(request.getMethod(), path)
+                    || writeUnauthorized(response, ResultCode.UNAUTHORIZED);
         }
-        // 去除前缀
+        // 空白、错误前缀也属于无效凭证，不能在公开接口降级为匿名。
+        if (!header.startsWith(jwtConfig.getPrefix())) {
+            return writeUnauthorized(response, ResultCode.TOKEN_INVALID);
+        }
         String token = header.substring(jwtConfig.getPrefix().length()).trim();
+        if (!StringUtils.hasText(token)) {
+            return writeUnauthorized(response, ResultCode.TOKEN_INVALID);
+        }
         try {
-            // 解析 Token
             Claims claims = jwtUtils.parseToken(token);
-            Long userId = ((Number) claims.get("userId")).longValue();
-            String account = (String) claims.get("account");
-            Integer role = claims.get("role") == null ? 0 : ((Number) claims.get("role")).intValue();
-            log.debug("Token解析成功: userId={}, account={}", userId, account);
-
-            /**
-             * 校验 Redis 中 Token 是否仍然有效(支持登出失效/异地登录互踢)
-             * - Token不存在: 自然过期或已主动登出 → TOKEN_EXPIRED
-             * - Token存在但不匹配: 异地登录被踢下 → ACCOUNT_KICKED_OUT
-             */
-            String redisKey = RedisConstants.LOGIN_TOKEN_PREFIX + userId;
-            String cachedToken = stringRedisTemplate.opsForValue().get(redisKey);
-            log.debug("Redis校验: key={}, cachedToken存在={}, 是否匹配={}",
-                    redisKey,
-                    StringUtils.hasText(cachedToken),
-                    cachedToken != null && cachedToken.equals(token));
-            
-            // Token不存在(自然过期/已登出)
-            if (!StringUtils.hasText(cachedToken)) {
-                log.warn("Redis Token不存在: userId={}, redisKey={} (自然过期或已登出)", userId, redisKey);
+            Object subjectId = claims.get("userId");
+            if (!(subjectId instanceof Number) || ((Number) subjectId).longValue() <= 0) {
+                return writeUnauthorized(response, ResultCode.TOKEN_INVALID);
+            }
+            Long userId = ((Number) subjectId).longValue();
+            // 多端登录：只校验当前 Token 是否仍在该用户的有效集合中，不再与其他设备比较
+            if (!redisUtil.hasLoginToken(userId, token)) {
                 return writeUnauthorized(response, ResultCode.TOKEN_EXPIRED);
             }
-            
-            // Token不匹配(异地登录被踢下)
-            if (!cachedToken.equals(token)) {
-                log.warn("Redis Token不匹配: userId={}, redisKey={}, 当前Token={}, Redis缓存Token={} (账号在其他设备登录)",
-                        userId, redisKey, token.substring(0, 20) + "...", cachedToken.substring(0, 20) + "...");
-                return writeUnauthorized(response, ResultCode.ACCOUNT_KICKED_OUT);
+            // Redis 只证明会话仍活跃，权限和账号状态必须以当前数据库为准。
+            User user = userMapper.selectById(userId);
+            if (user == null || !Integer.valueOf(Constants.USER_STATUS_NORMAL).equals(user.getStatus())
+                    || !Integer.valueOf(Constants.CANCEL_STATUS_NORMAL).equals(user.getCancelStatus())
+                    || !Integer.valueOf(0).equals(user.getDeleted())
+                    || user.getRole() == null || user.getRole() < Constants.ROLE_USER
+                    || user.getRole() > Constants.ROLE_ADMIN) {
+                // 账号状态异常时撤销该用户全部设备的会话
+                redisUtil.deleteLoginToken(userId);
+                return writeUnauthorized(response, ResultCode.UNAUTHORIZED);
             }
-
-            // 存入上下文
-            UserContext.set(new LoginUser(userId, account, role));
-            log.debug("用户上下文设置成功: userId={}", userId);
+            UserContext.set(new LoginUser(userId, user.getAccount(), user.getRole()));
             return true;
-        } catch (BusinessException e) {
+        } catch (BusinessException | IllegalArgumentException e) {
             return writeUnauthorized(response, ResultCode.TOKEN_INVALID);
         } catch (Exception e) {
-            log.error("Token 校验异常: ", e);
+            log.error("认证依赖校验失败", e);
             return writeUnauthorized(response, ResultCode.SERVER_ERROR);
         }
     }
 
-    /**
-     * 请求完成后清理 ThreadLocal
-     *
-     * @param request  HTTP 请求
-     * @param response HTTP 响应
-     * @param handler  处理器
-     * @param ex       异常
-     */
+    private boolean allowsAnonymous(String method, String path) {
+        if ("POST".equals(method)) {
+            return PUBLIC_POST_PATHS.contains(path);
+        }
+        return "GET".equals(method) && PUBLIC_GET_PATTERNS.stream().anyMatch(p -> PATH_MATCHER.match(p, path));
+    }
+
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         UserContext.clear();
     }
 
-    /**
-     * 写入未授权响应
-     *
-     * @param response   HTTP 响应
-     * @param resultCode 错误码
-     * @return false 拦截请求
-     * @throws Exception 写入异常
-     */
+    @Override
+    public void afterConcurrentHandlingStarted(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        UserContext.clear();
+    }
+
     private boolean writeUnauthorized(HttpServletResponse response, ResultCode resultCode) throws Exception {
+        UserContext.clear();
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json;charset=UTF-8");
-        Result<Void> result = Result.error(resultCode);
-        response.getWriter().write(objectMapper.writeValueAsString(result));
+        response.getWriter().write(objectMapper.writeValueAsString(Result.error(resultCode)));
         return false;
     }
 }

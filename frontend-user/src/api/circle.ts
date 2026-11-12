@@ -3,8 +3,19 @@
  * @module api/circle
  */
 
-import { request } from './request'
-import type { Circle, CircleCategory, CircleMember, Post, PageResult } from '@/types'
+import { request, mappedRequest } from './request'
+import type { AxiosRequestConfig } from 'axios'
+import type { Circle, CircleCategory, CircleMember } from '@/types'
+import { mapPage, normalizeCircle, type CircleResponse } from './normalize'
+import { requestPostPage } from './post'
+
+export function requestCircle(config: AxiosRequestConfig) {
+  return mappedRequest(config, normalizeCircle)
+}
+
+export function requestCirclePage(config: AxiosRequestConfig) {
+  return mappedRequest(config, mapPage(normalizeCircle))
+}
 
 /**
  * 圈子广场列表
@@ -16,7 +27,7 @@ export function getCircles(params: {
   page?: number
   pageSize?: number
 }) {
-  return request<PageResult<Circle>>({
+  return requestCirclePage({
     url: '/circle/page',
     method: 'get',
     params: { current: params.page, size: params.pageSize, categoryId: params.categoryId, keyword: params.keyword }
@@ -28,7 +39,7 @@ export function getCircles(params: {
  * @param {number} id
  */
 export function getCircleDetail(id: number) {
-  return request<Circle>({ url: `/circle/${id}`, method: 'get' })
+  return requestCircle({ url: `/circle/${id}`, method: 'get' })
 }
 
 /**
@@ -37,10 +48,10 @@ export function getCircleDetail(id: number) {
  * @param {number} page
  */
 export function getCirclePosts(id: number, page = 1, pageSize = 10) {
-  return request<PageResult<Post>>({
+  return requestPostPage({
     url: `/circle/${id}/posts`,
     method: 'get',
-    params: { page, pageSize }
+    params: { current: page, size: pageSize }
   })
 }
 
@@ -74,7 +85,7 @@ export function createCircle(data: {
   banner?: string
   type: 'public' | 'private'
 }) {
-  return request({ url: '/circle', method: 'post', data })
+  return requestCircle({ url: '/circle', method: 'post', data })
 }
 
 /**
@@ -98,7 +109,7 @@ export function updateCircle(id: number, data: {
   banner?: string
   type?: 'public' | 'private'
 }) {
-  return request<Circle>({ url: `/circle/${id}`, method: 'put', data })
+  return requestCircle({ url: `/circle/${id}`, method: 'put', data })
 }
 
 /**
@@ -112,7 +123,7 @@ export function getCategories() {
  * 推荐圈子
  */
 export function getRecommendCircles() {
-  return request<Circle[]>({ url: '/circle/recommend', method: 'get' })
+  return mappedRequest({ url: '/circle/recommend', method: 'get' }, (circles: CircleResponse[]) => circles.map(normalizeCircle))
 }
 
 /**

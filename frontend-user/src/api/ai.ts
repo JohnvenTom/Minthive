@@ -5,8 +5,8 @@
  *   接口前缀 /api/ai/
  */
 
-import { request } from './request'
-import type { AiPostDraft, AiCommentSuggestion } from '@/types'
+import { request, mappedRequest } from './request'
+import { normalizeAiDrafts, normalizeAiComments } from './normalize'
 
 /**
  * AI 生成帖子文案（3版风格）
@@ -15,12 +15,12 @@ import type { AiPostDraft, AiCommentSuggestion } from '@/types'
  * @returns {Promise<AiPostDraft[]>} 三版文案（含风格、内容、话题）
  */
 export function aiGeneratePost(keyword: string, circleCategory?: string) {
-  return request<AiPostDraft[]>({
+  return mappedRequest({
     url: '/ai/post-content',
     method: 'post',
     data: { keywords: keyword, category: circleCategory },
     timeout: 60000
-  })
+  }, normalizeAiDrafts)
 }
 
 /**
@@ -41,15 +41,15 @@ export function aiPolishPost(content: string) {
  * AI 智能评论
  * @param {string} postContent - 帖子内容
  * @param {string} category - 帖子所属圈子分类
- * @returns {Promise<string[]>} 3 条评论建议
+ * @returns {Promise<AiCommentSuggestion[]>} 带语气标签的评论建议
  */
 export function aiGenerateComment(postContent: string, category?: string) {
-  return request<string[]>({
+  return mappedRequest({
     url: '/ai/comment',
     method: 'post',
     data: { postContent, category },
     timeout: 60000
-  })
+  }, normalizeAiComments)
 }
 
 /**
@@ -88,10 +88,10 @@ export function aiCheckContent(text?: string, imageBase64?: string) {
 /**
  * AI 智能问答（客服）
  * @param {string} question - 用户提问
- * @returns {Promise<{answer: string}>} AI 回答
+ * @returns {Promise<string>} AI 回答正文
  */
 export function aiChat(question: string) {
-  return request<{ answer: string }>({
+  return request<string>({
     url: '/ai/qa',
     method: 'post',
     data: { question },

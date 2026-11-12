@@ -82,7 +82,7 @@
       <div class="section-head">
         <h2 class="section-title">
           <span class="hex-dot" />
-          {{ activeCategory === '全部' ? '全部圈子' : activeCategory }}
+          {{ activeCategoryId === null ? '全部圈子' : categoryList.find(cat => cat.id === activeCategoryId)?.name }}
         </h2>
         <span class="section-count">共 {{ totalCircles }} 个</span>
       </div>
@@ -93,6 +93,7 @@
       <!-- 空状态 -->
       <EmptyState
         v-else-if="!loading && !circleList.length"
+        title="暂无圈子"
         description="暂无圈子，快来创建一个吧~"
       />
 

@@ -3,8 +3,29 @@
  * @module api/post
  */
 
-import { request } from './request'
-import type { Post, PageResult } from '@/types'
+import { request, mappedRequest } from './request'
+import type { AxiosRequestConfig } from 'axios'
+import type { Post } from '@/types'
+import { mapPage, normalizePost, type PostResponse } from './normalize'
+
+export function requestPost(config: AxiosRequestConfig) {
+  return mappedRequest(config, normalizePost)
+}
+
+export function requestPostPage(config: AxiosRequestConfig) {
+  return mappedRequest(config, mapPage(normalizePost))
+}
+
+/** 写入接口绑定后端 Post 实体，不使用已转换的视图模型。 */
+export interface PostInput {
+  content: string
+  images?: string
+  video?: string
+  tags?: string
+  visibility?: Post['visibility']
+  circleId?: number
+  aiGenerated?: boolean
+}
 
 /**
  * 获取首页信息流
@@ -13,7 +34,7 @@ import type { Post, PageResult } from '@/types'
  * @param {number} size 每页大小
  */
 export function getFeed(mode: 'recommend' | 'latest' | 'hot' = 'recommend', current = 1, size = 10) {
-  return request<PageResult<Post>>({
+  return requestPostPage({
     url: '/post/feed',
     method: 'get',
     params: { sortType: mode, current, size }
@@ -25,7 +46,7 @@ export function getFeed(mode: 'recommend' | 'latest' | 'hot' = 'recommend', curr
  * @param {number} id
  */
 export function getPostDetail(id: number) {
-  return request<Post>({ url: `/post/${id}`, method: 'get' })
+  return requestPost({ url: `/post/${id}`, method: 'get' })
 }
 
 /**
@@ -39,16 +60,11 @@ export function getPostDetail(id: number) {
  * @param {number} [data.circleId] - 圈子ID
  * @param {boolean} [data.aiGenerated] - 是否AI生成
  */
-export function createPost(data: {
-  content: string
-  images?: string
-  video?: string
-  tags?: string
-  visibility?: number
-  circleId?: number
-  aiGenerated?: boolean
-}) {
-  return request<Post>({ url: '/post', method: 'post', data })
+export function createPost(data: PostInput) {
+  return requestPost({
+    url: '/post', method: 'post',
+    data: { ...data, aiGenerated: data.aiGenerated === undefined ? undefined : Number(data.aiGenerated) }
+  })
 }
 
 /**
@@ -69,8 +85,8 @@ export function deletePost(id: number) {
  * @param {number} [data.visibility] - 可见性(0=公开 1=仅粉丝 2=仅自己)
  * @returns {Promise<Post>} 更新后的帖子
  */
-export function updatePost(id: number, data: { content?: string; images?: string; visibility?: number }) {
-  return request<Post>({ url: `/post/${id}`, method: 'put', data })
+export function updatePost(id: number, data: { content?: string; images?: string; visibility?: Post['visibility'] }) {
+  return requestPost({ url: `/post/${id}`, method: 'put', data })
 }
 
 /**
@@ -80,8 +96,8 @@ export function updatePost(id: number, data: { content?: string; images?: string
  * @param {number} visibility - 目标可见性(0=公开 1=仅粉丝 2=隐藏)
  * @returns {Promise<Post>} 更新后的帖子
  */
-export function togglePostVisibility(id: number, visibility: number) {
-  return request<Post>({ url: `/post/${id}/visibility`, method: 'patch', params: { visibility } })
+export function togglePostVisibility(id: number, visibility: Post['visibility']) {
+  return requestPost({ url: `/post/${id}/visibility`, method: 'patch', params: { visibility } })
 }
 
 /**
@@ -116,7 +132,7 @@ export function toggleCollect(id: number, collected: boolean) {
  * @returns {Promise<Post>} 创建的转发帖子
  */
 export function sharePost(id: number, content?: string) {
-  return request<Post>({
+  return requestPost({
     url: `/post/${id}/share`,
     method: 'post',
     data: content ? { content } : undefined
@@ -132,7 +148,7 @@ export function sharePost(id: number, content?: string) {
  * @returns {Promise<PageResult<Post>>} 分页的转发帖子列表（含转发者昵称、头像）
  */
 export function getShareChain(id: number, current = 1, size = 20) {
-  return request<PageResult<Post>>({
+  return requestPostPage({
     url: `/post/${id}/shares`,
     method: 'get',
     params: { current, size }
@@ -143,13 +159,16 @@ export function getShareChain(id: number, current = 1, size = 20) {
  * 保存草稿
  * @param {object} data
  */
-export function saveDraft(data: Partial<Post> & { id?: number }) {
-  return request({ url: '/post/draft', method: 'post', data })
+export function saveDraft(data: Partial<PostInput> & { id?: number }) {
+  return requestPost({
+    url: '/post/draft', method: 'post',
+    data: { ...data, aiGenerated: data.aiGenerated === undefined ? undefined : Number(data.aiGenerated) }
+  })
 }
 
 /**
  * 获取草稿列表
  */
 export function getDrafts() {
-  return request<Post[]>({ url: '/post/draft', method: 'get' })
+  return mappedRequest({ url: '/post/draft', method: 'get' }, (posts: PostResponse[]) => posts.map(normalizePost))
 }

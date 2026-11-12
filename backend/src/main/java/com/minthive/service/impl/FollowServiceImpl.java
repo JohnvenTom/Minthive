@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.minthive.common.BusinessException;
 import com.minthive.common.ResultCode;
+import com.minthive.dto.PublicUserDto;
 import com.minthive.entity.Follow;
 import com.minthive.entity.User;
 import com.minthive.mapper.FollowMapper;
@@ -111,7 +112,7 @@ public class FollowServiceImpl implements FollowService {
         List<User> users = userMapper.selectBatchIds(followUserIds);
         // 4. 组装分页结果
         Page<User> userPage = new Page<>(current, size, followPage.getTotal());
-        userPage.setRecords(users);
+        userPage.setRecords(publicProfiles(users));
         return userPage;
     }
 
@@ -160,7 +161,7 @@ public class FollowServiceImpl implements FollowService {
         }
         // 5. 组装分页结果
         Page<User> userPage = new Page<>(current, size, followPage.getTotal());
-        userPage.setRecords(users);
+        userPage.setRecords(publicProfiles(users));
         return userPage;
     }
 
@@ -176,12 +177,12 @@ public class FollowServiceImpl implements FollowService {
     public List<User> recommendUsers(Long currentUserId) {
         Map<String, Double> myVector = interestVectorService.getVector(currentUserId);
         if (myVector.isEmpty()) {
-            return userMapper.selectList(
+            return publicProfiles(userMapper.selectList(
                     new LambdaQueryWrapper<User>()
                             .ne(User::getId, currentUserId)
                             .orderByDesc(User::getRegisterTime)
                             .last("LIMIT 10")
-            );
+            ));
         }
 
         // 取有 aiInterestVector 的其他用户
@@ -195,12 +196,12 @@ public class FollowServiceImpl implements FollowService {
         );
 
         if (candidates.isEmpty()) {
-            return userMapper.selectList(
+            return publicProfiles(userMapper.selectList(
                     new LambdaQueryWrapper<User>()
                             .ne(User::getId, currentUserId)
                             .orderByDesc(User::getRegisterTime)
                             .last("LIMIT 10")
-            );
+            ));
         }
 
         List<User> scored = new ArrayList<>();
@@ -215,7 +216,11 @@ public class FollowServiceImpl implements FollowService {
         }
 
         scored.sort((a, b) -> Double.compare(simMap.getOrDefault(b.getId(), 0.0), simMap.getOrDefault(a.getId(), 0.0)));
-        return scored.size() > 10 ? scored.subList(0, 10) : scored;
+        return publicProfiles(scored.size() > 10 ? scored.subList(0, 10) : scored);
+    }
+
+    private List<User> publicProfiles(List<User> users) {
+        return users.stream().map(PublicUserDto::from).collect(Collectors.toList());
     }
 
     private double cosineSimilarity(Map<String, Double> v1, Map<String, Double> v2) {

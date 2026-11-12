@@ -8,6 +8,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios'
 import { ElMessage } from 'element-plus'
 import { getToken, clearToken } from '@/utils/token'
 import type { ApiResponse } from '@/types'
+import { normalizePagination } from './normalize'
 
 const service: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api` : '/api',
@@ -61,23 +62,8 @@ service.interceptors.response.use(
       return response
     }
     if (res.code === 200) {
-      /**
-       * 兼容后端 MyBatis-Plus Page 返回格式
-       * 后端返回: { records, total, current, size, pages }
-       * 前端期望: { list, total, page, pageSize, hasMore }
-       */
-      const data = res.data
-      if (data && typeof data === 'object' && 'records' in data && !('list' in data)) {
-        const page = data as any
-        // 兼容后端 MyBatis-Plus Page 格式，同时保留 records 和 list 字段
-        Object.assign(page, {
-          list: page.records || [],
-          page: page.current || 1,
-          pageSize: page.size || 10,
-          hasMore: (page.current || 1) < (page.pages || 1)
-        })
-      }
-      return res
+      res.data = normalizePagination(res.data)
+      return response
     }
     // 业务错误
     if (res.code === 401) {
@@ -128,8 +114,14 @@ service.interceptors.response.use(
  * @param {AxiosRequestConfig} config
  * @returns {Promise<ApiResponse>}
  */
-export function request<T = any>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
-  return service(config) as unknown as Promise<ApiResponse<T>>
+export function request<T = unknown>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  return service.request<ApiResponse<T>>(config).then(response => response.data)
+}
+
+/** 在 API 边界将后端 DTO 转为视图模型，保留统一业务响应。 */
+export async function mappedRequest<T, R>(config: AxiosRequestConfig, normalize: (data: T) => R): Promise<ApiResponse<R>> {
+  const response = await request<T>(config)
+  return { ...response, data: normalize(response.data) }
 }
 
 export default service

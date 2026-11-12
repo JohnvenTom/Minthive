@@ -124,33 +124,89 @@ public class RedisUtil {
     }
 
     /**
-     * 缓存登录 Token
+     * 缓存登录 Token（按设备维度存储，同一用户多端登录互不影响）
      *
      * @param userId 用户ID
-     * @param token  Token
+     * @param token  JWT Token
+     * @note Key 中只保存 Token 的 SHA-256 摘要，避免明文凭证出现在 Redis 键空间中
      */
     public void cacheLoginToken(Long userId, String token) {
-        String key = RedisConstants.LOGIN_TOKEN_PREFIX + userId;
-        stringRedisTemplate.opsForValue().set(key, token, RedisConstants.ONE_DAY_SECONDS * 7, TimeUnit.SECONDS);
+        long ttl = RedisConstants.ONE_DAY_SECONDS * 7;
+        String setKey = RedisConstants.LOGIN_TOKEN_SET_PREFIX + userId;
+        stringRedisTemplate.opsForValue().set(loginTokenKey(userId, token), "1", ttl, TimeUnit.SECONDS);
+        stringRedisTemplate.opsForSet().add(setKey, tokenHash(token));
+        // 集合过期时间与单 Token 对齐，避免集合永久残留
+        stringRedisTemplate.expire(setKey, ttl, TimeUnit.SECONDS);
     }
 
     /**
-     * 获取缓存的登录 Token
+     * 判断某个 Token 是否仍是有效登录态
      *
      * @param userId 用户ID
-     * @return Token
+     * @param token  待校验的 JWT Token
+     * @return true 表示该设备的会话仍然有效
+     * @note 只校验“存在性”，因此同一用户在不同设备上的 Token 可以同时有效
      */
-    public String getLoginToken(Long userId) {
-        return stringRedisTemplate.opsForValue().get(RedisConstants.LOGIN_TOKEN_PREFIX + userId);
+    public boolean hasLoginToken(Long userId, String token) {
+        return Boolean.TRUE.equals(stringRedisTemplate.hasKey(loginTokenKey(userId, token)));
     }
 
     /**
-     * 删除登录 Token
+     * 撤销单个设备的登录 Token（登出时使用）
      *
      * @param userId 用户ID
+     * @param token  当前设备持有的 JWT Token
+     */
+    public void deleteLoginToken(Long userId, String token) {
+        stringRedisTemplate.delete(loginTokenKey(userId, token));
+        stringRedisTemplate.opsForSet().remove(RedisConstants.LOGIN_TOKEN_SET_PREFIX + userId, tokenHash(token));
+    }
+
+    /**
+     * 撤销该用户全部设备的登录 Token（封禁/改密/注销/角色变更时使用）
+     *
+     * @param userId 用户ID
+     * @note 依赖用户 Token 摘要集合批量删除；集合不存在时仅执行一次删除，属于幂等操作
      */
     public void deleteLoginToken(Long userId) {
-        stringRedisTemplate.delete(RedisConstants.LOGIN_TOKEN_PREFIX + userId);
+        String setKey = RedisConstants.LOGIN_TOKEN_SET_PREFIX + userId;
+        java.util.Set<String> hashes = stringRedisTemplate.opsForSet().members(setKey);
+        if (hashes != null && !hashes.isEmpty()) {
+            java.util.List<String> keys = hashes.stream()
+                    .map(hash -> RedisConstants.LOGIN_TOKEN_PREFIX + userId + ":" + hash)
+                    .toList();
+            stringRedisTemplate.delete(keys);
+        }
+        stringRedisTemplate.delete(setKey);
+        // 撤销全部登录态时同步断开该用户所有 WebSocket，防止已撤销 Token 继续接收推送
+        com.minthive.websocket.WebSocketServer.closeSessions(userId);
+    }
+
+    /**
+     * 计算 Token 摘要
+     *
+     * @param token JWT Token
+     * @return 十六进制 SHA-256 摘要
+     * @throws IllegalStateException JDK 不提供 SHA-256 时抛出（实际不会发生）
+     */
+    public static String tokenHash(String token) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            return java.util.HexFormat.of().formatHex(digest.digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 不可用", e);
+        }
+    }
+
+    /**
+     * 构建单设备登录态 Key
+     *
+     * @param userId 用户ID
+     * @param token  JWT Token
+     * @return Redis Key
+     */
+    public static String loginTokenKey(Long userId, String token) {
+        return RedisConstants.LOGIN_TOKEN_PREFIX + userId + ":" + tokenHash(token);
     }
 
     /**

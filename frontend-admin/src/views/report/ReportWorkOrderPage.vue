@@ -95,13 +95,14 @@ async function loadList() {
   loading.value = true
   try {
     // 过滤空值：空字符串、undefined、null 不传给后端
-    const params: Record<string, any> = {}
-    if (query.keyword) params.keyword = query.keyword
-    if (query.status !== undefined && query.status !== '') params.status = query.status
-    if (query.type !== undefined && query.type !== '') params.type = query.type
-    params.page = query.page
-    params.pageSize = query.pageSize
-    const res = await getReportList(params as ReportQuery)
+    const params: ReportQuery = {
+      page: query.page,
+      pageSize: query.pageSize,
+      keyword: query.keyword || undefined,
+      status: query.status || undefined,
+      type: query.type || undefined
+    }
+    const res = await getReportList(params)
     reportList.value = res.list.sort((a, b) => riskWeight[b.riskLevel] - riskWeight[a.riskLevel])
     total.value = res.total
   } catch (e) {

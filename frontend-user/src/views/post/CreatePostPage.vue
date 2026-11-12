@@ -546,7 +546,7 @@ async function onVideoChange(event: Event): Promise<void> {
   try {
     showToast({ message: '视频上传中...', duration: 0, forbidClick: true })
     const res = await uploadVideo(file)
-    const url = typeof res.data === 'string' ? res.data : res.data?.url || ''
+    const url = res.data
     videoUrl.value = url
     form.value.video = videoUrl.value
     showToast('上传成功')
@@ -615,18 +615,7 @@ async function onAiGenerateSubmit(): Promise<void> {
   aiGenerating.value = true
   try {
     const res = await aiGeneratePost(keyword)
-    // 后端返回的是字符串数组（每条文案一个字符串），需转换为 AiPostDraft 对象格式
-    const raw = res.data
-    if (Array.isArray(raw) && typeof raw[0] === 'string') {
-      aiDrafts.value = (raw as string[]).map((text, idx) => ({
-        style: ['simple', 'vibe', 'pro'][idx] as 'simple' | 'vibe' | 'pro',
-        styleName: ['简约', '氛围', '干货'][idx],
-        content: text.trim(),
-        topics: []
-      }))
-    } else {
-      aiDrafts.value = raw || []
-    }
+    aiDrafts.value = res.data
   } catch {
     showToast('AI 生成失败，请重试')
   } finally {
@@ -753,7 +742,7 @@ async function onSaveDraft(): Promise<void> {
       images: form.value.images.length > 0 ? JSON.stringify(form.value.images) : undefined,
       video: form.value.video || undefined,
       tags: form.value.topics.length > 0 ? form.value.topics.join(',') : undefined,
-      visibility: { public: 0, fans: 1, self: 2 }[form.value.visibility] ?? 0,
+      visibility: ({ public: 0, fans: 1, self: 2 } as const)[form.value.visibility],
       circleId: form.value.circleId
     })
     showToast('草稿已保存')
@@ -780,7 +769,7 @@ async function onPublish(): Promise<void> {
       images: form.value.images.length > 0 ? JSON.stringify(form.value.images) : undefined,
       video: form.value.video || undefined,
       tags: form.value.topics.length > 0 ? form.value.topics.join(',') : undefined,
-      visibility: { public: 0, fans: 1, self: 2 }[form.value.visibility] ?? 0,
+      visibility: ({ public: 0, fans: 1, self: 2 } as const)[form.value.visibility],
       circleId: form.value.circleId
     }
     const res = await createPost(postData)

@@ -4,6 +4,7 @@ import com.minthive.ai.AiContext;
 import com.minthive.ai.AiRateLimiter;
 import com.minthive.ai.AiService;
 import com.minthive.common.Result;
+import com.minthive.common.ResultCode;
 import com.minthive.entity.Circle;
 import com.minthive.entity.User;
 import com.minthive.security.UserContext;
@@ -11,12 +12,16 @@ import com.minthive.service.CircleService;
 import com.minthive.service.FollowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.springframework.http.MediaType;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -28,6 +33,7 @@ import java.util.stream.Collectors;
 @Tag(name = "AI接口")
 @RestController
 @RequestMapping("/api/ai")
+@Validated
 public class AiController {
 
     private final AiContext aiContext;
@@ -53,10 +59,8 @@ public class AiController {
      */
     @Operation(summary = "AI生成帖子文案")
     @PostMapping("/post-content")
-    public Result<List<String>> generatePostContent(@RequestBody PostContentDto dto) {
-        aiRateLimiter.checkLimit();
-        List<String> result = aiContext.generatePostContent(dto.getKeywords(), dto.getCategory());
-        aiRateLimiter.increment();
+    public Result<List<String>> generatePostContent(@RequestBody @Valid PostContentDto dto) {
+        List<String> result = withQuota(() -> aiContext.generatePostContent(dto.getKeywords(), dto.getCategory()));
         return Result.success(result);
     }
 
@@ -68,10 +72,8 @@ public class AiController {
      */
     @Operation(summary = "AI文案润色")
     @PostMapping("/polish")
-    public Result<String> polish(@RequestBody PolishDto dto) {
-        aiRateLimiter.checkLimit();
-        String result = aiContext.polishContent(dto.getContent());
-        aiRateLimiter.increment();
+    public Result<String> polish(@RequestBody @Valid PolishDto dto) {
+        String result = withQuota(() -> aiContext.polishContent(dto.getContent()));
         return Result.success(result);
     }
 
@@ -83,10 +85,8 @@ public class AiController {
      */
     @Operation(summary = "AI智能评论生成")
     @PostMapping("/comment")
-    public Result<List<String>> generateComment(@RequestBody CommentDto dto) {
-        aiRateLimiter.checkLimit();
-        List<String> result = aiContext.generateComment(dto.getPostContent(), dto.getCategory());
-        aiRateLimiter.increment();
+    public Result<List<String>> generateComment(@RequestBody @Valid CommentDto dto) {
+        List<String> result = withQuota(() -> aiContext.generateComment(dto.getPostContent(), dto.getCategory()));
         return Result.success(result);
     }
 
@@ -98,10 +98,8 @@ public class AiController {
      */
     @Operation(summary = "AI私信代回复")
     @PostMapping("/message-reply")
-    public Result<String> messageReply(@RequestBody MessageReplyDto dto) {
-        aiRateLimiter.checkLimit();
-        String result = aiContext.generateMessageReply(dto.getContext(), dto.getIncomingMessage());
-        aiRateLimiter.increment();
+    public Result<String> messageReply(@RequestBody @Valid MessageReplyDto dto) {
+        String result = withQuota(() -> aiContext.generateMessageReply(dto.getContext(), dto.getIncomingMessage()));
         return Result.success(result);
     }
 
@@ -113,10 +111,16 @@ public class AiController {
      */
     @Operation(summary = "AI内容检测")
     @PostMapping("/detect")
-    public Result<AiService.AiDetectResult> detect(@RequestBody DetectDto dto) {
-        aiRateLimiter.checkLimit();
-        AiService.AiDetectResult result = aiContext.detectContent(dto.getText(), dto.getImageBase64());
-        aiRateLimiter.increment();
+    public Result<AiService.AiDetectResult> detect(@RequestBody @Valid DetectDto dto) {
+        AiService.AiDetectResult result = withQuota(() -> aiContext.detectContent(dto.getText(), dto.getImageBase64()));
+        if (result == null) {
+            result = AiService.AiDetectResult.unavailable("审核未返回结果");
+        }
+        if (!result.available) {
+            // 保留 data 中的旧字段，但不能以成功审核响应掩盖不可用状态。
+            return Result.error(ResultCode.AI_SERVICE_ERROR,
+                    "内容审核不可用：" + result.violationType, result);
+        }
         return Result.success(result);
     }
 
@@ -128,10 +132,8 @@ public class AiController {
      */
     @Operation(summary = "AI智能问答")
     @PostMapping("/qa")
-    public Result<String> qa(@RequestBody QaDto dto) {
-        aiRateLimiter.checkLimit();
-        String result = aiContext.smartQa(dto.getQuestion());
-        aiRateLimiter.increment();
+    public Result<String> qa(@RequestBody @Valid QaDto dto) {
+        String result = withQuota(() -> aiContext.smartQa(dto.getQuestion()));
         return Result.success(result);
     }
 
@@ -146,11 +148,8 @@ public class AiController {
      */
     @Operation(summary = "AI智能问答(流式)")
     @PostMapping(value = "/qa/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter qaStream(@RequestBody QaDto dto) {
-        aiRateLimiter.checkLimit();
-        SseEmitter emitter = aiContext.smartQaStream(dto.getQuestion(), dto.getHistory());
-        aiRateLimiter.increment();
-        return emitter;
+    public SseEmitter qaStream(@RequestBody @Valid QaDto dto) {
+        return withQuota(() -> aiContext.smartQaStream(dto.getQuestion(), dto.getHistory()));
     }
 
     /**
@@ -166,11 +165,8 @@ public class AiController {
      */
     @Operation(summary = "AI数据感知问答(流式)")
     @PostMapping(value = "/query/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter queryStream(@RequestBody QaDto dto) {
-        aiRateLimiter.checkLimit();
-        SseEmitter emitter = aiContext.queryStream(dto.getQuestion(), dto.getHistory());
-        aiRateLimiter.increment();
-        return emitter;
+    public SseEmitter queryStream(@RequestBody @Valid QaDto dto) {
+        return withQuota(() -> aiContext.queryStream(dto.getQuestion(), dto.getHistory()));
     }
 
     /**
@@ -215,11 +211,35 @@ public class AiController {
     }
 
     /**
+     * 带额度预占执行 AI 调用
+     *
+     * <p>功能描述：调用前原子预占一次每日额度，调用失败时回滚额度，
+     * 避免并发请求同时通过上限校验导致超额调用</p>
+     *
+     * @param action 实际 AI 调用
+     * @param <T>    返回值类型
+     * @return AI 调用结果
+     * @throws RuntimeException AI 调用抛出的异常原样向上抛出
+     * @note 额度预占依赖 Redis；Redis 不可用时按现有降级策略放行
+     */
+    private <T> T withQuota(Supplier<T> action) {
+        aiRateLimiter.reserve();
+        try {
+            return action.get();
+        } catch (RuntimeException e) {
+            aiRateLimiter.release();
+            throw e;
+        }
+    }
+
+    /**
      * 文案生成请求 DTO
      */
     @Data
     public static class PostContentDto {
+        @Size(max = 100, message = "关键词不能超过100字")
         private String keywords;
+        @Size(max = 50, message = "分类不能超过50字")
         private String category;
     }
 
@@ -228,6 +248,7 @@ public class AiController {
      */
     @Data
     public static class PolishDto {
+        @Size(max = 5000, message = "文案不能超过5000字")
         private String content;
     }
 
@@ -236,7 +257,9 @@ public class AiController {
      */
     @Data
     public static class CommentDto {
+        @Size(max = 5000, message = "帖子内容不能超过5000字")
         private String postContent;
+        @Size(max = 50, message = "分类不能超过50字")
         private String category;
     }
 
@@ -245,7 +268,9 @@ public class AiController {
      */
     @Data
     public static class MessageReplyDto {
+        @Size(max = 5000, message = "上下文不能超过5000字")
         private String context;
+        @Size(max = 2000, message = "对方消息不能超过2000字")
         private String incomingMessage;
     }
 
@@ -254,7 +279,9 @@ public class AiController {
      */
     @Data
     public static class DetectDto {
+        @Size(max = 5000, message = "文本不能超过5000字")
         private String text;
+        @Size(max = 8000000, message = "图片过大，无法审核")
         private String imageBase64;
     }
 
@@ -263,8 +290,10 @@ public class AiController {
      */
     @Data
     public static class QaDto {
+        @Size(max = 2000, message = "问题不能超过2000字")
         private String question;
         /** 对话历史（偶数索引为 user，奇数索引为 ai，用于上下文连贯） */
+        @Size(max = 20, message = "对话历史过多")
         private List<String> history;
     }
 }

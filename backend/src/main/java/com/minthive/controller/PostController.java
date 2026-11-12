@@ -183,6 +183,7 @@ public class PostController {
     @PostMapping("/{id}/like")
     public Result<Void> like(@PathVariable Long id) {
         Long userId = UserContext.getUserId();
+        postService.getById(id, userId);
         likeCollectService.like(userId, id, Constants.LC_TYPE_LIKE_POST);
         recordAction(userId, id, "like");
         return Result.success();
@@ -213,6 +214,7 @@ public class PostController {
     @PostMapping("/{id}/collect")
     public Result<Void> collect(@PathVariable Long id) {
         Long userId = UserContext.getUserId();
+        postService.getById(id, userId);
         likeCollectService.like(userId, id, Constants.LC_TYPE_COLLECT_POST);
         recordAction(userId, id, "collect");
         return Result.success();

@@ -743,7 +743,7 @@ async function onSubmit(): Promise<void> {
     // 4. 上传新的头像（如果有重新上传）
     if (avatarFile.value) {
       const res = await uploadImage(avatarFile.value)
-      const avatarUrl = typeof res.data === 'string' ? res.data : res.data?.url || ''
+      const avatarUrl = res.data
       if (!avatarUrl) throw new Error('头像上传失败')
       updateData.avatar = avatarUrl
     }
@@ -751,7 +751,7 @@ async function onSubmit(): Promise<void> {
     // 5. 上传新的封面（如果有重新上传）
     if (bannerFile.value) {
       const res = await uploadImage(bannerFile.value)
-      const bannerUrl = typeof res.data === 'string' ? res.data : res.data?.url || ''
+      const bannerUrl = res.data
       if (!bannerUrl) throw new Error('封面上传失败')
       updateData.banner = bannerUrl
     }
@@ -823,7 +823,7 @@ async function loadCircleDetail(): Promise<void> {
     form.banner = data.banner || ''
 
     // 后端返回的 type 是字符串 "public"/"private"，兼容数字格式
-    originalType.value = typeof data.type === 'string' ? data.type : (data.type === 0 ? 'public' : 'private')
+    originalType.value = data.type
 
     // 缓存原始数据用于后续变更检测
     originalData.name = form.name

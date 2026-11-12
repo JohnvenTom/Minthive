@@ -39,7 +39,7 @@ public class FollowController {
     @Operation(summary = "关注用户")
     @PostMapping("/{followUserId}")
     public Result<Void> follow(@PathVariable Long followUserId) {
-        followService.follow(UserContext.getUserId(), followUserId);
+        followService.follow(UserContext.requireUserId(), followUserId);
         return Result.success();
     }
 
@@ -52,7 +52,7 @@ public class FollowController {
     @Operation(summary = "取消关注")
     @DeleteMapping("/{followUserId}")
     public Result<Void> unfollow(@PathVariable Long followUserId) {
-        followService.unfollow(UserContext.getUserId(), followUserId);
+        followService.unfollow(UserContext.requireUserId(), followUserId);
         return Result.success();
     }
 
@@ -65,7 +65,7 @@ public class FollowController {
     @Operation(summary = "查询是否已关注")
     @GetMapping("/{followUserId}")
     public Result<Boolean> isFollowing(@PathVariable Long followUserId) {
-        return Result.success(followService.isFollowing(UserContext.getUserId(), followUserId));
+        return Result.success(followService.isFollowing(UserContext.requireUserId(), followUserId));
     }
 
     /**
@@ -101,7 +101,7 @@ public class FollowController {
     public Result<Page<User>> followersList(@PathVariable Long userId,
                                             @RequestParam(defaultValue = "1") long current,
                                             @RequestParam(defaultValue = "20") long size) {
-        return Result.success(followService.getFollowersList(userId, UserContext.getUserId(), current, size));
+        return Result.success(followService.getFollowersList(userId, UserContext.requireUserId(), current, size));
     }
 
     /**
@@ -114,6 +114,6 @@ public class FollowController {
     @Operation(summary = "推荐好友")
     @GetMapping("/recommend")
     public Result<List<User>> recommend() {
-        return Result.success(followService.recommendUsers(UserContext.getUserId()));
+        return Result.success(followService.recommendUsers(UserContext.requireUserId()));
     }
 }

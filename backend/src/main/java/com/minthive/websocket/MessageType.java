@@ -34,6 +34,9 @@ public enum MessageType {
     /** 已读回执 */
     READ_RECEIPT("read_receipt"),
 
+    /** 消息撤回 */
+    REVOKE("revoke"),
+
     /** 上线通知 */
     ONLINE("online"),
 

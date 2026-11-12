@@ -716,7 +716,7 @@ async function onSubmit(): Promise<void> {
     let avatarUrl = ''
     if (avatarFile.value) {
       const res = await uploadImage(avatarFile.value)
-      avatarUrl = typeof res.data === 'string' ? res.data : res.data?.url || ''
+      avatarUrl = res.data
       if (!avatarUrl) throw new Error('头像上传失败')
     }
 
@@ -724,7 +724,7 @@ async function onSubmit(): Promise<void> {
     let bannerUrl = ''
     if (bannerFile.value) {
       const res = await uploadImage(bannerFile.value)
-      bannerUrl = typeof res.data === 'string' ? res.data : res.data?.url || ''
+      bannerUrl = res.data
       if (!bannerUrl) throw new Error('封面上传失败')
     }
 

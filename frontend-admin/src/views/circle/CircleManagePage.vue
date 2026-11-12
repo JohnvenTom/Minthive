@@ -464,7 +464,7 @@ onMounted(() => {
             </el-tag>
           </template>
           <template #recommended="{ row }">
-            <el-switch :model-value="!!row.recommended" @change="(val: boolean) => handleRecommend(row, val)" />
+            <el-switch :model-value="!!row.recommended" @change="val => handleRecommend(row, val === true)" />
           </template>
           <template #status="{ row }">
             <StatusTag :status="row.status" type="circle" />

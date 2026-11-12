@@ -1,4 +1,4 @@
-import { get, post } from './request'
+import { get, post, del } from './request'
 import type { PageQuery, PageResult } from './types'
 
 /**

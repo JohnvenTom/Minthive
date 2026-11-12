@@ -145,7 +145,7 @@ async function uploadItem(idx: number): Promise<void> {
 
   try {
     const res = await uploadImage(item.file)
-    const url = typeof res.data === 'string' ? res.data : res.data?.url || ''
+    const url = res.data
     if (!url) throw new Error('未返回URL')
 
     item.progress = 100

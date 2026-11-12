@@ -10,13 +10,11 @@ import com.minthive.service.PostService;
 import com.minthive.service.UserService;
 import com.minthive.mapper.CircleUserMapper;
 import com.minthive.mapper.UserMapper;
-import com.minthive.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -36,7 +34,6 @@ public class SearchController {
     private final CircleService circleService;
     private final CircleUserMapper circleUserMapper;
     private final UserMapper userMapper;
-    private final JwtUtil jwtUtil;
 
     /**
      * 搜索用户
@@ -82,11 +79,9 @@ public class SearchController {
     @GetMapping("/circle")
     public Result<Page<Map<String, Object>>> searchCircle(@RequestParam String keyword,
                                                            @RequestParam(defaultValue = "1") long current,
-                                                           @RequestParam(defaultValue = "10") long size,
-                                                           HttpServletRequest request) {
+                                                           @RequestParam(defaultValue = "10") long size) {
         Page<Circle> page = circleService.page(current, size, null, keyword);
-        // 获取当前登录用户ID（用于填充 joined 状态）
-        Long currentUserId = resolveUserId(request);
+        Long currentUserId = resolveUserId();
         // 将 Circle 实体转换为 Map，补充非持久化字段
         Page<Map<String, Object>> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         List<Map<String, Object>> records = page.getRecords().stream().map(circle -> {
@@ -121,6 +116,7 @@ public class SearchController {
                     new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.minthive.entity.CircleUser>()
                         .eq(com.minthive.entity.CircleUser::getCircleId, circle.getId())
                         .eq(com.minthive.entity.CircleUser::getUserId, currentUserId)
+                        .eq(com.minthive.entity.CircleUser::getAuditStatus, 1)
                 );
                 joined = count > 0;
             }
@@ -145,8 +141,7 @@ public class SearchController {
     @GetMapping
     public Result<?> search(@RequestParam String keyword,
                             @RequestParam(defaultValue = "all") String type,
-                            @RequestParam(defaultValue = "1") long current,
-                            HttpServletRequest request) {
+                            @RequestParam(defaultValue = "1") long current) {
         long size = 10;
         switch (type.toLowerCase()) {
             case "user":
@@ -157,7 +152,7 @@ public class SearchController {
                 // 单独搜索圈子：返回分页的完整字段 Map
                 Page<Circle> circlePage = circleService.page(current, size, null, keyword);
                 Page<Map<String, Object>> enrichedPage = new Page<>(circlePage.getCurrent(), circlePage.getSize(), circlePage.getTotal());
-                enrichedPage.setRecords(enrichCircles(circlePage.getRecords(), request));
+                enrichedPage.setRecords(enrichCircles(circlePage.getRecords()));
                 return Result.success(enrichedPage);
             case "topic":
                 // 话题搜索暂无独立服务，返回空结果
@@ -169,7 +164,7 @@ public class SearchController {
                 allResult.put("users", userService.searchByKeyword(keyword, current, size).getRecords());
                 allResult.put("posts", postService.searchByKeyword(keyword, current, size).getRecords());
                 // 圈子也需要填充完整字段
-                allResult.put("circles", enrichCircles(circleService.page(current, size, null, keyword).getRecords(), request));
+                allResult.put("circles", enrichCircles(circleService.page(current, size, null, keyword).getRecords()));
                 return Result.success(allResult);
         }
     }
@@ -195,27 +190,16 @@ public class SearchController {
      * @param request HTTP 请求对象
      * @return 当前用户ID，未登录返回 null
      */
-    private Long resolveUserId(HttpServletRequest request) {
-        try {
-            return com.minthive.security.UserContext.getUserId();
-        } catch (Exception e) {
-            String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                try {
-                    return jwtUtil.getUserIdFromToken(authHeader.substring(7));
-                } catch (Exception ignored) {
-                    return null;
-                }
-            }
-            return null;
-        }
+    private Long resolveUserId() {
+        com.minthive.security.LoginUser user = com.minthive.security.UserContext.get();
+        return user == null ? null : user.getUserId();
     }
 
     /**
      * 将 Circle 实体列表转换为 Map 列表，补充 joined/ownerName/ownerAvatar/type 等字段
      */
-    private List<Map<String, Object>> enrichCircles(List<Circle> circles, HttpServletRequest request) {
-        Long currentUserId = resolveUserId(request);
+    private List<Map<String, Object>> enrichCircles(List<Circle> circles) {
+        Long currentUserId = resolveUserId();
         return circles.stream().map(circle -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", circle.getId());
@@ -245,6 +229,7 @@ public class SearchController {
                     new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.minthive.entity.CircleUser>()
                         .eq(com.minthive.entity.CircleUser::getCircleId, circle.getId())
                         .eq(com.minthive.entity.CircleUser::getUserId, currentUserId)
+                        .eq(com.minthive.entity.CircleUser::getAuditStatus, 1)
                 );
                 joined = count > 0;
             }

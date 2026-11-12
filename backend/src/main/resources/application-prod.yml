@@ -71,6 +71,11 @@ file:
   video-max-size: 20
   video-max-duration: 60
 
+# 生产关闭 MyBatis SQL 明文日志：避免手机号、私信内容、密码哈希等敏感参数写入日志
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
 # 日志级别
 logging:
   level:
@@ -78,3 +83,23 @@ logging:
     org.springframework.web: warn
   file:
     name: /opt/minthive/logs/minthive.log
+
+# 生产环境关闭接口文档与在线调试入口，避免匿名访问暴露内部接口
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+knife4j:
+  enable: false
+  production: true
+
+# 生产必须配置真实短信网关：SMS_PROVIDER=http + SMS_HTTP_URL/SMS_HTTP_TOKEN
+sms:
+  provider: ${SMS_PROVIDER}
+  log-code: false
+
+# 生产跨域白名单必须显式配置（例如 https://www.example.com），未配置将启动失败
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}

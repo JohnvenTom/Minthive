@@ -21,17 +21,19 @@ spring:
           max-wait: 3000ms
 
 # MinIO 本地对象存储配置
-# 注意：endpoint 必须使用客户端可访问的地址，不能用 localhost
+# endpoint 为后端访问地址；public-url 为媒体直链的对外地址。
+# 两者必须与数据库中已存的媒体 URL 前缀一致，后端才能把旧绝对地址改写为票据代理地址。
 minio:
-  endpoint: http://26.141.51.0:9000
-  public-url: http://100.69.234.20:9000
+  endpoint: ${MINIO_ENDPOINT:http://26.141.51.0:9000}
+  public-url: ${MINIO_PUBLIC_URL:http://100.69.234.20:9000}
   access-key: ${MINIO_DEV_ACCESS_KEY:minioadmin}
   secret-key: ${MINIO_DEV_SECRET_KEY:minioadmin}
   bucket: minthive
 
 # JWT 配置
+# 签名密钥必须由 .env 或环境变量提供，禁止在源码中保留默认值（缺失时应用启动失败）
 jwt:
-  secret: ${JWT_DEV_SECRET:minthive-secret-key-2024-very-long-and-secure-for-jwt-signing-please-change-in-production}
+  secret: ${JWT_DEV_SECRET}
   expire: 604800  # 单位秒，7天
   header: Authorization
   prefix: "Bearer "
@@ -71,3 +73,12 @@ file:
   image-max-size: 5          # 单张图片最大MB
   video-max-size: 20         # 视频最大MB
   video-max-duration: 60     # 视频最大时长(秒)
+
+# 本地开发把验证码输出到日志，便于联调；生产必须改为 http 网关
+sms:
+  log-code: ${SMS_LOG_CODE:true}
+
+# 跨域白名单：本地前端开发地址，多个用逗号分隔，禁止使用 *
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174}

@@ -15,20 +15,15 @@ import com.minthive.mapper.CommentMapper;
 import com.minthive.mapper.LikeCollectMapper;
 import com.minthive.mapper.PostMapper;
 import com.minthive.mapper.UserMapper;
-import com.minthive.config.JwtConfig;
-import com.minthive.security.JwtUtils;
 import com.minthive.security.UserContext;
 import com.minthive.ai.AiContext;
 import com.minthive.service.PostService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * 帖子服务实现
@@ -50,15 +45,17 @@ public class PostServiceImpl implements PostService {
 
     private final LikeCollectMapper likeCollectMapper;
 
-    private final JwtUtils jwtUtils;
-
-    private final JwtConfig jwtConfig;
-
     private final com.minthive.service.InterestVectorService interestVectorService;
 
     private final com.minthive.service.TagMappingService tagMappingService;
 
     private final com.minthive.util.RedisUtil redisUtil;
+
+    private final com.minthive.service.ContentAccessService contentAccessService;
+
+    private final com.minthive.service.ActionRateLimiter actionRateLimiter;
+
+    private final com.minthive.ai.ImageModerationService imageModerationService;
 
     /**
      * 发布帖子
@@ -68,28 +65,58 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     public Post publish(Post post) {
-        if (post.getCircleId() != null && post.getCircleId() > 0) {
-            var circle = circleMapper.selectById(post.getCircleId());
-            if (circle == null || circle.getStatus() != Constants.CIRCLE_STATUS_NORMAL) {
-                throw new BusinessException(ResultCode.CIRCLE_NOT_EXISTS, "圈子不存在或未上线");
-            }
-        }
-        // AI 内容检测
+        prepareNewPost(post, post.getUserId());
+        post.setSharePostId(null);
+        actionRateLimiter.reserve(com.minthive.service.ActionRateLimiter.Action.POST, post.getUserId());
         try {
-            var detectResult = aiContext.detectContent(post.getContent(), null);
-            if (detectResult.violation) {
-                post.setAuditStatus(Constants.AUDIT_PENDING);
-                log.info("AI检测违规，进入待审核: content={}", post.getContent());
-            } else {
-                post.setAuditStatus(Constants.AUDIT_PASS);
-            }
-        } catch (Exception e) {
-            log.error("AI检测异常，默认放行: ", e);
-            post.setAuditStatus(Constants.AUDIT_PASS);
+            post.setAuditStatus(moderate(post));
+            postMapper.insert(post);
+        } catch (RuntimeException e) {
+            actionRateLimiter.release(com.minthive.service.ActionRateLimiter.Action.POST, post.getUserId());
+            throw e;
         }
-        postMapper.insert(post);
-        log.info("帖子发布成功: id={}, userId={}, auditStatus={}", post.getId(), post.getUserId(), post.getAuditStatus());
         return post;
+    }
+
+    private void prepareNewPost(Post post, Long userId) {
+        if (userId == null) throw new BusinessException(ResultCode.UNAUTHORIZED);
+        if (post.getContent() == null || post.getContent().isBlank() || post.getContent().length() > 10000) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "内容不能为空且不能超过10000字");
+        }
+        post.setId(null);
+        post.setUserId(userId);
+        post.setDeleted(0);
+        post.setCreateTime(null);
+        post.setUpdateTime(null);
+        if (post.getVisibility() == null) post.setVisibility(0);
+        validateVisibility(post.getVisibility());
+        if (post.getCircleId() != null && post.getCircleId() == 0L) post.setCircleId(null);
+        contentAccessService.requireCanPublish(post.getCircleId(), userId);
+    }
+
+    private void validateVisibility(Integer visibility) {
+        if (visibility == null || visibility < 0 || visibility > 2) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "无效的可见范围");
+        }
+    }
+
+    private int moderate(Post post) {
+        // 视频内容审核尚未接入，一律转人工
+        if (post.getVideo() != null && !post.getVideo().isBlank()) {
+            return Constants.AUDIT_PENDING;
+        }
+        boolean hasImages = post.getImages() != null && !post.getImages().isBlank()
+                && !"[]".equals(post.getImages());
+        try {
+            var result = hasImages
+                    ? imageModerationService.moderate(post.getContent(), post.getImages())
+                    : aiContext.detectContent(post.getContent(), null);
+            return result != null && result.available && !result.violation
+                    ? Constants.AUDIT_PASS : Constants.AUDIT_PENDING;
+        } catch (Exception e) {
+            log.warn("内容检测不可用，转入人工审核");
+            return Constants.AUDIT_PENDING;
+        }
     }
 
     /**
@@ -100,16 +127,7 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     public Post getById(Long id) {
-        Post post = postMapper.selectById(id);
-        if (post == null) {
-            throw new BusinessException(ResultCode.POST_NOT_EXISTS);
-        }
-        // 未通过审核的帖子对所有人不可见（包括作者）
-        if (post.getAuditStatus() == null || post.getAuditStatus() != Constants.AUDIT_PASS) {
-            throw new BusinessException(ResultCode.POST_NOT_EXISTS);
-        }
-        enrichPostCounts(post);
-        return post;
+        return getById(id, contentAccessService.currentUserId());
     }
 
     /**
@@ -122,15 +140,7 @@ public class PostServiceImpl implements PostService {
     @Override
     public Post getById(Long id, Long currentUserId) {
         Post post = postMapper.selectById(id);
-        if (post == null) {
-            throw new BusinessException(ResultCode.POST_NOT_EXISTS);
-        }
-        // 未通过审核的帖子仅作者可查看
-        if (post.getAuditStatus() == null || post.getAuditStatus() != Constants.AUDIT_PASS) {
-            if (currentUserId == null || !currentUserId.equals(post.getUserId())) {
-                throw new BusinessException(ResultCode.POST_NOT_EXISTS);
-            }
-        }
+        contentAccessService.requireReadable(post, currentUserId);
         enrichPostCounts(post);
         return post;
     }
@@ -145,8 +155,9 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     public Page<Post> page(long current, long size, Long circleId) {
-        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-                .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
+        Long viewerId = contentAccessService.currentUserId();
+        if (circleId != null) contentAccessService.requireCircleReadable(circleId, viewerId);
+        LambdaQueryWrapper<Post> wrapper = contentAccessService.visiblePosts(viewerId)
                 .eq(circleId != null, Post::getCircleId, circleId)
                 .orderByDesc(Post::getCreateTime);
         Page<Post> result = postMapper.selectPage(new Page<>(current, size), wrapper);
@@ -162,7 +173,7 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     public void delete(Long id, Long userId) {
-        Post post = getById(id);
+        Post post = getById(id, userId);
         if (post.getUserId().equals(userId)) {
             postMapper.deleteById(id);
             return;
@@ -190,22 +201,22 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     public Post update(Long id, Post post, Long userId) {
-        // 1. 校验帖子存在性和所有权
-        Post existing = getById(id);
+        Post existing = getById(id, userId);
         if (!existing.getUserId().equals(userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权编辑他人帖子");
         }
-        // 2. 仅允许更新的字段：content, images, visibility
-        if (post.getContent() != null) {
-            existing.setContent(post.getContent());
-        }
-        if (post.getImages() != null) {
-            existing.setImages(post.getImages());
-        }
+        boolean contentChanged = post.getContent() != null && !post.getContent().equals(existing.getContent());
+        boolean mediaChanged = post.getImages() != null && !post.getImages().equals(existing.getImages());
+        if (post.getContent() != null) existing.setContent(post.getContent());
+        if (post.getImages() != null) existing.setImages(post.getImages());
         if (post.getVisibility() != null) {
+            validateVisibility(post.getVisibility());
             existing.setVisibility(post.getVisibility());
         }
-        // 3. 执行更新
+        if (contentChanged || mediaChanged) {
+            existing.setAuditStatus(moderate(existing));
+            existing.setUpdateTime(null);
+        }
         postMapper.updateById(existing);
         return existing;
     }
@@ -223,10 +234,11 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     public Post toggleVisibility(Long id, Integer visibility, Long userId) {
-        Post post = getById(id);
+        Post post = getById(id, userId);
         if (!post.getUserId().equals(userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人帖子");
         }
+        validateVisibility(visibility);
         post.setVisibility(visibility);
         postMapper.updateById(post);
         return post;
@@ -256,10 +268,13 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     public Page<Post> searchByKeyword(String keyword, long current, long size) {
-        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-                .eq(Post::getAuditStatus, Constants.AUDIT_PASS);
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            wrapper.like(Post::getContent, keyword);
+        String normalized = keyword == null ? "" : keyword.trim();
+        if (normalized.length() > 100) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "搜索词过长");
+        }
+        LambdaQueryWrapper<Post> wrapper = contentAccessService.visiblePosts(contentAccessService.currentUserId());
+        if (!normalized.isEmpty()) {
+            wrapper.like(Post::getContent, normalized);
         }
         wrapper.orderByDesc(Post::getCreateTime);
         Page<Post> result = postMapper.selectPage(new Page<>(current, size), wrapper);
@@ -303,9 +318,7 @@ public class PostServiceImpl implements PostService {
             }
             result = postMapper.selectRecommendFeed(new Page<>(current, size));
         } else {
-            LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-                    .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
-                    .eq(Post::getVisibility, 0)
+            LambdaQueryWrapper<Post> wrapper = contentAccessService.visiblePosts(null)
                     .orderByDesc(Post::getCreateTime);
             result = postMapper.selectPage(new Page<>(current, size), wrapper);
         }
@@ -366,6 +379,7 @@ public class PostServiceImpl implements PostService {
 
         List<Post> records = postMapper.selectByIdsOrdered(cachedIds.subList(from, to));
         if (records == null) records = Collections.emptyList();
+        records = records.stream().filter(p -> contentAccessService.canRead(p, userId)).collect(Collectors.toList());
         Page<Post> page = new Page<>(current, size, total);
         page.setRecords(records);
         return page;
@@ -392,29 +406,28 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     public Post share(Post post, Long sharePostId, Long userId) {
-        // 校验原帖是否存在
+        if (userId == null) throw new BusinessException(ResultCode.UNAUTHORIZED);
         Post original = postMapper.selectById(sharePostId);
-        if (original == null) {
+        if (original == null || !contentAccessService.isPubliclyShareable(original)) {
             throw new BusinessException(ResultCode.POST_NOT_EXISTS);
         }
-        // 构建转发帖
-        post.setUserId(userId);
-        post.setSharePostId(sharePostId);
-        post.setAuditStatus(Constants.AUDIT_PASS);
-
-        // DEBUG: 打印接收到的转发文案，便于排查前端传参问题
-        log.debug("[Share] 接收到的content={}, 是否为null={}", post.getContent(), post.getContent() == null);
-
-        // 如果没有附加内容，使用原帖内容作为引用
-        if (post.getContent() == null || post.getContent().trim().isEmpty()) {
-            post.setContent("转发: " + original.getContent());
-            log.debug("[Share] 使用默认转发文案: {}", post.getContent());
-        } else {
-            log.debug("[Share] 使用用户自定义转发文案: {}", post.getContent());
+        String content = post.getContent();
+        if (content == null || content.isBlank()) content = "转发: " + original.getContent();
+        Post shared = new Post();
+        shared.setUserId(userId);
+        shared.setContent(content);
+        shared.setSharePostId(sharePostId);
+        shared.setVisibility(0);
+        shared.setCircleId(null);
+        actionRateLimiter.reserve(com.minthive.service.ActionRateLimiter.Action.POST, userId);
+        try {
+            shared.setAuditStatus(moderate(shared));
+            postMapper.insert(shared);
+        } catch (RuntimeException e) {
+            actionRateLimiter.release(com.minthive.service.ActionRateLimiter.Action.POST, userId);
+            throw e;
         }
-        postMapper.insert(post);
-        log.info("帖子转发成功: postId={}, originalPostId={}, userId={}", post.getId(), sharePostId, userId);
-        return post;
+        return shared;
     }
 
     /**
@@ -465,8 +478,10 @@ public class PostServiceImpl implements PostService {
      */
     @Override
     public Page<Post> getShareChain(Long postId, long current, long size) {
-        // 1. 查询所有 sharePostId = postId 的转发帖，按时间倒序
-        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+        Post original = postMapper.selectById(postId);
+        Long viewerId = contentAccessService.currentUserId();
+        contentAccessService.requireReadable(original, viewerId);
+        LambdaQueryWrapper<Post> wrapper = contentAccessService.visiblePosts(viewerId)
                 .eq(Post::getSharePostId, postId)
                 .eq(Post::getAuditStatus, Constants.AUDIT_PASS)
                 .orderByDesc(Post::getCreateTime);
@@ -579,21 +594,8 @@ public class PostServiceImpl implements PostService {
      * @param post 帖子实体（会直接修改其 liked/collected 字段）
      */
     private void enrichUserInteractionStatus(Post post) {
-        Long userId = null;
-
-        // 通道1：尝试从 UserContext 获取（认证接口的常规路径）
-        try {
-            userId = UserContext.getUserId();
-        } catch (Exception ignored) {
-            // UserContext 未设置（公开接口跳过了 JwtInterceptor），走通道2
-        }
-
-        // 通道2：从 HTTP 请求头手动解析 Token（公开接口的兜底路径）
-        if (userId == null) {
-            userId = resolveUserIdFromRequest();
-        }
-
-        // 无法确定用户身份时，默认未点赞/未收藏
+        // 身份统一来自已经完整校验过的 UserContext，不再自行解析请求凭证。
+        Long userId = UserContext.getUserId();
         if (userId == null) {
             post.setLiked(false);
             post.setCollected(false);
@@ -617,32 +619,6 @@ public class PostServiceImpl implements PostService {
                         .eq(LikeCollect::getTargetId, postId)
                         .eq(LikeCollect::getType, 3)) > 0;
         post.setCollected(collected);
-    }
-
-    /**
-     * 从当前 HTTP 请求头中解析 Token 并提取用户 ID
-     *
-     * <p>功能描述：在 UserContext 不可用（如公开接口跳过 JwtInterceptor）时，
-     * 直接从请求头的 Authorization 字段读取 JWT Token 并解析出用户 ID，
-     * 实现可选登录接口的用户身份识别</p>
-     *
-     * @return 用户 ID；无法解析时返回 null（不会抛异常）
-     */
-    private Long resolveUserIdFromRequest() {
-        try {
-            var requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (requestAttributes == null) return null;
-
-            HttpServletRequest request = requestAttributes.getRequest();
-            String header = request.getHeader(jwtConfig.getHeader());
-            if (header == null || !header.startsWith(jwtConfig.getPrefix())) return null;
-
-            String token = header.substring(jwtConfig.getPrefix().length()).trim();
-            return jwtUtils.getUserIdFromToken(token);
-        } catch (Exception e) {
-            log.debug("[PostService] 从请求头解析用户ID失败（可忽略，可能未登录）: {}", e.getMessage());
-            return null;
-        }
     }
 
     /**

@@ -1,731 +1,747 @@
 <div align="center">
 
-<img src="img/logo.svg" width="260" height="72" alt="MintHive"/>
+<img src="img/screenshots/hero.jpg" alt="MintHive — AI 驱动的兴趣社交平台" width="100%" />
 
 <br/>
 
-<a href="https://spring.io/projects/spring-boot" target="_blank">
-  <img src="https://img.shields.io/badge/Spring_Boot-3.3-6DB33F?style=flat-square&logo=springboot&logoColor=white" alt="Spring Boot"/>
+<a href="https://github.com/JohnvenTom/Minthive/actions/workflows/ci.yml">
+  <img src="https://github.com/JohnvenTom/Minthive/actions/workflows/ci.yml/badge.svg" alt="CI"/>
 </a>
-<a href="https://vuejs.org/" target="_blank">
-  <img src="https://img.shields.io/badge/Vue-3.4-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white" alt="Vue 3"/>
-</a>
-<a href="https://www.typescriptlang.org/" target="_blank">
-  <img src="https://img.shields.io/badge/TypeScript-5.4-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
-</a>
-<a href="https://www.mysql.com/" target="_blank">
-  <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql&logoColor=white" alt="MySQL"/>
-</a>
-<a href="https://redis.io/" target="_blank">
-  <img src="https://img.shields.io/badge/Redis-6.0+-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis"/>
-</a>
-<a href="https://min.io/" target="_blank">
-  <img src="https://img.shields.io/badge/MinIO-8.5-C72C48?style=flat-square&logo=minio&logoColor=white" alt="MinIO"/>
-</a>
-<a href="https://spring.io/projects/spring-ai" target="_blank">
-  <img src="https://img.shields.io/badge/Spring_AI-1.0_M1-6DB33F?style=flat-square&logo=spring&logoColor=white" alt="Spring AI"/>
-</a>
-<a href="https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API" target="_blank">
-  <img src="https://img.shields.io/badge/WebSocket-Realtime-010101?style=flat-square&logo=websocket&logoColor=white" alt="WebSocket"/>
-</a>
-<a href="https://openjdk.org/" target="_blank">
-  <img src="https://img.shields.io/badge/Java-17-ED8B00?style=flat-square&logo=openjdk&logoColor=white" alt="Java 17"/>
-</a>
-<a href="https://capacitorjs.com/" target="_blank">
-  <img src="https://img.shields.io/badge/Capacitor-8-119EFF?style=flat-square&logo=capacitor&logoColor=white" alt="Capacitor"/>
-</a>
-<a href="https://github.com/your-org/Minthive/blob/main/LICENSE" target="_blank">
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License: MIT"/>
-</a>
-<a href="https://github.com/your-org/Minthive/pulls" target="_blank">
-  <img src="https://img.shields.io/badge/PRs-Welcome-brightgreen?style=flat-square" alt="PRs Welcome"/>
-</a>
+<img src="https://img.shields.io/badge/Spring_Boot-3.3.5-6DB33F?style=flat-square&logo=springboot&logoColor=white" alt="Spring Boot"/>
+<img src="https://img.shields.io/badge/Vue-3.4-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white" alt="Vue 3"/>
+<img src="https://img.shields.io/badge/TypeScript-5.4-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
+<img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql&logoColor=white" alt="MySQL"/>
+<img src="https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis"/>
+<img src="https://img.shields.io/badge/MinIO-8.5-C72C48?style=flat-square&logo=minio&logoColor=white" alt="MinIO"/>
+<img src="https://img.shields.io/badge/Capacitor-8-119EFF?style=flat-square&logo=capacitor&logoColor=white" alt="Capacitor"/>
+<img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License MIT"/>
+
+<br/><br/>
+
+**MintHive** = **Mint**（新鲜志趣）+ **Hive**（蜂巢聚合）
+
+以兴趣聚合人群，以内容产生互动。
+
+<sub>An AI-powered interest-based social platform · Circle community · Realtime messaging · AI assistant · Admin console</sub>
+
+<br/>
+
+[界面预览](#界面预览) ·
+[功能特性](#功能特性) ·
+[快速开始](#快速开始) ·
+[系统架构](#系统架构) ·
+[API 概览](#api-概览) ·
+[部署](#部署)
 
 </div>
 
 ---
 
-**MintHive** 是一个融合 AI 智能能力的垂直兴趣社交平台，名字取自 **Mint**（新鲜志趣）+ **Hive**（蜂巢聚合），寓意同兴趣爱好者相聚成团。平台主打「以兴趣聚合人群，以内容产生互动」，支持兴趣圈子社群、实时评论互动、AI 全链路辅助（发帖/评论/私信代聊/内容风控/千人千面推荐）、双重内容审核等核心能力，打造轻量化、高粘性、垂直化的兴趣交流社区。
+## 这是什么
+
+MintHive 是一个**可以直接跑起来**的兴趣社交平台，包含三个可独立部署的应用：
+
+| 应用 | 技术栈 | 说明 |
+|---|---|---|
+| 用户端 | Vue 3 + Vite + Vant / Element Plus | Web + H5 + Capacitor Android |
+| 管理后台 | Vue 3 + Element Plus + ECharts | 运营看板、内容审核、工单处理 |
+| 服务端 | Spring Boot 3.3 + MyBatis-Plus | 143 个 REST 接口 + WebSocket + AI 网关 |
+
+它不是一个只有 CRUD 的脚手架：圈子权限、内容审核、私信已读回执、消息撤回、操作审计、AI 双模式切换这些"真正麻烦的部分"都已经实现，并且有测试与 CI 兜底。
+
+<details>
+<summary><b>四个值得关注的设计点</b></summary>
+
+<br/>
+
+1. **AI 是可替换的基础设施**：`AiService` 接口 + 策略模式，公有云（OpenAI 兼容协议）与本地私有化（Ollama）两种实现零代码切换，失败自动降级为兜底话术，不阻塞业务主流程。
+2. **内容安全是双层的**：DFA 敏感词命中后不直接拒绝，而是交给 AI 语义复审，识别谐音、变体与暗语，减少误杀；图片走本地检测，不外传。
+3. **身份与会话是分离的**：JWT 只做凭证，Redis 维护该用户当前有效的 Token 集合——登出、封禁、改密会立刻让旧连接失效，WebSocket 也会被主动断开。
+4. **所有写操作可追溯**：操作审计链路记录操作人、路径、结果码、耗时与数据变更，管理端可按 traceId 检索。
+
+</details>
 
 ---
 
-## ▸ 核心功能
+## 界面预览
+
+> 以下均为项目**真实运行截图**（本地启动、真实数据），非设计稿。
+
+<img src="img/screenshots/home.jpg" alt="首页信息流" width="100%" />
+
+<div align="center"><sub>首页信息流 · 推荐 / 最新 / 最热三模式 · 瀑布流卡片 · 圈子公告与推荐轮播</sub></div>
+
+<br/>
 
 <table>
 <tr>
-<td width="50" align="center"><strong>◆</strong></td>
-<td><img src="https://img.shields.io/badge/AI-智能辅助-4ECDC4?style=flat-square"/></td>
-<td>
-<b>AI 发帖助手</b> — 关键词一键生成 3 风格文案（简约/氛围感/干货）、文案润色纠错、敏感内容预检测<br/>
-<b>AI 智能互动</b> — 贴合帖子内容生成自然评论、离线私信 AI 代回复（可撤回）<br/>
-<b>AI 问答客服</b> — 全局悬浮入口，SSE 流式输出，7x24 小时自动应答
+<td width="50%">
+<img src="img/screenshots/circle-plaza.jpg" alt="圈子广场"/>
+<div align="center"><sub>圈子广场 · 分类筛选 · 推荐圈子 · 公开/私密标识</sub></div>
+</td>
+<td width="50%">
+<img src="img/screenshots/circle-detail.jpg" alt="圈子详情"/>
+<div align="center"><sub>圈子详情 · 圈主信息 · 公告 · 圈内动态</sub></div>
 </td>
 </tr>
 <tr>
-<td align="center"><strong>◇</strong></td>
-<td><img src="https://img.shields.io/badge/CIRCLE-兴趣圈子-4ECDC4?style=flat-square"/></td>
 <td>
-圈子广场分类浏览与搜索、推荐圈子轮播 Banner、公开圈一键加入/私密圈审核制、圈子详情（公告/置顶/圈内动态）、圈主管理（成员管理/公告编辑/转让圈主/解散圈子）、创建/编辑圈子、AI 圈子智能推荐
+<img src="img/screenshots/post-detail.jpg" alt="帖子详情"/>
+<div align="center"><sub>帖子详情 · 话题标签 · 点赞/评论/收藏 · 二级回复</sub></div>
+</td>
+<td>
+<img src="img/screenshots/chat.jpg" alt="私信会话"/>
+<div align="center"><sub>私信 · 实时收发 · 已读回执 · AI 代回复入口</sub></div>
 </td>
 </tr>
 <tr>
-<td align="center"><strong>▸</strong></td>
-<td><img src="https://img.shields.io/badge/REALTIME-实时互动-FFB627?style=flat-square"/></td>
 <td>
-基于 WebSocket 长连接：评论/回复实时推送、点赞收藏即时同步、一对一私信实时收发与已读回执、系统/圈子公告全员推送
+<img src="img/screenshots/ai-draft.jpg" alt="AI 文案生成"/>
+<div align="center"><sub>AI 发帖助手 · 关键词生成三种风格文案与话题</sub></div>
+</td>
+<td>
+<img src="img/screenshots/ai-assistant.jpg" alt="AI 问答助手"/>
+<div align="center"><sub>全局 AI 问答 · 流式输出 · 可跳转站内页面</sub></div>
+</td>
+</tr>
+</table>
+
+<br/>
+
+<table>
+<tr>
+<td width="33%" align="center">
+<img src="img/screenshots/messages.jpg" alt="消息中心"/>
+<div align="center"><sub>消息中心 · 私信 / 通知 / 公告</sub></div>
+</td>
+<td width="33%" align="center">
+<img src="img/screenshots/search.jpg" alt="搜索"/>
+<div align="center"><sub>全站搜索 · 用户 / 帖子 / 圈子</sub></div>
+</td>
+<td width="33%" align="center">
+<img src="img/screenshots/profile.jpg" alt="个人主页"/>
+<div align="center"><sub>个人主页 · 动态 / 收藏 / 关注</sub></div>
+</td>
+</tr>
+</table>
+
+### 管理后台
+
+<img src="img/screenshots/admin-dashboard.jpg" alt="数据大屏" width="100%" />
+
+<div align="center"><sub>社区健康度监控中心 · 核心指标 · DAU/MAU 趋势 · AI 日报 · Excel 导出</sub></div>
+
+<br/>
+
+<table>
+<tr>
+<td width="50%">
+<img src="img/screenshots/admin-user.jpg" alt="用户管理"/>
+<div align="center"><sub>用户管理 · 封禁 / 解封 / 重置密码</sub></div>
+</td>
+<td width="50%">
+<img src="img/screenshots/admin-content.jpg" alt="内容审核"/>
+<div align="center"><sub>内容审核 · 待审 / 已发布 / 敏感词库</sub></div>
 </td>
 </tr>
 <tr>
-<td align="center"><strong>●</strong></td>
-<td><img src="https://img.shields.io/badge/RECOMMEND-千人千面-FFB627?style=flat-square"/></td>
 <td>
-AI 兴趣向量动态更新、个性化信息流推荐（智能/最新/最热三模式切换）、AI 圈子与好友智能匹配、用户行为日志驱动推荐迭代
+<img src="img/screenshots/admin-circle.jpg" alt="圈子管理"/>
+<div align="center"><sub>圈子管理 · 圈主转让 · 推荐位 · 下架</sub></div>
+</td>
+<td>
+<img src="img/screenshots/admin-report.jpg" alt="举报工单"/>
+<div align="center"><sub>举报工单 · AI 风险分级 · 驳回 / 处罚</sub></div>
+</td>
+</tr>
+</table>
+
+<img src="img/screenshots/admin-audit.jpg" alt="操作审计" width="100%" />
+
+<div align="center"><sub>操作审计 · 主体 / 路径 / 结果码 / 耗时 / traceId 全链路检索</sub></div>
+
+### 跨端
+
+<table>
+<tr>
+<td width="25%" align="center"><img src="img/screenshots/mobile-home.jpg" alt="移动端首页"/><br/><sub>移动端首页</sub></td>
+<td width="25%" align="center"><img src="img/screenshots/mobile-circle.jpg" alt="移动端圈子"/><br/><sub>圈子广场</sub></td>
+<td width="25%" align="center"><img src="img/screenshots/mobile-post.jpg" alt="移动端帖子"/><br/><sub>帖子详情</sub></td>
+<td width="25%" align="center"><img src="img/screenshots/mobile-profile.jpg" alt="移动端个人页"/><br/><sub>个人主页</sub></td>
+</tr>
+</table>
+
+---
+
+## 功能特性
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**圈子与社群**
+
+- 圈子广场分类浏览、关键词搜索、推荐位轮播
+- 公开圈一键加入 / 私密圈申请审核
+- 圈内公告、置顶动态、成员管理
+- 圈主能力：编辑资料、移出成员、转让圈主、解散圈子
+- 圈子敏感字段（公告 / 帖子数）按访问权限过滤
+
+</td>
+<td width="50%" valign="top">
+
+**内容与互动**
+
+- 图文 / 视频动态、话题标签、可见范围
+- 点赞、收藏、评论、二级回复、转发
+- 收藏夹、关注 / 粉丝、个人主页
+- 全站搜索：用户、帖子、圈子
+- 举报工单：AI 风险分级 + 人工处置
+
 </td>
 </tr>
 <tr>
-<td align="center"><strong>■</strong></td>
-<td><img src="https://img.shields.io/badge/SAFETY-内容风控-FF5C6C?style=flat-square"/></td>
-<td>
-敏感词库 + AI 语义双重审核（识别谐音/变体/暗语）、AI 图片违规识别（本地检测不外传）、举报工单 AI 风险等级自动分拣、内容驳回原因推送
+<td valign="top">
+
+**实时通信**
+
+- WebSocket 长连接，12 类消息推送
+- 评论、点赞、收藏、关注通知实时到达
+- 一对一私信：已读回执、消息撤回
+- 多设备同时在线，会话互不干扰
+- 登出 / 封禁 / 改密后连接立即失效
+
+</td>
+<td valign="top">
+
+**AI 全链路辅助**
+
+- 发帖助手：关键词生成三种风格文案 + 话题抽取
+- 文案润色、发布前内容预检
+- 贴合上下文的评论生成
+- 离线私信 AI 代回复（可撤回）
+- 全局问答客服：SSE 流式输出，可跳转站内页面
+- AI 兴趣推荐：用户行为日志驱动
+
 </td>
 </tr>
 <tr>
-<td align="center"><strong>▹</strong></td>
-<td><img src="https://img.shields.io/badge/ADMIN-管理后台-7A86B8?style=flat-square"/></td>
-<td>
-用户管理（封禁/解封/密码重置/僵尸清理）、内容审核（待审/已发布/敏感词库）、圈子管理、举报工单处理、系统配置、数据大屏（ECharts 可视化 + AI 日报 + Excel 导出）、AI 功能全局/单项开关
+<td valign="top">
+
+**内容风控**
+
+- DFA 敏感词库 + AI 语义复审双通道
+- 识别谐音、变体与暗语
+- 图片 AI 违规识别（本地检测，不外传）
+- 审核结果与驳回原因推送作者
+- 举报工单自动分级，高风险优先处理
+
 </td>
-</tr>
-<tr>
-<td align="center"><strong>⬡</strong></td>
-<td><img src="https://img.shields.io/badge/MOBILE-跨端部署-119EFF?style=flat-square"/></td>
-<td>
-Web + H5 响应式适配、Capacitor 原生 Android 打包、移动端安全区域（刘海屏）适配、触控手势优化
+<td valign="top">
+
+**运营后台**
+
+- 数据大屏：核心指标、趋势、圈子排行
+- AI 日报：一键生成运营建议
+- 用户 / 内容 / 圈子 / 工单 / 审计全模块
+- AI 功能全局或单项开关
+- Excel 导出（多 Sheet）
+
 </td>
 </tr>
 </table>
 
 ---
 
-## ▸ 系统架构
+## 快速开始
+
+### 环境要求
+
+| 依赖 | 版本 | 说明 |
+|---|---|---|
+| JDK | 17+ | 后端运行环境 |
+| Node.js | 20+ | 前端构建（CI 使用 Node 24） |
+| MySQL | 8.0 | 业务数据库，Flyway 自动建表 |
+| Redis | 7+ | 会话、缓存、限流、在线状态 |
+| MinIO | 最新版 | 图片 / 视频对象存储 |
+| Docker | 可选 | 一键拉起 MySQL / Redis / MinIO |
+
+### 五步启动
+
+```bash
+# 1. 拉起基础依赖（也可使用本机已装的 MySQL / Redis / MinIO）
+cd deploy
+cp .env.example .env        # 按需修改密码与 JWT_SECRET
+docker compose up -d
+
+# 2. 配置后端环境变量
+cd ../backend
+cp .env.example .env        # 填数据库密码、MinIO 密钥、AI Key
+```
+
+```bash
+# 3. 启动后端（Flyway 会自动建表并写入版本基线）
+mvn spring-boot:run
+# 服务地址     http://localhost:8080
+# 健康检查     http://localhost:8080/actuator/health
+# 接口文档     http://localhost:8080/doc.html
+```
+
+```bash
+# 4. 启动用户端
+cd frontend-user
+npm install && npm run dev     # http://localhost:5173
+
+# 5. 启动管理后台
+cd ../frontend-admin
+npm install && npm run dev     # http://localhost:5174
+```
+
+> Windows 用户也可以直接运行仓库根目录的 `start-dev.ps1`：脚本会检查依赖、按需打包 jar、启动后端与前端并轮询健康检查。
+> 为避免 Windows 保留端口，脚本默认使用 **后端 8080 / 用户端 4400 / 管理端 4401**（加 `-WithAdmin` 同时启动管理端）。
+
+### 首次使用
+
+1. 打开 `http://localhost:5173`，在登录页切换到**注册**，用手机号注册（开发环境验证码打印在后端日志 `sms.log-code=true`）。
+2. 管理员账号需要把数据库中的 `user.role` 改为 `2`，再访问 `http://localhost:5174` 登录。
+3. 图片上传依赖 MinIO，请确认 `deploy/.env` 中的 `MINIO_PUBLIC_URL` 与后端 `MINIO_ENDPOINT` 指向同一地址。
+
+<details>
+<summary><b>环境变量清单</b></summary>
+
+<br/>
+
+**后端 `backend/.env`**
+
+| 变量 | 必填 | 说明 |
+|---|---|---|
+| `MYSQL_DEV_PASSWORD` | ✅ | MySQL 密码 |
+| `REDIS_DEV_PASSWORD` | — | Redis 密码，无密码留空 |
+| `MINIO_DEV_ACCESS_KEY` / `MINIO_DEV_SECRET_KEY` | ✅ | MinIO 访问密钥 |
+| `MINIO_ENDPOINT` / `MINIO_PUBLIC_URL` | ✅ | 服务端访问地址 / 浏览器访问地址 |
+| `JWT_DEV_SECRET` | ✅ | 签名密钥，生产至少 32 字节 |
+| `AI_CLOUD_DEV_BASE_URL` / `AI_CLOUD_DEV_API_KEY` / `AI_CLOUD_DEV_MODEL` | cloud 模式必填 | OpenAI 兼容服务 |
+| `AI_LOCAL_BASE_URL` / `AI_LOCAL_MODEL` | local 模式必填 | Ollama 地址与模型 |
+
+**部署 `deploy/.env`**
+
+| 变量 | 说明 |
+|---|---|
+| `MYSQL_ROOT_PASSWORD` | 容器内 MySQL root 密码 |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` / `MINIO_PUBLIC_URL` / `MINIO_BUCKET` | 对象存储配置 |
+| `JWT_SECRET` | 至少 32 字节随机串，缺失或过短会导致启动失败 |
+| `AI_MODE` | `cloud` 或 `local` |
+| `SMS_PROVIDER` / `SMS_HTTP_URL` / `SMS_HTTP_TOKEN` | 生产环境短信通道，未配置将无法启动 |
+
+</details>
+
+---
+
+## 系统架构
 
 ```mermaid
 flowchart TB
     subgraph CLIENT["客户端"]
-        USER["用户端<br/>Vue 3 + Vant 4 + Element Plus<br/>Web / H5 / Android"]
-        ADMIN["管理后台<br/>Vue 3 + Element Plus + ECharts<br/>PC 端"]
+        USER["用户端 · Vue 3 + Vite<br/>Web / H5 / Android"]
+        ADMIN["管理后台 · Vue 3 + Element Plus<br/>PC"]
     end
 
     subgraph GATEWAY["接入层"]
-        NGINX["Nginx<br/>反向代理 / HTTPS"]
+        NGINX["Nginx<br/>静态资源 / 反向代理 / HTTPS"]
     end
 
-    subgraph BACKEND["后端服务 · Spring Boot 3.3"]
-        API["REST API<br/>/api/** · 14 个用户端控制器<br/>6 个管理端控制器"]
-        WS["WebSocket<br/>/ws/{token} · 11 种消息类型"]
-        AI["AI 模块<br/>策略模式 · 双模式切换<br/>限流 + 缓存 + 降级"]
-        SECURITY["JWT 认证<br/>拦截器 + Redis Token"]
+    subgraph BACKEND["服务端 · Spring Boot 3.3"]
+        API["REST API<br/>15 个用户端控制器<br/>7 个管理端控制器<br/>143 个接口"]
+        WS["WebSocket<br/>12 类消息推送"]
+        AI["AI 网关<br/>策略模式 · 双模式切换<br/>缓存 / 限流 / 降级"]
+        SEC["安全层<br/>JWT + Redis 会话<br/>RBAC + 操作审计"]
     end
 
     subgraph STORAGE["数据层"]
-        MYSQL[("MySQL 8.0<br/>13 张核心表")]
-        REDIS[("Redis<br/>缓存 / 向量存储<br/>在线状态 / 限流")]
-        MINIO[("MinIO<br/>本地对象存储<br/>图片 / 视频")]
+        MYSQL[("MySQL 8.0<br/>17 张业务表")]
+        REDIS[("Redis 7<br/>会话 / 缓存 / 在线状态 / 限流")]
+        MINIO[("MinIO<br/>图片 / 视频")]
     end
 
     subgraph AI_MODE["AI 双模式"]
-        CLOUD["公有云模式<br/>OpenAI 兼容 API"]
-        LOCAL["本地私有化模式<br/>Ollama + Qwen3-7B"]
+        CLOUD["公有云<br/>OpenAI 兼容协议"]
+        LOCAL["本地私有化<br/>Ollama + Qwen3"]
     end
 
     USER --> NGINX
     ADMIN --> NGINX
     NGINX --> API
     NGINX --> WS
-    API --> SECURITY
+    API --> SEC
     API --> AI
     API --> MYSQL
     API --> REDIS
     API --> MINIO
     AI --> CLOUD
     AI --> LOCAL
-    WS -.->|实时推送| USER
+    WS -. 实时推送 .-> USER
 
-    style CLIENT fill:#1a1e2e,stroke:#4ECDC4,color:#e6edf3
-    style GATEWAY fill:#1a1e2e,stroke:#7A86B8,color:#e6edf3
-    style BACKEND fill:#1a1e2e,stroke:#6DB33F,color:#e6edf3
-    style STORAGE fill:#1a1e2e,stroke:#4479A1,color:#e6edf3
-    style AI_MODE fill:#1a1e2e,stroke:#FFB627,color:#e6edf3
+    style CLIENT fill:#0d1a18,stroke:#4ECDC4,color:#e6edf3
+    style GATEWAY fill:#0d1a18,stroke:#7A86B8,color:#e6edf3
+    style BACKEND fill:#0d1a18,stroke:#6DB33F,color:#e6edf3
+    style STORAGE fill:#0d1a18,stroke:#4479A1,color:#e6edf3
+    style AI_MODE fill:#0d1a18,stroke:#FFB627,color:#e6edf3
 ```
 
----
+### 技术栈
 
-## ▸ 技术栈
+| 层次 | 技术 |
+|---|---|
+| 服务端 | Java 17 · Spring Boot 3.3.5 · MyBatis-Plus 3.5.5 · Flyway 10 |
+| 数据 | MySQL 8.0 · Redis 7（Jedis）· MinIO 8.5 |
+| 安全 | Spring Security Crypto（BCrypt）· JJWT 0.12 · 自定义拦截器 |
+| AI | Spring AI 1.0.0-M1 · OpenAI 兼容 HTTP 客户端 · Ollama |
+| 接口文档 | Knife4j 4.5（生产环境自动关闭） |
+| 用户端 | Vue 3.4 · Vite 5 · TypeScript 5.4 · Vant 4.8 · Pinia 2 · Swiper 12 |
+| 管理端 | Vue 3.4 · Vite 5 · Element Plus 2.7 · ECharts 5.5 · xlsx |
+| 跨端 | Capacitor 8（Android） |
+| 测试 | JUnit 5 + Mockito · Vitest 2 · Testcontainers（集成测试） |
+| CI | GitHub Actions：后端单测 / 集成测试 / 双端前端检查 |
 
-### ◆ 后端
+<details>
+<summary><b>项目结构</b></summary>
 
-| 组件 | 版本 | 用途 |
-|------|------|------|
-| Java | 17 | 运行环境 |
-| Spring Boot | 3.3.5 | 应用框架 |
-| MyBatis-Plus | 3.5.5 | ORM 增强（SpringBoot3 Starter） |
-| MySQL | 8.0 | 主数据库 |
-| Redis / Jedis | 6.0+ / 5.1.0 | 缓存 / 向量存储 / 在线状态 / 限流 |
-| MinIO | 8.5.9 | 本地对象存储（图片/视频） |
-| Spring AI | 1.0.0-M1 | AI 集成框架 |
-| JJWT | 0.12.5 | JWT Token 管理 |
-| Knife4j | 4.5.0 | Swagger3 / OpenAPI3 增强文档 |
-| Apache POI | 5.2.5 | Excel 导出 |
-| Hutool | 5.8.27 | 工具库 |
-| dotenv-java | 3.0.1 | 环境变量加载 |
-| Lombok | 1.18.30 | 样板代码简化 |
-| Ollama + Qwen3-7B | 最新版（可选） | 本地大模型服务 |
-
-### ◆ 用户端前端（Web + H5 + Android）
-
-| 组件 | 版本 | 用途 |
-|------|------|------|
-| Vue | 3.4.21 | UI 框架 |
-| TypeScript | 5.4.3 | 类型安全 |
-| Vite | 5.2.6 | 构建工具 |
-| Vant | 4.8.7 | 移动端 H5 组件库 |
-| Element Plus | 2.6.3 | 桌面端组件库 |
-| Pinia | 2.1.7 | 状态管理（持久化） |
-| Vue Router | 4.3.0 | 路由（18 条路由 + 认证守卫） |
-| Axios | 1.6.8 | HTTP 客户端 |
-| Swiper | 12.2.0 | 轮播组件 |
-| vue-cropper | 1.1.4 | 图片裁剪 |
-| dayjs | 1.11.10 | 日期格式化 |
-| NProgress | 0.2.0 | 路由进度条 |
-| Capacitor | 8.4.1 | 原生 Android 打包 |
-| SCSS / Sass | 1.72.0 | CSS 预处理 |
-
-### ◇ 管理端前端（PC）
-
-| 组件 | 版本 | 用途 |
-|------|------|------|
-| Vue | 3.4.31 | UI 框架 |
-| TypeScript | 5.5.3 | 类型安全 |
-| Vite | 5.3.3 | 构建工具 |
-| Element Plus | 2.7.6 | 桌面端组件库 |
-| Pinia | 2.1.7 | 状态管理 |
-| Vue Router | 4.4.0 | 路由 |
-| Axios | 1.7.2 | HTTP 客户端 |
-| ECharts | 5.5.0 | 数据可视化（自定义 minthive 主题） |
-| xlsx + file-saver | 0.18.5 / 2.0.5 | Excel 导出 |
-| SCSS / Sass | 1.77.6 | CSS 预处理（暮光玫瑰暗色主题） |
-
----
-
-## ▸ 快速上手
-
-### ◆ 环境要求
-
-| 组件 | 版本 | 说明 |
-|------|------|------|
-| JDK | 17+ | 后端运行环境 |
-| Maven | 3.8+ | 后端构建工具 |
-| Node.js | 18+ | 前端运行环境 |
-| MySQL | 8.0+ | 主数据库 |
-| Redis | 6.0+ | 缓存 / 向量存储 / 在线状态 |
-| MinIO | 最新稳定版 | 本地对象存储 |
-| Ollama | 最新版（可选） | 本地大模型服务 |
-
-### ◆ 五步启动
-
-**01** 克隆仓库
-
-```bash
-git clone https://github.com/your-org/Minthive.git
-cd Minthive
-```
-
-**02** 启动中间件
-
-```bash
-# MySQL — 创建数据库并初始化
-mysql -uroot -p < backend/docs/sql/init.sql
-
-# Redis
-redis-server --port 6379
-
-# MinIO
-minio server /data/minio --console-address ":9001"
-# 访问 http://localhost:9001 创建存储桶 minthive
-```
-
-**03** 配置后端
-
-```bash
-cd backend
-cp .env.example .env
-# 编辑 .env 填入 MySQL / Redis / MinIO / JWT / AI 实际配置
-```
-
-**04** 启动后端
-
-```bash
-cd backend
-mvn spring-boot:run
-# 服务启动于 http://localhost:8080
-# 接口文档 http://localhost:8080/doc.html
-```
-
-**05** 启动前端
-
-```bash
-# 用户端
-cd frontend-user
-npm install
-npm run dev
-# 访问 http://localhost:5173
-
-# 管理后台
-cd frontend-admin
-npm install
-npm run dev
-# 访问 http://localhost:5174
-```
-
-> 详细部署说明请参阅 [部署手册](backend/docs/部署手册.md)
-
----
-
-## ▸ 项目结构
-
-```
+```text
 Minthive/
-├── backend/                              # Spring Boot 3.3 后端
+├── backend/                      # Spring Boot 服务端
 │   ├── src/main/java/com/minthive/
-│   │   ├── MinthiveApplication.java      # 启动入口
-│   │   ├── ai/                           # AI 双模式服务（7 个类）
-│   │   │   ├── AiService.java            #   AI 接口（6 项能力）
-│   │   │   ├── AiContext.java            #   策略选择器（cloud/local 路由）
-│   │   │   ├── CloudAiServiceImpl.java   #   云端 API 实现
-│   │   │   ├── LocalAiServiceImpl.java   #   本地 Ollama 实现
-│   │   │   ├── AiRateLimiter.java        #   Redis 令牌桶限流（50次/日/用户）
-│   │   │   ├── AiCacheManager.java       #   Redis 响应缓存
-│   │   │   └── AiFallback.java           #   降级处理器
-│   │   ├── common/                       # 通用模块（7 个类）
-│   │   │   ├── Result.java               #   统一响应包装
-│   │   │   ├── ResultCode.java           #   错误码枚举
-│   │   │   ├── PageResult.java           #   分页结果
-│   │   │   ├── Constants.java            #   全局常量
-│   │   │   ├── RedisConstants.java       #   Redis Key 常量
-│   │   │   ├── BusinessException.java    #   业务异常
-│   │   │   └── GlobalExceptionHandler.java  # 全局异常处理
-│   │   ├── config/                       # 配置类（10 个）
-│   │   │   ├── AiConfig.java             #   AI 模式配置
-│   │   │   ├── CorsConfig.java           #   跨域配置
-│   │   │   ├── EnvLoader.java            #   .env 环境变量加载
-│   │   │   ├── JwtConfig.java            #   JWT 设置
-│   │   │   ├── Knife4jConfig.java        #   API 文档配置
-│   │   │   ├── MinioConfig.java          #   MinIO 客户端
-│   │   │   ├── MybatisPlusConfig.java    #   MyBatis-Plus 分页插件
-│   │   │   ├── RedisConfig.java          #   Redis 序列化
-│   │   │   ├── WebMvcConfig.java         #   拦截器注册
-│   │   │   └── WebSocketConfig.java      #   WebSocket 端点
-│   │   ├── controller/                   # 用户端 REST 控制器（14 个）
-│   │   │   ├── AuthController.java       #   登录 / 注册 / 短信验证码 / 重置密码
-│   │   │   ├── UserController.java       #   个人信息 / 修改资料 / 兴趣标签
-│   │   │   ├── PostController.java       #   发布 / 信息流 / 点赞 / 收藏 / 转发
-│   │   │   ├── CommentController.java    #   评论 / 回复 / 删除 / 点赞
-│   │   │   ├── CircleController.java     #   圈子列表 / 详情 / 加入 / 离开 / 创建 / 推荐
-│   │   │   ├── CircleAdminController.java #  圈主管理 / 成员 / 公告 / 转让
-│   │   │   ├── MessageController.java    #   私信 / 聊天记录 / 已读 / AI 代回复
-│   │   │   ├── FollowController.java     #   关注 / 取关 / AI 推荐好友
-│   │   │   ├── SearchController.java     #   全局搜索 / 热词
-│   │   │   ├── AiController.java         #   文案生成 / 润色 / 评论 / 问答 / SSE 流式
-│   │   │   ├── FileController.java       #   文件上传（图片/视频 → MinIO）
-│   │   │   ├── ReportController.java     #   提交举报
-│   │   │   ├── ConfigController.java     #   公共配置 / Banner
-│   │   │   ├── AnnouncementController.java # 系统公告
-│   │   │   └── admin/                    # 管理端 REST 控制器（6 个）
-│   │   │       ├── AdminUserController.java    # 用户管理 / 封禁 / 僵尸清理
-│   │   │       ├── AdminStatsController.java   # 数据统计 / 趋势 / AI 日报
-│   │   │       ├── AdminPostController.java    # 内容审核 / 驳回 / 敏感词
-│   │   │       ├── AdminReportController.java  # 举报工单 / 处罚
-│   │   │       ├── AdminCircleController.java  # 圈子管理 / 推荐 / 下架
-│   │   │       └── AdminConfigController.java  # 系统配置 / AI 开关
-│   │   ├── entity/                       # MyBatis-Plus 数据实体（13 张表映射）
-│   │   │   ├── User.java                 #   user
-│   │   │   ├── Post.java                 #   post
-│   │   │   ├── Comment.java              #   comment
-│   │   │   ├── Circle.java               #   circle
-│   │   │   ├── CircleCategory.java       #   circle_category
-│   │   │   ├── CircleUser.java           #   circle_user
-│   │   │   ├── Follow.java               #   follow
-│   │   │   ├── LikeCollect.java          #   like_collect
-│   │   │   ├── Message.java              #   message
-│   │   │   ├── Report.java               #   report
-│   │   │   ├── SystemMsg.java            #   system_msg
-│   │   │   ├── Announcement.java         #   announcement
-│   │   │   └── AiUserLog.java            #   ai_user_log
-│   │   ├── mapper/                       # Mapper 接口（19 个）+ XML（7 个自定义 SQL）
-│   │   ├── security/                     # JWT 认证（4 个类）
-│   │   │   ├── JwtInterceptor.java       #   请求拦截器
-│   │   │   ├── JwtUtils.java             #   JWT 工具
-│   │   │   ├── LoginUser.java            #   登录用户注解
-│   │   │   └── UserContext.java          #   ThreadLocal 上下文
-│   │   ├── service/                      # 业务服务接口（14 个）
-│   │   ├── service/impl/                 # 业务服务实现（14 个）
-│   │   ├── util/                         # 工具类（6 个）
-│   │   │   ├── MinioUtil.java            #   MinIO 文件操作
-│   │   │   ├── RedisUtil.java            #   Redis 缓存操作
-│   │   │   ├── JwtUtil.java              #   JWT 令牌工具
-│   │   │   ├── SensitiveWordUtil.java    #   DFA 敏感词算法
-│   │   │   ├── BcryptUtil.java           #   BCrypt 密码加密
-│   │   │   └── FileCompressUtil.java     #   图片压缩
-│   │   └── websocket/                    # WebSocket 服务（3 个类）
-│   │       ├── WebSocketServer.java      #   WS 端点 + 在线管理
-│   │       ├── WsMessage.java            #   消息体
-│   │       └── MessageType.java          #   11 种消息类型枚举
+│   │   ├── ai/                   # AI 网关：策略、提示词、意图解析、工具调用
+│   │   ├── audit/                # 操作审计：切面、拦截器、查询服务
+│   │   ├── common/               # 统一响应、错误码、常量
+│   │   ├── config/               # 跨域、WebMvc、Redis、MinIO、异步线程池
+│   │   ├── controller/           # 用户端控制器（15）
+│   │   │   └── admin/            # 管理端控制器（7）
+│   │   ├── entity/ mapper/ service/
+│   │   ├── media/                # 媒体定位、票据签发、访问控制
+│   │   ├── security/             # JWT 拦截器、登录态、用户上下文
+│   │   └── websocket/            # 连接管理、会话映射、消息类型
 │   ├── src/main/resources/
-│   │   ├── application.yml               # 基础配置
-│   │   ├── application-dev.yml           # 开发环境配置
-│   │   ├── application-prod.yml          # 生产环境配置
-│   │   ├── sensitive-words.txt           # 敏感词库
-│   │   └── mapper/                       # MyBatis XML（7 个管理端自定义 SQL）
-│   ├── docs/
-│   │   ├── sql/init.sql                  # 数据库初始化脚本
-│   │   ├── sql/init_data.sql             # 测试数据
-│   │   ├── 部署手册.md                    # 完整部署文档
-│   │   └── 接口文档.md                    # 接口详细文档
-│   ├── .env / .env.example               # 环境变量
-│   └── pom.xml
-│
-├── frontend-user/                        # Vue 3 用户端（Web + H5 + Android）
+│   │   ├── db/migration/         # Flyway 版本化迁移
+│   │   └── mapper/               # MyBatis XML
+│   └── src/test/                 # 单测 + 集成测试
+├── frontend-user/                # 用户端（Web / H5 / Android）
 │   └── src/
-│       ├── api/                          # API 模块（14 个）
-│       │   ├── request.ts                #   Axios 封装（拦截器 / 401 / 分页适配）
-│       │   ├── auth.ts                   #   登录 / 注册 / 重置密码 / 登出
-│       │   ├── user.ts                   #   个人信息 / 头像 / 兴趣标签 / 注销
-│       │   ├── post.ts                   #   信息流 / CRUD / 点赞 / 收藏 / 转发 / 草稿
-│       │   ├── comment.ts                #   评论 / 回复 / 删除 / 点赞
-│       │   ├── circle.ts                 #   圈子 / 加入 / 离开 / 创建 / 分类 / 成员 / 公告
-│       │   ├── message.ts                #   聊天 / 历史 / 发送 / 撤回 / 已读 / 通知
-│       │   ├── follow.ts                 #   关注 / 取关 / AI 推荐好友
-│       │   ├── search.ts                 #   全局搜索（用户/帖子/圈子/热词）
-│       │   ├── file.ts                   #   图片/视频上传
-│       │   ├── report.ts                 #   提交举报（4 种目标类型）
-│       │   ├── config.ts                 #   公共配置 / Banner
-│       │   ├── announcement.ts           #   系统公告
-│       │   └── ai.ts                     #   文案生成 / 润色 / 评论 / 代回复 / 检测 / SSE 流式 / 推荐
-│       ├── views/                        # 页面组件（18 个路由页面）
-│       │   ├── home/                     #   首页信息流（瀑布流 / 智能推荐/最新/最热）
-│       │   ├── post/                     #   发帖（AI 内联工具栏）+ 帖子详情
-│       │   ├── circle/                   #   圈子广场 + 圈子详情 + 成员管理 + 创建/编辑
-│       │   ├── message/                  #   消息中心 + 私信聊天（AI 代回复）
-│       │   ├── profile/                  #   个人主页 + 编辑资料
-│       │   ├── login/                    #   登录 + 重置密码
-│       │   ├── interest/                 #   兴趣标签选择
-│       │   ├── search/                   #   全局搜索
-│       │   ├── settings/                 #   设置（AI 开关 / 主题 / 通知）
-│       │   └── error/                    #   404
-│       ├── stores/                       # Pinia 状态管理（3 个）
-│       │   ├── user.ts                   #   Token / 用户信息 / 兴趣 / 登出
-│       │   ├── chat.ts                   #   聊天列表 / 未读 / WebSocket
-│       │   └── app.ts                    #   主题 / 移动端 / AI 启用 / AI 对话历史
-│       ├── components/                   # 通用组件（18 个）
-│       │   ├── AiAssistant.vue           #   全局 AI 问答悬浮窗（SSE 流式打字机效果）
-│       │   ├── PostCard.vue              #   帖子卡片（AI 生成标记）
-│       │   ├── CommentItem.vue           #   评论项（楼中楼 + AI 标记）
-│       │   ├── CircleCard.vue            #   圈子卡片
-│       │   ├── UserCard.vue              #   用户卡片
-│       │   ├── NavBar.vue                #   导航栏
-│       │   ├── TabBar.vue                #   底部标签栏
-│       │   ├── BannerSwiper.vue          #   Banner 轮播
-│       │   ├── ImageUploader.vue         #   图片上传器
-│       │   ├── EditPostDialog.vue        #   编辑帖子弹窗
-│       │   ├── ShareSheet.vue            #   分享面板
-│       │   ├── ShareChainDialog.vue      #   分享链接弹窗
-│       │   ├── ReportDialog.vue          #   举报弹窗
-│       │   ├── LoadingSpinner.vue        #   加载动画
-│       │   ├── EmptyState.vue            #   空状态
-│       │   ├── AnimatedSelect.vue        #   动画选择器
-│       │   └── AnimatedNumber.vue        #   动画数字
-│       ├── utils/                        # 工具（4 个）
-│       │   ├── token.ts                  #   Token 存储
-│       │   ├── websocket.ts              #   WebSocket 客户端（心跳 + 自动重连）
-│       │   ├── compress.ts               #   图片压缩
-│       │   └── format.ts                 #   日期/文本格式化
-│       ├── styles/                       # SCSS（4 个）
-│       │   ├── variables.scss            #   设计变量（MintHive 薄荷绿主题）
-│       │   ├── mixins.scss               #   SCSS 混入
-│       │   ├── animations.scss           #   动画
-│       │   └── global.scss               #   全局样式
-│       ├── types/index.ts                #   TypeScript 类型定义
-│       ├── router/index.ts               #   路由配置（18 条 + 认证守卫）
-│       ├── App.vue                       #   根组件（NavBar + TabBar + AI FAB）
-│       └── main.ts                       #   入口（Pinia + Router + Vant + Element Plus）
-│
-├── frontend-admin/                       # Vue 3 管理后台（PC 端 · 暮光玫瑰暗色主题）
-│   └── src/
-│       ├── views/                        # 管理页面（7 个）
-│       │   ├── dashboard/                #   数据大屏（6 统计卡 + 6 ECharts 图 + AI 日报）
-│       │   ├── user/                     #   用户管理（封禁/解封/密码重置/僵尸清理）
-│       │   ├── content/                  #   内容审核（待审/已发布/敏感词库）
-│       │   ├── circle/                   #   圈子管理（审核/下架/推荐/转让）
-│       │   ├── report/                   #   举报工单（AI 风险等级排序）
-│       │   ├── config/                   #   系统配置（公告/轮播/规则/AI 开关）
-│       │   └── login/                    #   管理员登录
-│       ├── components/                   # 通用组件（7 个）
-│       │   ├── ChartCard.vue             #   ECharts 封装
-│       │   ├── StatCard.vue              #   指标卡（数字滚动动画）
-│       │   ├── AiReportCard.vue          #   AI 日报卡（SVG 环形健康分）
-│       │   ├── RiskLevelTag.vue          #   风险等级标签（脉冲动画）
-│       │   ├── DataTable.vue             #   数据表格封装
-│       │   ├── StatusTag.vue             #   状态标签
-│       │   └── HexagonLogo.vue           #   六边形 Logo
-│       ├── layouts/                      # AdminLayout（侧边栏 260px + 顶栏 + 内容区）
-│       ├── stores/                       # Pinia（2 个：admin 认证 + stats 数据）
-│       ├── styles/                       # SCSS 暗色主题（4 个）
-│       │   ├── variables.scss            #   暮光玫瑰设计变量（E879A9 主色）
-│       │   ├── element-dark.scss         #   Element Plus 暗色覆写（648 行）
-│       │   ├── echarts-theme.ts          #   自定义 minthive ECharts 主题
-│       │   └── global.scss               #   全局样式/工具类
-│       ├── api/                          # API 模块
-│       ├── router/index.ts               #   路由（7 条 + 认证守卫）
-│       └── main.ts                       #   入口（Pinia + Router + Element Plus 全局注册）
-│
-└── docs/                                 # 项目文档
-    └── PulseSocial 兴趣社交平台开发软件需求规格说明书（SRS）.md
+│       ├── api/ components/ stores/ styles/ utils/
+│       └── views/                # 18 个页面
+├── frontend-admin/               # 管理后台
+│   └── src/views/                # 8 个页面
+├── deploy/                       # docker-compose、Nginx、Dockerfile
+├── img/screenshots/              # README 截图资源
+├── docs/                         # 设计文档、需求说明
+└── start-dev.ps1                 # Windows 一键启动脚本
 ```
 
----
-
-## ▸ API 概览
-
-### ◆ 用户端 API（`/api/**`）
-
-| 模块 | 路径前缀 | 核心端点 | 认证 |
-|------|----------|----------|------|
-| Auth | `/api/auth` | 登录 / 注册 / 短信验证码 / 重置密码 / 登出 | 公开 |
-| User | `/api/user` | 个人信息 / 修改资料 / 头像 / 兴趣标签 / 注销 | Token |
-| Post | `/api/post` | 发布 / 详情 / 信息流 / 点赞 / 收藏 / 转发 / 草稿 | Token |
-| Comment | `/api/comment` | 发表评论 / 帖子评论列表 / 删除 / 点赞 | Token |
-| Circle | `/api/circle` | 圈子列表 / 详情 / 加入 / 离开 / 创建 / 推荐 / 分类 | 部分 |
-| Circle Admin | `/api/circle-admin` | 圈主管理 / 成员移出 / 公告发布 / 转让圈主 | 圈主 |
-| Message | `/api/message` | 发送私信 / 聊天记录 / 已读 / AI 消息撤回 / 通知 | Token |
-| Follow | `/api/follow` | 关注 / 取关 / 关注列表 / 粉丝列表 / AI 推荐好友 | Token |
-| Search | `/api/search` | 全局搜索 / 用户 / 帖子 / 圈子 / 热词 | 公开 |
-| AI | `/api/ai` | 文案生成 / 润色 / 评论 / 私信代回复 / 内容检测 / 问答流式 / 推荐 | Token |
-| File | `/api/file` | 文件上传（图片 / 视频 → MinIO） | Token |
-| Report | `/api/report` | 提交举报（4 种目标类型） | Token |
-| Config | `/api/config` | 公共配置 / Banner | 公开 |
-| Announcement | `/api/announcement` | 系统公告列表 | 公开 |
-
-### ◇ 管理端 API（`/api/admin/**`）
-
-| 模块 | 路径前缀 | 核心端点 |
-|------|----------|----------|
-| User | `/api/admin/user` | 用户列表 / 详情 / 封禁 / 解封 / 密码重置 / 僵尸清理 |
-| Stats | `/api/admin/stats` | 核心指标 / 趋势 / 圈子排行 / AI 日报 / Excel 导出 |
-| Content | `/api/admin/content` | 待审列表 / 已发布列表 / 审批 / 驳回 / 删除 / 敏感词管理 |
-| Report | `/api/admin/report` | 工单列表 / 详情 / 驳回 / 删除内容 / 处罚用户 |
-| Circle | `/api/admin/circle` | 圈子列表 / 申请审核 / 下架 / 编辑 / 推荐 / 权限转让 |
-| Config | `/api/admin/config` | 公告 / 轮播 / 平台规则 / 操作员 / AI 功能开关 |
+</details>
 
 ---
 
-## ▸ 数据库设计
+## AI 设计
 
-共 **13 张核心表**：
+### 双模式
 
-| 表名 | 实体 | 说明 |
-|------|------|------|
-| `user` | User | 用户表（BCrypt 加密 / 兴趣标签 JSON） |
-| `post` | Post | 帖子表（审核状态 / 可见性 / AI 生成标记） |
-| `comment` | Comment | 评论表（支持楼中楼嵌套） |
-| `like_collect` | LikeCollect | 点赞/收藏联合表（类型区分） |
-| `follow` | Follow | 关注关系表 |
-| `circle` | Circle | 圈子表（公开/私密 / 推荐标记） |
-| `circle_category` | CircleCategory | 圈子分类表 |
-| `circle_user` | CircleUser | 圈子成员关系表 |
-| `message` | Message | 私信消息表（AI 代回复标记） |
-| `report` | Report | 举报工单表（5 种违规类型 / AI 风险等级） |
-| `system_msg` | SystemMsg | 系统消息推送表 |
-| `announcement` | Announcement | 系统公告表 |
-| `ai_user_log` | AiUserLog | AI 使用日志表（DAU 统计 / 限流计量） |
-
----
-
-## ▸ AI 双模式部署
-
-MintHive 的 AI 模块采用 **策略模式** 设计，支持一键切换部署模式，无需改动代码：
-
-| 模式 | 配置 | 适用场景 |
-|------|------|----------|
-| **Cloud** | `ai.mode=cloud` + API Key | 有外网环境，调用 OpenAI 兼容 API（DeepSeek / GPT 等） |
-| **Local** | `ai.mode=local` + Ollama | 内网私有化部署，Ollama + Qwen3-7B，数据不出内网 |
+切换只需改一个配置项，业务代码零改动：
 
 ```yaml
-# application.yml — 切换仅需修改此配置
 ai:
   mode: cloud          # cloud | local
   cloud:
-    # base-url 填到版本段为止（如 /v1、/v4），客户端会追加 /chat/completions
-    base-url: https://api.openai.com/v1
-    api-key: ${AI_CLOUD_API_KEY}
-    model: gpt-4o-mini
+    base-url: ${AI_CLOUD_BASE_URL:https://api.openai.com/v1}   # 填到版本段，客户端追加 /chat/completions
+    api-key: ${AI_CLOUD_API_KEY:}
+    model: ${AI_CLOUD_MODEL:gpt-4o-mini}
   local:
-    base-url: http://localhost:11434
-    model: qwen3:7b
-  rate-limit: 50       # 每用户每日调用上限
-  cache:
-    enabled: true
-    ttl: 3600
-  fallback:
-    enabled: true
+    base-url: ${AI_LOCAL_BASE_URL:http://localhost:11434}
+    model: ${AI_LOCAL_MODEL:qwen3:7b}
 ```
 
-**AI 基础设施：**
+| 模式 | 适用场景 | 特点 |
+|---|---|---|
+| `cloud` | 线上部署 | 走 OpenAI 兼容协议，可对接任意兼容服务 |
+| `local` | 数据不出内网 | 对接 Ollama，本地模型推理 |
 
-| 组件 | 说明 |
-|------|------|
-| AiContext | 策略选择器，根据 `ai.mode` 路由至 Cloud/Local 实现 |
-| AiRateLimiter | Redis 令牌桶，每用户每日 50 次，午夜自动重置 |
-| AiCacheManager | Redis 缓存 AI 响应（参数哈希键，可配 TTL） |
-| AiFallback | 降级处理器，AI 服务异常时返回兜底文案，不阻塞基础业务 |
+### 九个 AI 能力
 
----
+| 端点 | 能力 |
+|---|---|
+| `POST /api/ai/post-content` | 关键词生成三种风格文案 + 话题抽取（结构化返回） |
+| `POST /api/ai/polish` | 文案润色与纠错 |
+| `POST /api/ai/comment` | 贴合帖子内容的评论生成 |
+| `POST /api/ai/message-reply` | 私信 AI 代回复 |
+| `POST /api/ai/detect` | 发布前内容预检 |
+| `POST /api/ai/qa` / `POST /api/ai/qa/stream` | 智能问答（同步 / 流式） |
+| `POST /api/ai/query/stream` | 数据感知问答（管理员问答式取数） |
+| `GET /api/ai/remaining` | 查询今日剩余调用次数 |
+| `GET /api/ai/recommend` | 兴趣推荐 |
 
-## ▸ 限流策略
+### 三个工程约束
 
-| 接口 | 限额 | 实现 |
-|------|------|------|
-| AI 调用 | 50 次/日/用户 | Redis 令牌桶 |
-| 发帖 | 50 次/日/用户 | Redis 计数器 |
-| 评论 | 200 次/日/用户 | Redis 计数器 |
-| 私信 | 100 次/日/用户 | Redis 计数器 |
-| 文件上传 | 图片 5MB / 视频 20MB / 时长 60s | Spring 配置 |
-
----
-
-## ▸ 界面预览
-
-<!-- TODO: 替换为实际截图路径 -->
-
-<table>
-<tr>
-<td align="center" width="50%">
-<b>首页信息流</b><br/>
-<i>瀑布流布局 · 智能推荐/最新/最热三模式切换</i>
-</td>
-<td align="center" width="50%">
-<b>圈子广场</b><br/>
-<i>分类浏览 · 搜索 · 推荐轮播 · 加入/申请</i>
-</td>
-</tr>
-<tr>
-<td align="center">
-<img src="" width="400" alt="首页信息流截图" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=&quot;height:200px;display:flex;align-items:center;justify-content:center;background:#161b22;border-radius:8px;color:#4ECDC4;font-size:14px;&quot;>首页信息流截图占位</div>'"/>
-</td>
-<td align="center">
-<img src="" width="400" alt="圈子广场截图" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=&quot;height:200px;display:flex;align-items:center;justify-content:center;background:#161b22;border-radius:8px;color:#4ECDC4;font-size:14px;&quot;>圈子广场截图占位</div>'"/>
-</td>
-</tr>
-<tr>
-<td align="center">
-<b>私信聊天</b><br/>
-<i>WebSocket 实时消息 · AI 代回复 · 已读回执</i>
-</td>
-<td align="center">
-<b>管理后台数据大屏</b><br/>
-<i>ECharts 暮光玫瑰主题 · AI 日报 · Excel 导出</i>
-</td>
-</tr>
-<tr>
-<td align="center">
-<img src="" width="400" alt="私信聊天截图" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=&quot;height:200px;display:flex;align-items:center;justify-content:center;background:#161b22;border-radius:8px;color:#4ECDC4;font-size:14px;&quot;>私信聊天截图占位</div>'"/>
-</td>
-<td align="center">
-<img src="" width="400" alt="管理后台截图" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=&quot;height:200px;display:flex;align-items:center;justify-content:center;background:#161b22;border-radius:8px;color:#4ECDC4;font-size:14px;&quot;>管理后台截图占位</div>'"/>
-</td>
-</tr>
-</table>
+- **限流**：每用户每日 50 次 AI 调用，Redis 计数，超限直接返回剩余次数提示。
+- **缓存**：相同提示词命中缓存（默认 1 小时），降低重复消耗。
+- **降级**：超时或异常时返回兜底话术，不抛错、不阻塞业务。
 
 ---
 
-## ▸ 技术亮点
+## 实时通信
 
-| 维度 | 实现 |
-|------|------|
-| **AI 解耦** | 策略模式双模式切换，Cloud/Local 零代码切换，降级不阻塞业务 |
-| **实时通信** | 原生 WebSocket + Redis 在线追踪，11 种消息类型全覆盖 |
-| **认证安全** | JWT + Redis Token 双校验，BCrypt 自适应加盐加密，无 MD5 遗留 |
-| **风控体系** | DFA 敏感词算法 + AI 语义复审，识别谐音/变体/暗语，图片本地 AI 检测 |
-| **限流防护** | Redis 令牌桶 + 计数器，AI/发帖/评论/私信分级限流 |
-| **文件存储** | MinIO 本地私有化存储，图片自动压缩，无第三方云依赖 |
-| **前端工程** | Vue 3 + Vite + TypeScript，Pinia 持久化状态，WebSocket 自动重连心跳 |
-| **管理后台** | ECharts 自定义暗色主题，SVG 环形/滚动数字动画，XLSX 多 Sheet 导出 |
-| **跨端部署** | Capacitor 原生 Android 打包，Web + H5 响应式适配，移动端安全区域适配 |
+基于原生 WebSocket（`/ws/{token}`），Redis 维护在线状态与会话映射。
 
----
+| 类型 | 说明 |
+|---|---|
+| `comment` / `reply` | 评论、回复通知 |
+| `like` / `collect` / `follow` | 点赞、收藏、关注提醒 |
+| `chat` | 私信消息 |
+| `system` / `circle_notice` | 系统公告、圈子公告 |
+| `read_receipt` | 已读回执 |
+| `revoke` | 消息撤回 |
+| `online` / `offline` | 上下线状态 |
 
-## ▸ 贡献指南
+设计要点：
 
-感谢你对 MintHive 的关注！欢迎通过以下方式参与贡献：
-
-1. **Fork** 本仓库到你的 GitHub 账号
-2. 创建特性分支：`git checkout -b feature/your-feature`
-3. 提交变更：`git commit -m 'feat: add your feature'`
-4. 推送分支：`git push origin feature/your-feature`
-5. 提交 **Pull Request**，描述变更内容与关联 Issue
-
-提交规范建议遵循 [Conventional Commits](https://www.conventionalcommits.org/)：
-
-| 前缀 | 用途 |
-|------|------|
-| `feat:` | 新功能 |
-| `fix:` | 修复 Bug |
-| `docs:` | 文档更新 |
-| `style:` | 代码格式调整 |
-| `refactor:` | 重构 |
-| `perf:` | 性能优化 |
-| `test:` | 测试相关 |
+- 同一用户可多端同时在线，会话独立映射，互不覆盖。
+- 登出、封禁、改密会撤销 Redis 中的 Token，并**主动关闭**对应连接。
+- 前端带心跳与指数退避重连，断线期间的未读消息由消息中心兜底。
 
 ---
 
-## ▸ License
+## 安全与风控
 
-本项目基于 [MIT License](LICENSE) 开源。
+| 层面 | 措施 |
+|---|---|
+| 认证 | JWT 凭证 + Redis 有效 Token 集合双校验，登出即失效 |
+| 授权 | 用户 / 圈主 / 管理员三级角色，接口级拦截器校验 |
+| 密码 | BCrypt 自适应加盐，无 MD5 遗留 |
+| 内容 | DFA 敏感词 + AI 语义复审，图片本地检测 |
+| 防刷 | 发帖 50 / 评论 200 / 私信 100（每日每用户），Redis 原子计数 |
+| 上传 | 扩展名白名单 + 服务端强制 Content-Type，杜绝存储型 XSS |
+| 媒体 | 短时票据访问，私有桶校验，越权不可读 |
+| 审计 | 写操作全量记录，`@Async` 任务显式抑制避免重复 |
+| 配置 | 生产禁用接口文档与明文 SQL 日志；JWT 密钥缺失即启动失败 |
 
 ---
 
-## ▸ 致谢
+## API 概览
 
-<table>
-<tr>
-<td align="center">
-<a href="https://spring.io/projects/spring-boot" target="_blank"><b>Spring Boot</b></a><br/>
-<span style="font-size:12px;color:#7A86B8">后端框架</span>
-</td>
-<td align="center">
-<a href="https://vuejs.org/" target="_blank"><b>Vue.js</b></a><br/>
-<span style="font-size:12px;color:#7A86B8">前端框架</span>
-</td>
-<td align="center">
-<a href="https://baomidou.com/" target="_blank"><b>MyBatis-Plus</b></a><br/>
-<span style="font-size:12px;color:#7A86B8">ORM 增强</span>
-</td>
-<td align="center">
-<a href="https://spring.io/projects/spring-ai" target="_blank"><b>Spring AI</b></a><br/>
-<span style="font-size:12px;color:#7A86B8">AI 集成框架</span>
-</td>
-<td align="center">
-<a href="https://ollama.com" target="_blank"><b>Ollama</b></a><br/>
-<span style="font-size:12px;color:#7A86B8">本地大模型</span>
-</td>
-<td align="center">
-<a href="https://github.com/QwenLM/Qwen3" target="_blank"><b>Qwen3</b></a><br/>
-<span style="font-size:12px;color:#7A86B8">开源大语言模型</span>
-</td>
-</tr>
-</table>
+- 接口文档（开发环境）：`http://localhost:8080/doc.html`
+- 统一响应结构：`{ code, msg, data, traceId }`，`code = 200` 表示成功
+- 鉴权方式：请求头 `Authorization: Bearer <token>`
+
+<details>
+<summary><b>用户端接口分组（15 个控制器）</b></summary>
 
 <br/>
 
+| 分组 | 路径前缀 | 说明 |
+|---|---|---|
+| 认证 | `/api/auth` | 注册、密码/验证码登录、重置密码、登出 |
+| 用户 | `/api/user` | 资料、头像、关注 / 粉丝、兴趣标签 |
+| 帖子 | `/api/post` | 发布、详情、信息流、点赞、收藏、搜索 |
+| 评论 | `/api/comment` | 评论、回复、删除 |
+| 圈子 | `/api/circle` | 广场、详情、创建、加入、圈内动态 |
+| 圈主管理 | `/api/circle-admin` | 成员管理、公告、转让、解散 |
+| 消息 | `/api/message` | 私信、会话列表、已读、撤回 |
+| 通知 | `/api/notification` | 通知列表、未读、已读 |
+| 文件 | `/api/file` | 上传、媒体内容读取 |
+| 举报 | `/api/report` | 提交举报、处理结果 |
+| AI | `/api/ai` | 9 个 AI 能力 |
+| 搜索 | `/api/search` | 用户 / 帖子 / 圈子聚合搜索 |
+| 公告 | `/api/announcement` | 平台公告 |
+| 轮播 | `/api/banner` | 首页轮播 |
+| 反馈 | `/api/feedback` | 意见反馈 |
+
+</details>
+
+<details>
+<summary><b>管理端接口分组（7 个控制器）</b></summary>
+
+<br/>
+
+| 分组 | 路径前缀 | 说明 |
+|---|---|---|
+| 数据 | `/api/admin/stats` | 核心指标、趋势、排行、AI 日报、导出 |
+| 用户 | `/api/admin/user` | 列表、封禁、解封、重置密码、僵尸清理 |
+| 内容 | `/api/admin/content` | 待审、已发布、审批、驳回、敏感词 |
+| 圈子 | `/api/admin/circle` | 列表、推荐位、转让、下架 |
+| 工单 | `/api/admin/report` | 工单列表、处置、处罚 |
+| 审计 | `/api/admin/audit` | 操作日志检索与明细 |
+| 配置 | `/api/admin/config` | 公告、轮播、管理员、AI 开关 |
+
+</details>
+
+---
+
+## 数据库设计
+
+17 张业务表，使用 Flyway 版本化迁移管理结构变更（`backend/src/main/resources/db/migration`）。
+
+| 领域 | 表 |
+|---|---|
+| 用户 | `user`、`follow` |
+| 内容 | `post`、`comment`、`like_collect` |
+| 圈子 | `circle`、`circle_category`、`circle_user` |
+| 消息 | `message`、`system_msg`、`notification_read` |
+| 运营 | `banner`、`announcement`、`report` |
+| AI | `ai_user_log` |
+| 审计 | `audit_log`、`audit_log_change` |
+
+关键约定：
+
+- 所有业务表使用 `deleted` 软删除，列表查询统一过滤。
+- 消息历史使用 `beforeId` 游标分页，避免深分页性能问题。
+- 审计日志分主表 + 变更明细表，避免大字段影响检索。
+
+---
+
+## 测试与 CI
+
+```bash
+# 后端单元测试
+cd backend && mvn test
+
+# 后端集成测试（Testcontainers 拉起 MySQL / Redis）
+cd backend && mvn verify
+
+# 前端类型检查 + 单元测试
+cd frontend-user && npm run typecheck && npm test
+cd frontend-admin && npm run typecheck && npm test
+```
+
+| 项目 | 规模 |
+|---|---|
+| 后端单元测试 | 21 个测试类 / 108 个用例 |
+| 前端单元测试 | 用户端 19 个 + 管理端 9 个 |
+| 集成测试 | 媒体访问、审核、会话可见性、消息通知、可观测性 |
+| CI 检查项 | 后端单测、后端集成测试、用户端、管理端（4 项均为必需检查） |
+
+---
+
+## 部署
+
+<details>
+<summary><b>Docker Compose 部署</b></summary>
+
+<br/>
+
+```bash
+cd deploy
+cp .env.example .env        # 填写数据库、MinIO、JWT、AI、短信配置
+docker compose up -d
+```
+
+`deploy/` 目录包含：
+
+- `docker-compose.yml`：MySQL、Redis、MinIO 与应用容器编排
+- `web.Dockerfile`：前端构建镜像
+- `nginx/user.conf`、`nginx/admin.conf`：用户端与管理端站点配置（含 SPA history 路由回退与接口代理）
+
+生产注意事项：
+
+- `JWT_SECRET` 至少 32 字节，缺失或过短会直接启动失败。
+- `SMS_PROVIDER` 未配置时服务拒绝启动，避免验证码静默失效。
+- 接口文档相关路径在生产环境返回 404。
+- Android release 构建禁止明文 HTTP，仅 debug 允许本地调试地址。
+
+</details>
+
+<details>
+<summary><b>Android 打包</b></summary>
+
+<br/>
+
+```bash
+cd frontend-user
+npm run build
+npx cap sync android
+npx cap open android      # 交给 Android Studio 构建签名包
+```
+
+Capacitor 使用 hash 路由，避免原生环境下刷新 404；已适配刘海屏安全区域与触控手势。
+
+</details>
+
+---
+
+## 常见问题
+
+<details>
+<summary><b>注册时收不到验证码？</b></summary>
+
+<br/>
+
+开发环境默认 `sms.log-code=true`，验证码直接打印在后端日志中，搜索 `验证码` 即可。
+生产环境必须配置 `SMS_PROVIDER` 与网关地址，否则服务不会启动。
+
+</details>
+
+<details>
+<summary><b>AI 功能报错或提示"休息中"？</b></summary>
+
+<br/>
+
+按顺序检查：
+
+1. `ai.mode` 与对应配置是否匹配（`cloud` 需要 API Key，`local` 需要 Ollama 已启动并拉取模型）。
+2. `base-url` 只需填到版本段（如 `.../v1`），客户端会自行追加 `/chat/completions`。
+3. 是否触达每日 50 次限额，可通过 `/api/ai/remaining` 查询。
+
+AI 异常不会影响发帖、评论等主流程，只会返回兜底文案。
+
+</details>
+
+<details>
+<summary><b>上传的图片显示 404？</b></summary>
+
+<br/>
+
+图片走 MinIO + 短时票据访问，需要确认：
+
+- `MINIO_ENDPOINT` 与 `MINIO_PUBLIC_URL` 指向同一实例，且浏览器可直接访问后者。
+- 存储桶 `minthive` 已创建，且为私有读。
+
+</details>
+
+<details>
+<summary><b>前端启动端口被占用？</b></summary>
+
+<br/>
+
+Windows 的 5000–6000 段存在系统保留端口，可能出现"端口未占用却监听失败"。直接使用根目录脚本 `start-dev.ps1`，默认走 4400 / 4401 规避该问题。
+
+</details>
+
+---
+
+## 贡献
+
+1. Fork 本仓库并创建特性分支：`git checkout -b feature/your-feature`
+2. 提交前请确保通过 `mvn test`、`npm run type-check` 与 `npm run test:unit`
+3. 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)：
+
+| 前缀 | 用途 |
+|---|---|
+| `feat:` | 新功能 |
+| `fix:` | 缺陷修复 |
+| `refactor:` | 重构 |
+| `docs:` | 文档 |
+| `test:` | 测试 |
+| `chore:` | 构建 / 依赖 |
+
+4. 提交 Pull Request，说明变更动机与验证方式。
+
+---
+
+## License
+
+本项目基于 **MIT License** 开源，可自由用于学习、二次开发与商业项目，请保留版权声明。
+
+## 致谢
+
+感谢 Spring Boot、Vue.js、MyBatis-Plus、Vant、Element Plus、ECharts、MinIO、Redis 等开源项目。
+
 <div align="center">
-<sub>Built with </sub><b style="color:#4ECDC4">Mint</b><sub> fresh ideas · United in the </sub><b style="color:#FFB627">Hive</b>
+<br/>
+<sub>如果这个项目对你有帮助，欢迎点一个 Star ⭐</sub>
 </div>

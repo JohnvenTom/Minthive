@@ -575,6 +575,11 @@ onUnmounted(() => {
       color: $mint-500;
     }
   }
+
+  // 桌面端已有 App.vue 顶部导航，隐藏移动端头部避免重复品牌栏
+  @media (min-width: 769px) {
+    display: none;
+  }
 }
 
 // ---------- Tab 切换 ----------
@@ -584,6 +589,11 @@ onUnmounted(() => {
   z-index: 99;
   @include glass(16px, rgba(255, 255, 255, 0.78));
   border-bottom: 1px solid $ink-100;
+
+  // 桌面端顶部导航由 App.vue 提供，首页自带头部需隐藏，避免双 Logo
+  @media (min-width: 769px) {
+    top: 64px;
+  }
 
   .tabs-inner {
     display: flex;

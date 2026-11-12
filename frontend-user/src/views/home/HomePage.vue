@@ -6,7 +6,7 @@
     <!-- 顶部导航栏 -->
     <header class="home-header">
       <div class="header-inner">
-        <h1 class="logo gradient-text font-display">PulseSocial</h1>
+        <h1 class="logo gradient-text font-display">MintHive</h1>
         <div class="header-actions">
           <van-icon name="search" size="22" class="action-icon" @click="onSearch" />
           <van-icon name="chat-o" size="22" class="action-icon" :badge="unreadCount || ''" @click="onMessage" />

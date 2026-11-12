@@ -58,7 +58,7 @@ class CloudAiQuerySecurityTest {
         });
         server.start();
         AiConfig config = new AiConfig();
-        config.getCloud().setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
+        config.getCloud().setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/v1");
         config.getCloud().setApiKey("test-only");
         config.getCloud().setModel("test-model");
         config.getCloud().setTimeout(2000L);

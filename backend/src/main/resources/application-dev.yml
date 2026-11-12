@@ -42,7 +42,8 @@ jwt:
 ai:
   mode: cloud  # cloud | local
   cloud:
-    base-url: ${AI_CLOUD_DEV_BASE_URL:https://api.longcat.chat/openai}
+    # base-url 填到版本段为止（如 /v1、/v4），客户端会追加 /chat/completions
+    base-url: ${AI_CLOUD_DEV_BASE_URL:https://api.longcat.chat/openai/v1}
     api-key: ${AI_CLOUD_DEV_API_KEY:sk-your-openai-api-key}
     model: ${AI_CLOUD_DEV_MODEL:LongCat-2.0}
     timeout: 60000

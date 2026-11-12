@@ -66,7 +66,7 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET:-minthive}
       JWT_SECRET: ${JWT_SECRET:?请在 .env 设置 JWT_SECRET}
       AI_MODE: ${AI_MODE:-cloud}
-      AI_CLOUD_BASE_URL: ${AI_CLOUD_BASE_URL:-https://api.openai.com}
+      AI_CLOUD_BASE_URL: ${AI_CLOUD_BASE_URL:-https://api.openai.com/v1}
       AI_CLOUD_API_KEY: ${AI_CLOUD_API_KEY:-}
       AI_CLOUD_MODEL: ${AI_CLOUD_MODEL:-gpt-4o-mini}
       AI_LOCAL_BASE_URL: ${AI_LOCAL_BASE_URL:-http://ollama:11434}

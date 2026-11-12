@@ -296,7 +296,7 @@
             @click="selectDraft(idx)"
           >
             <div class="draft-header">
-              <span class="draft-style-badge">{{ draft.styleName || `文案 ${idx + 1}` }}</span>
+              <span class="draft-style-badge">{{ draft.styleName }}</span>
               <div v-if="selectedDraftIdx === idx" class="draft-check">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1652,7 +1652,10 @@ $radius-btn: 10px;
   font-size: 14px;
   color: $text-primary;
   line-height: 1.65;
-  @include ellipsis(3);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 132px;
+  overflow-y: auto;
 }
 
 .draft-topics {

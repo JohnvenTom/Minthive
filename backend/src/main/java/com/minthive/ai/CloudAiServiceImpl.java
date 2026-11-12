@@ -74,14 +74,19 @@ public class CloudAiServiceImpl implements AiService {
      *
      * @param keywords 关键词
      * @param category 圈子分类
-     * @return 三版风格文案（简约/氛围感/干货）
+     * @return 三版结构化文案（简约/氛围感/干货）
      */
     @Override
-    public List<String> generatePostContent(String keywords, String category) {
+    public List<AiPostDraft> generatePostContent(String keywords, String category) {
         try {
             String prompt = buildPostPrompt(keywords, category);
             String response = callChatApi(prompt);
-            return parseThreeVersions(response, keywords, category);
+            List<AiPostDraft> drafts = PostDraftParser.parse(response);
+            if (!drafts.isEmpty()) {
+                return drafts;
+            }
+            log.warn("[CloudAI] 文案解析未识别出版本，返回降级文案，原文片段={}", abbreviate(response));
+            return aiFallback.fallbackPostContent(keywords);
         } catch (Exception e) {
             log.error("[CloudAI] 生成文案异常: ", e);
             return aiFallback.fallbackPostContent(keywords);
@@ -230,7 +235,7 @@ public class CloudAiServiceImpl implements AiService {
             JsonNode result = objectMapper.reader()
                     .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
-                    .readTree(stripCodeFence(response));
+                    .readTree(AiText.stripCodeFence(response));
             if (result == null || !result.isObject()
                     || !result.path("safe").isBoolean()
                     || !result.path("type").isTextual() || result.path("type").asText().isBlank()
@@ -243,34 +248,6 @@ public class CloudAiServiceImpl implements AiService {
         } catch (Exception e) {
             return AiDetectResult.unavailable("云端审核输出解析失败");
         }
-    }
-
-    /**
-     * 去除模型输出中的 Markdown 代码块包装
-     *
-     * <p>功能描述：部分模型会把 JSON 包在 ```json ... ``` 中返回，
-     *   这里只剥离代码块标记本身，不改写内容；剥离后的文本仍需通过严格字段校验</p>
-     *
-     * @param response 模型原始输出，可为空
-     * @return 去除代码块标记并裁剪空白后的文本；非代码块输出原样返回
-     */
-    private String stripCodeFence(String response) {
-        if (response == null) {
-            return "";
-        }
-        String text = response.trim();
-        if (!text.startsWith("```")) {
-            return text;
-        }
-        int firstLineEnd = text.indexOf('\n');
-        if (firstLineEnd > 0) {
-            text = text.substring(firstLineEnd + 1);
-        }
-        int closing = text.lastIndexOf("```");
-        if (closing >= 0) {
-            text = text.substring(0, closing);
-        }
-        return text.trim();
     }
 
     /**
@@ -789,30 +766,29 @@ public class CloudAiServiceImpl implements AiService {
     }
 
     /**
-     * 构建帖子文案生成的提示词
+     * 压缩日志中的模型原文
+     *
+     * @param text 模型输出
+     * @return 去除换行并截断到 200 字的片段
      */
-    private String buildPostPrompt(String keywords, String category) {
-        return "请为「" + category + "」圈子生成3个版本的社交媒体帖子文案，关键词：「" + keywords + "」。"
-                + "格式要求：每个版本用【版本名】开头，之间用 ||| 分隔。"
-                + "版本1【简约风】：简洁有力，1-2句话；"
-                + "版本2【氛围感】：文艺有画面感，2-3句话；"
-                + "版本3【干货型】：实用有价值，带具体建议，2-3句话。";
+    private String abbreviate(String text) {
+        if (text == null) {
+            return "";
+        }
+        String flat = text.replaceAll("\\s+", " ").trim();
+        return flat.length() <= 200 ? flat : flat.substring(0, 200) + "...";
     }
 
     /**
-     * 解析三版本文案返回值
+     * 构建帖子文案生成的提示词
      */
-    private List<String> parseThreeVersions(String response, String keywords, String category) {
-        if (response.contains("|||")) {
-            String[] parts = response.split("\\|\\|\\|");
-            return Arrays.asList(parts);
-        }
-        // 如果模型没有按格式返回，降级处理
-        return Arrays.asList(
-                "【简约版】" + keywords + "，记录此刻心情。",
-                "【氛围感版】在" + category + "的世界里，" + keywords + "是独一无二的瞬间。",
-                "【干货版】关于" + keywords + "，分享几点实用经验与心得。"
-        );
+    private String buildPostPrompt(String keywords, String category) {
+        String circle = category == null || category.isBlank() ? "综合" : category;
+        return "请为「" + circle + "」圈子生成3个版本的中文社交媒体帖子文案，关键词：「" + keywords + "」。"
+                + "只返回 JSON 数组，不要输出解释文字或 Markdown 代码块，数组元素格式："
+                + "[{\"style\":\"simple\",\"styleName\":\"简约\",\"content\":\"文案正文\",\"topics\":[\"话题词\"]}]。"
+                + "style 只能取 simple、vibe、pro，styleName 依次为 简约、氛围、干货；"
+                + "content 为 1-3 句完整文案，不要带「版本N」「【xx】」前缀和引号；topics 为 0-2 个不带 # 的话题词。";
     }
 
     /**

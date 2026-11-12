@@ -17,9 +17,9 @@ public interface AiService {
      *
      * @param keywords 关键词
      * @param category 圈子分类
-     * @return 三版风格文案(简约版/氛围感版/干货版)
+     * @return 三版结构化文案(风格、名称、正文、话题)
      */
-    List<String> generatePostContent(String keywords, String category);
+    List<AiPostDraft> generatePostContent(String keywords, String category);
 
     /**
      * AI 文案润色/纠错

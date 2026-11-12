@@ -1,6 +1,7 @@
 package com.minthive.controller;
 
 import com.minthive.ai.AiContext;
+import com.minthive.ai.AiPostDraft;
 import com.minthive.ai.AiRateLimiter;
 import com.minthive.ai.AiService;
 import com.minthive.common.Result;
@@ -59,8 +60,8 @@ public class AiController {
      */
     @Operation(summary = "AI生成帖子文案")
     @PostMapping("/post-content")
-    public Result<List<String>> generatePostContent(@RequestBody @Valid PostContentDto dto) {
-        List<String> result = withQuota(() -> aiContext.generatePostContent(dto.getKeywords(), dto.getCategory()));
+    public Result<List<AiPostDraft>> generatePostContent(@RequestBody @Valid PostContentDto dto) {
+        List<AiPostDraft> result = withQuota(() -> aiContext.generatePostContent(dto.getKeywords(), dto.getCategory()));
         return Result.success(result);
     }
 

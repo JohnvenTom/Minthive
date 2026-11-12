@@ -24,13 +24,19 @@ public class AiFallback {
     /**
      * 生成帖子文案降级
      *
-     * @param keywords 关键词
+     * <p>返回三个固定风格的空壳草稿，正文为降级提示语，保证前端仍能渲染三张卡片</p>
+     *
+     * @param keywords 关键词（当前未参与降级文案，保留参数便于后续差异化）
      * @return 降级文案列表
      */
-    public List<String> fallbackPostContent(String keywords) {
+    public List<AiPostDraft> fallbackPostContent(String keywords) {
         log.warn("AI生成文案降级");
         String msg = aiConfig.getFallback().getMessage();
-        return Arrays.asList(msg, msg, msg);
+        return List.of(
+                AiPostDraft.builder().style("simple").styleName("简约").content(msg).topics(List.of()).build(),
+                AiPostDraft.builder().style("vibe").styleName("氛围").content(msg).topics(List.of()).build(),
+                AiPostDraft.builder().style("pro").styleName("干货").content(msg).topics(List.of()).build()
+        );
     }
 
     /**

@@ -67,14 +67,21 @@ public class LocalAiServiceImpl implements AiService {
      *
      * @param keywords 关键词
      * @param category 圈子分类
-     * @return 三版风格文案
+     * @return 三版结构化文案
      */
     @Override
-    public List<String> generatePostContent(String keywords, String category) {
+    public List<AiPostDraft> generatePostContent(String keywords, String category) {
         try {
-            String prompt = "请为「" + category + "」圈子生成3个版本的中文社交媒体帖子文案，关键词：「" + keywords + "」。"
-                    + "每个版本用【版本名】开头，之间用 ||| 分隔，不要输出其他说明。";
-            return splitToLimit(callOllama(prompt, false), 3);
+            String circle = category == null || category.isBlank() ? "综合" : category;
+            String prompt = "请为「" + circle + "」圈子生成3个版本的中文社交媒体帖子文案，关键词：「" + keywords + "」。"
+                    + "只返回 JSON 数组，不要输出解释文字，数组元素格式："
+                    + "[{\"style\":\"simple\",\"styleName\":\"简约\",\"content\":\"文案正文\",\"topics\":[\"话题词\"]}]。"
+                    + "style 只能取 simple、vibe、pro，styleName 依次为 简约、氛围、干货。";
+            List<AiPostDraft> drafts = PostDraftParser.parse(callOllama(prompt, false));
+            if (!drafts.isEmpty()) {
+                return drafts;
+            }
+            return aiFallback.fallbackPostContent(keywords);
         } catch (Exception e) {
             log.error("[LocalAI] 生成文案异常: {}", e.getMessage());
             return aiFallback.fallbackPostContent(keywords);

@@ -269,6 +269,43 @@ public final class PostDraftParser {
     }
 
     /**
+     * 从正文中抽取话题标签
+     *
+     * <p>模型经常把「#周末小确幸」直接写在正文里而不填 topics，
+     * 这里把标签抽到 topics 并从正文移除，避免卡片里既显示正文标签又显示话题 chips；
+     * 若正文只是标签、抽完为空，则保留原文不置空</p>
+     *
+     * @param draft 草稿
+     */
+    private static void extractHashtags(AiPostDraft draft) {
+        String content = draft.getContent() == null ? "" : draft.getContent();
+        List<String> topics = draft.getTopics() == null ? new ArrayList<>() : new ArrayList<>(draft.getTopics());
+        Matcher matcher = HASHTAG.matcher(content);
+        StringBuilder cleaned = new StringBuilder();
+        int last = 0;
+        boolean found = false;
+        while (matcher.find()) {
+            found = true;
+            cleaned.append(content, last, matcher.start());
+            String tag = matcher.group(1).trim();
+            if (!tag.isEmpty() && !topics.contains(tag)) {
+                topics.add(tag);
+            }
+            last = matcher.end();
+        }
+        if (!found) {
+            draft.setTopics(topics);
+            return;
+        }
+        cleaned.append(content.substring(last));
+        String text = cleaned.toString().replaceAll("[ \\t]{2,}", " ").trim();
+        if (!text.isBlank()) {
+            draft.setContent(text);
+        }
+        draft.setTopics(topics);
+    }
+
+    /**
      * 根据风格标识或名称推断风格下标
      *
      * @param style     风格标识
@@ -306,7 +343,8 @@ public final class PostDraftParser {
             return "";
         }
         String text = raw.trim();
-        text = text.replaceAll("(?m)^\\s*#{1,6}\\s*", "");
+        // 只去掉 Markdown 标题（# 后必须跟空格），避免把 "#话题" 当成标题吃掉
+        text = text.replaceAll("(?m)^\\s*#{1,6}[ \\t]+", "");
         text = text.replaceAll("(?m)^\\s*版本\\s*\\d*\\s*$", "");
         text = text.replaceAll("(?m)^\\s*\\|\\|\\|\\s*$", "");
         text = text.replaceAll("^\\s*版本\\s*\\d*\\s*", "");

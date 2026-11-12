@@ -91,6 +91,35 @@ class PostDraftParserTest {
     }
 
     @Test
+    void extractsHashtagsFromContentIntoTopics() {
+        String raw = "[{\"style\":\"simple\",\"content\":\"每次点快餐都幸福！#快餐控 #美食分享\"}]";
+
+        List<AiPostDraft> drafts = PostDraftParser.parse(raw);
+
+        assertEquals(1, drafts.size());
+        assertEquals("每次点快餐都幸福！", drafts.get(0).getContent());
+        assertEquals(List.of("快餐控", "美食分享"), drafts.get(0).getTopics());
+    }
+
+    @Test
+    void mergesProvidedTopicsWithExtractedAndDeduplicates() {
+        String raw = "[{\"style\":\"vibe\",\"content\":\"好吃到停不下来 #美食\",\"topics\":[\"美食\",\"推荐\"]}]";
+
+        List<AiPostDraft> drafts = PostDraftParser.parse(raw);
+
+        assertEquals("好吃到停不下来", drafts.get(0).getContent());
+        assertEquals(List.of("美食", "推荐"), drafts.get(0).getTopics());
+    }
+
+    @Test
+    void keepsContentWhenItOnlyContainsHashtags() {
+        List<AiPostDraft> drafts = PostDraftParser.parse("[{\"content\":\"#美食\"}]");
+
+        assertEquals("#美食", drafts.get(0).getContent());
+        assertEquals(List.of("美食"), drafts.get(0).getTopics());
+    }
+
+    @Test
     void keepsFewerDraftsInsteadOfPadding() {
         List<AiPostDraft> drafts = PostDraftParser.parse("[{\"content\":\"只有一条\"}]");
 

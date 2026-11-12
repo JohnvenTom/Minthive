@@ -564,7 +564,8 @@ MintHive 的 AI 模块采用 **策略模式** 设计，支持一键切换部署�
 ai:
   mode: cloud          # cloud | local
   cloud:
-    base-url: https://api.openai.com
+    # base-url 填到版本段为止（如 /v1、/v4），客户端会追加 /chat/completions
+    base-url: https://api.openai.com/v1
     api-key: ${AI_CLOUD_API_KEY}
     model: gpt-4o-mini
   local:

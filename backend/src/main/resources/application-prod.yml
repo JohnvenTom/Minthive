@@ -42,7 +42,8 @@ jwt:
 ai:
   mode: ${AI_MODE:local}
   cloud:
-    base-url: ${AI_CLOUD_BASE_URL:https://api.openai.com}
+    # base-url 填到版本段为止（如 /v1、/v4），客户端会追加 /chat/completions
+    base-url: ${AI_CLOUD_BASE_URL:https://api.openai.com/v1}
     api-key: ${AI_CLOUD_API_KEY}
     model: ${AI_CLOUD_MODEL:gpt-4o-mini}
     timeout: 8000

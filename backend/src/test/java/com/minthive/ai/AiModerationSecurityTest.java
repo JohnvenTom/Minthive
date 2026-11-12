@@ -39,7 +39,7 @@ class AiModerationSecurityTest {
         });
         server.start();
         AiConfig config = new AiConfig();
-        config.getCloud().setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
+        config.getCloud().setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/v1");
         config.getCloud().setApiKey("test-only");
         config.getCloud().setModel("test-model");
         config.getCloud().setTimeout(2000L);
@@ -86,6 +86,15 @@ class AiModerationSecurityTest {
         assertTrue(result.violation);
         assertEquals("暴力", result.violationType);
         assertEquals("high", result.riskLevel);
+    }
+
+    @Test
+    void codeFencedJsonIsAccepted() {
+        modelOutput = "```json\n{\"safe\":true,\"type\":\"无\",\"level\":\"low\"}\n```";
+        AiService.AiDetectResult result = cloud.detectContent("text", null);
+        assertTrue(result.available);
+        assertFalse(result.violation);
+        assertEquals("low", result.riskLevel);
     }
 
     @Test

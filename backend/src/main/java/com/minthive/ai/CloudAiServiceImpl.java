@@ -196,7 +196,7 @@ public class CloudAiServiceImpl implements AiService {
                     "stream", false));
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(cloud.getBaseUrl() + "/v1/chat/completions"))
+                    .uri(URI.create(cloud.getBaseUrl() + "/chat/completions"))
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + cloud.getApiKey())
                     .timeout(Duration.ofMillis(cloud.getTimeout()))
@@ -230,7 +230,7 @@ public class CloudAiServiceImpl implements AiService {
             JsonNode result = objectMapper.reader()
                     .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
-                    .readTree(response);
+                    .readTree(stripCodeFence(response));
             if (result == null || !result.isObject()
                     || !result.path("safe").isBoolean()
                     || !result.path("type").isTextual() || result.path("type").asText().isBlank()
@@ -243,6 +243,34 @@ public class CloudAiServiceImpl implements AiService {
         } catch (Exception e) {
             return AiDetectResult.unavailable("云端审核输出解析失败");
         }
+    }
+
+    /**
+     * 去除模型输出中的 Markdown 代码块包装
+     *
+     * <p>功能描述：部分模型会把 JSON 包在 ```json ... ``` 中返回，
+     *   这里只剥离代码块标记本身，不改写内容；剥离后的文本仍需通过严格字段校验</p>
+     *
+     * @param response 模型原始输出，可为空
+     * @return 去除代码块标记并裁剪空白后的文本；非代码块输出原样返回
+     */
+    private String stripCodeFence(String response) {
+        if (response == null) {
+            return "";
+        }
+        String text = response.trim();
+        if (!text.startsWith("```")) {
+            return text;
+        }
+        int firstLineEnd = text.indexOf('\n');
+        if (firstLineEnd > 0) {
+            text = text.substring(firstLineEnd + 1);
+        }
+        int closing = text.lastIndexOf("```");
+        if (closing >= 0) {
+            text = text.substring(0, closing);
+        }
+        return text.trim();
     }
 
     /**
@@ -578,7 +606,7 @@ public class CloudAiServiceImpl implements AiService {
         );
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(cloud.getBaseUrl() + "/v1/chat/completions"))
+                .uri(URI.create(cloud.getBaseUrl() + "/chat/completions"))
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + cloud.getApiKey())
                 .timeout(Duration.ofMillis(cloud.getTimeout()))
@@ -650,7 +678,7 @@ public class CloudAiServiceImpl implements AiService {
         );
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(cloud.getBaseUrl() + "/v1/chat/completions"))
+                .uri(URI.create(cloud.getBaseUrl() + "/chat/completions"))
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + cloud.getApiKey())
                 // 流式请求使用更长超时（120秒），连接需保持到AI回复完毕

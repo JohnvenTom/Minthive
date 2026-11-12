@@ -44,9 +44,9 @@ public class AiContext {
      *
      * @param keywords 关键词
      * @param category 圈子分类
-     * @return 三版文案
+     * @return 三版结构化文案
      */
-    public List<String> generatePostContent(String keywords, String category) {
+    public List<AiPostDraft> generatePostContent(String keywords, String category) {
         return getAiService().generatePostContent(keywords, category);
     }
 

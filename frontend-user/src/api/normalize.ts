@@ -85,15 +85,38 @@ export function normalizeUser(user: UserResponse): User {
   }
 }
 
-export function normalizeAiDrafts(contents: string[]): AiPostDraft[] {
+/**
+ * 归一化后端返回的结构化文案草稿
+ *
+ * <p>后端已给出 style/styleName/content/topics，这里只做字段兜底与过滤：
+ * 丢弃没有正文的条目、把非法 style 修正为顺序默认值，避免渲染出空卡片</p>
+ *
+ * @param drafts 后端返回的草稿数组（未知结构时也能安全处理）
+ * @returns {AiPostDraft[]} 最多 3 条可渲染草稿
+ */
+export function normalizeAiDrafts(drafts: unknown): AiPostDraft[] {
   const styles: AiPostDraft['style'][] = ['simple', 'vibe', 'pro']
   const names = ['简约', '氛围', '干货']
-  return contents.map((content, index) => ({
-    style: styles[index] ?? 'simple',
-    styleName: names[index] ?? `文案${index + 1}`,
-    content: content.trim(),
-    topics: []
-  }))
+  if (!Array.isArray(drafts)) return []
+  const valid = drafts
+    .filter((item): item is Partial<AiPostDraft> => !!item && typeof item === 'object')
+    .filter(item => typeof item.content === 'string' && item.content.trim() !== '')
+    .slice(0, 3)
+  return valid.map((raw, index) => {
+    const style = styles.includes(raw.style as AiPostDraft['style'])
+      ? (raw.style as AiPostDraft['style'])
+      : styles[index] ?? 'simple'
+    return {
+      style,
+      styleName: typeof raw.styleName === 'string' && raw.styleName.trim()
+        ? raw.styleName.trim()
+        : names[index] ?? '文案',
+      content: (raw.content as string).trim(),
+      topics: Array.isArray(raw.topics)
+        ? raw.topics.filter((topic): topic is string => typeof topic === 'string' && topic.trim() !== '')
+        : []
+    }
+  })
 }
 
 export function normalizeAiComments(contents: string[]): AiCommentSuggestion[] {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  normalizeAiDrafts,
   normalizePagination,
   normalizePost,
   normalizeUser,
@@ -98,6 +99,38 @@ describe('normalizePost', () => {
     expect(post.likeCount).toBe(5)
     expect(post.originalPost?.id).toBe(9)
     expect(post.originalPost?.images).toEqual(['o.png'])
+  })
+})
+
+describe('normalizeAiDrafts', () => {
+  it('直接使用后端给出的风格名与正文，不再按下标猜测', () => {
+    const drafts = normalizeAiDrafts([
+      { style: 'vibe', styleName: '氛围', content: '山风拂面，一切都慢了下来。', topics: ['爬山'] },
+      { style: 'simple', styleName: '简约', content: '周末爬山，放松心情。', topics: [] }
+    ])
+
+    expect(drafts).toHaveLength(2)
+    expect(drafts[0]).toMatchObject({ style: 'vibe', styleName: '氛围', content: '山风拂面，一切都慢了下来。' })
+    expect(drafts[0].topics).toEqual(['爬山'])
+    expect(drafts[1].styleName).toBe('简约')
+  })
+
+  it('丢弃空正文与非法条目，并为缺失风格补齐默认值', () => {
+    const drafts = normalizeAiDrafts([
+      { content: '   ' },
+      { content: '有内容但没有风格' },
+      { style: 'pro', content: '干货正文', topics: ['路线', ''] }
+    ])
+
+    expect(drafts).toHaveLength(2)
+    expect(drafts[0].style).toBe('simple')
+    expect(drafts[0].styleName).toBe('简约')
+    expect(drafts[1].topics).toEqual(['路线'])
+  })
+
+  it('非数组输入返回空列表', () => {
+    expect(normalizeAiDrafts(null)).toEqual([])
+    expect(normalizeAiDrafts('文本')).toEqual([])
   })
 })
 

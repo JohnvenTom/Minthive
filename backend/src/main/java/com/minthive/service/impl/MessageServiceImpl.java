@@ -39,6 +39,7 @@ public class MessageServiceImpl implements MessageService {
     private final FollowMapper followMapper;
     private final SystemMsgMapper systemMsgMapper;
     private final NotificationReadMapper notificationReadMapper;
+    private final com.minthive.config.BusinessMetrics businessMetrics;
 
     private final com.minthive.service.ActionRateLimiter actionRateLimiter;
 
@@ -99,6 +100,7 @@ public class MessageServiceImpl implements MessageService {
             WebSocketServer.sendToUser(message.getToUserId(),
                     WsMessage.ofData(MessageType.CHAT.getCode(), payload));
         } catch (Exception e) {
+            businessMetrics.messagePushFailed();
             log.warn("私信实时推送失败 messageId={}", message.getId(), e);
         }
     }
@@ -149,6 +151,7 @@ public class MessageServiceImpl implements MessageService {
             WebSocketServer.sendToUser(fromUserId,
                     WsMessage.ofData(MessageType.READ_RECEIPT.getCode(), payload));
         } catch (Exception e) {
+            businessMetrics.messagePushFailed();
             log.warn("已读回执推送失败 from={} to={}", fromUserId, toUserId, e);
         }
     }
@@ -255,6 +258,7 @@ public class MessageServiceImpl implements MessageService {
             WebSocketServer.sendToUser(message.getToUserId(),
                     WsMessage.ofData(MessageType.REVOKE.getCode(), payload));
         } catch (Exception e) {
+            businessMetrics.messagePushFailed();
             log.warn("撤回消息推送失败 messageId={}", messageId, e);
         }
     }

@@ -3,7 +3,9 @@ package com.minthive.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minthive.config.AiConfig;
+import com.minthive.config.BusinessMetrics;
 import com.minthive.security.UserContext;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +49,7 @@ public class CloudAiServiceImpl implements AiService {
     private final AiConfig aiConfig;
     private final AiFallback aiFallback;
     private final ObjectMapper objectMapper;
+    private final BusinessMetrics metrics;
 
     @Autowired
     private AiToolService aiToolService;
@@ -199,7 +202,7 @@ public class CloudAiServiceImpl implements AiService {
                     .timeout(Duration.ofMillis(cloud.getTimeout()))
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendTimed(request);
             if (response.statusCode() != 200) {
                 log.warn("[CloudAI] 图片审核调用失败 status={}", response.statusCode());
                 return AiDetectResult.unavailable("云端图片审核不可用");
@@ -515,12 +518,37 @@ public class CloudAiServiceImpl implements AiService {
     // ==================== 私有方法 ====================
 
     /**
-     * 调用 OpenAI 兼容的 Chat Completions 接口
+     * 带耗时统计的普通 HTTP 调用
      *
-     * @param userMessage 用户消息
-     * @return 模型回复文本
-     * @throws Exception 调用失败时抛出
+     * @param request 请求
+     * @return 响应
+     * @throws Exception 网络异常
      */
+    private HttpResponse<String> sendTimed(HttpRequest request) throws Exception {
+        Timer.Sample sample = metrics.startAi("cloud");
+        try {
+            return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        } finally {
+            sample.stop(metrics.aiTimer("cloud"));
+        }
+    }
+
+    /**
+     * 带耗时统计的流式调用（统计首包延迟，不覆盖整个流）
+     *
+     * @param request 请求
+     * @return 流式响应
+     * @throws Exception 网络异常
+     */
+    private HttpResponse<java.io.InputStream> sendTimedStream(HttpRequest request) throws Exception {
+        Timer.Sample sample = metrics.startAi("cloud");
+        try {
+            return httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        } finally {
+            sample.stop(metrics.aiTimer("cloud"));
+        }
+    }
+
     private String callChatApi(String userMessage) throws Exception {
         return callChatApiWithSystem("你是一个有帮助的AI助手。", userMessage);
     }
@@ -557,7 +585,7 @@ public class CloudAiServiceImpl implements AiService {
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = sendTimed(request);
 
         if (response.statusCode() != 200) {
             log.error("[CloudAI] API 调用失败 status={}, body={}", response.statusCode(), response.body());
@@ -630,8 +658,7 @@ public class CloudAiServiceImpl implements AiService {
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
-        HttpResponse<java.io.InputStream> response = httpClient.send(
-                request, HttpResponse.BodyHandlers.ofInputStream());
+        HttpResponse<java.io.InputStream> response = sendTimedStream(request);
 
         if (response.statusCode() != 200) {
             // 流式响应错误时读取错误信息

@@ -1,6 +1,7 @@
 package com.minthive.audit;
 
 import com.minthive.common.RedisConstants;
+import com.minthive.config.BusinessMetrics;
 import com.minthive.entity.AuditLogChange;
 import com.minthive.mapper.AuditLogChangeMapper;
 import com.minthive.mapper.AuditLogMapper;
@@ -38,6 +39,8 @@ public class AuditWriter {
     private final AuditProperties properties;
 
     private final RedisUtil redisUtil;
+
+    private final BusinessMetrics businessMetrics;
 
     private final PlatformTransactionManager transactionManager;
 
@@ -132,6 +135,7 @@ public class AuditWriter {
      */
     private void drop(String reason) {
         log.warn("审计日志写入失败或丢弃: {}", reason);
+        businessMetrics.auditDropped();
         try {
             redisUtil.increment(RedisConstants.AUDIT_DROPPED_PREFIX);
         } catch (Exception e) {

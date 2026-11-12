@@ -81,7 +81,7 @@ public class AuditMybatisInterceptor implements Interceptor {
 
     @Override
     public Object intercept(Invocation invocation) throws Throwable {
-        if (!properties.isEnabled()) {
+        if (!properties.isEnabled() || AuditScope.isSuppressed()) {
             return invocation.proceed();
         }
         Object[] args = invocation.getArgs();
@@ -325,7 +325,8 @@ public class AuditMybatisInterceptor implements Interceptor {
             return null;
         }
         if (parameter instanceof Map<?, ?> map) {
-            Object entity = map.get("et");
+            // MyBatis ParamMap 访问不存在的 key 会抛 BindingException，必须先判断
+            Object entity = map.containsKey("et") ? map.get("et") : null;
             return entity instanceof Map || entity == null ? null : entity;
         }
         if (parameter instanceof Number || parameter instanceof CharSequence
@@ -351,11 +352,11 @@ public class AuditMybatisInterceptor implements Interceptor {
             return String.valueOf(parameter);
         }
         if (parameter instanceof Map<?, ?> map) {
-            Object id = map.get("id");
+            Object id = map.containsKey("id") ? map.get("id") : null;
             if (id != null) {
                 return String.valueOf(id);
             }
-            Object et = map.get("et");
+            Object et = map.containsKey("et") ? map.get("et") : null;
             if (et != null) {
                 return readId(et);
             }

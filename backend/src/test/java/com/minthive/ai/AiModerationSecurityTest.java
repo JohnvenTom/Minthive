@@ -3,6 +3,8 @@ package com.minthive.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minthive.config.AiConfig;
+import com.minthive.config.BusinessMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +43,8 @@ class AiModerationSecurityTest {
         config.getCloud().setApiKey("test-only");
         config.getCloud().setModel("test-model");
         config.getCloud().setTimeout(2000L);
-        cloud = new CloudAiServiceImpl(config, mock(AiFallback.class), json);
+        cloud = new CloudAiServiceImpl(config, mock(AiFallback.class), json,
+                new BusinessMetrics(new SimpleMeterRegistry()));
     }
 
     @AfterEach
@@ -117,7 +120,8 @@ class AiModerationSecurityTest {
     @Test
     void localImageModerationIsUnavailable() {
         AiConfig localConfig = localConfig();
-        var local = new LocalAiServiceImpl(localConfig, json, mock(AiFallback.class));
+        var local = new LocalAiServiceImpl(localConfig, json, mock(AiFallback.class),
+                new BusinessMetrics(new SimpleMeterRegistry()));
         AiService.AiDetectResult result = local.detectContent("text", "base64-image");
         assertUnavailable(result);
         assertTrue(result.violationType.contains("图片"));
@@ -138,7 +142,8 @@ class AiModerationSecurityTest {
      * 构造本地 AI 服务实例
      */
     private LocalAiServiceImpl localService() {
-        return new LocalAiServiceImpl(localConfig(), json, mock(AiFallback.class));
+        return new LocalAiServiceImpl(localConfig(), json, mock(AiFallback.class),
+                new BusinessMetrics(new SimpleMeterRegistry()));
     }
 
     @Test

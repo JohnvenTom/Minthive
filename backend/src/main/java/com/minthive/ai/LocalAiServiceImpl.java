@@ -3,6 +3,8 @@ package com.minthive.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minthive.config.AiConfig;
+import com.minthive.config.BusinessMetrics;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -45,6 +47,8 @@ public class LocalAiServiceImpl implements AiService {
     private final ObjectMapper objectMapper;
 
     private final AiFallback aiFallback;
+
+    private final BusinessMetrics metrics;
 
     /** 复用的 HTTP 客户端 */
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -261,9 +265,15 @@ public class LocalAiServiceImpl implements AiService {
      * @throws Exception 网络错误、非 200 或返回为空时抛出
      */
     private String callOllama(String prompt, boolean jsonMode) throws Exception {
-        HttpResponse<String> response = httpClient.send(
-                buildRequest(prompt, jsonMode, false),
-                HttpResponse.BodyHandlers.ofString());
+        Timer.Sample sample = metrics.startAi("local");
+        HttpResponse<String> response;
+        try {
+            response = httpClient.send(
+                    buildRequest(prompt, jsonMode, false),
+                    HttpResponse.BodyHandlers.ofString());
+        } finally {
+            sample.stop(metrics.aiTimer("local"));
+        }
         if (response.statusCode() != 200) {
             throw new IllegalStateException("Ollama 返回状态 " + response.statusCode());
         }

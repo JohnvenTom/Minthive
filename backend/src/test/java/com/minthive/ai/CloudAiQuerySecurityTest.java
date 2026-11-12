@@ -3,6 +3,8 @@ package com.minthive.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minthive.config.AiConfig;
+import com.minthive.config.BusinessMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.minthive.security.LoginUser;
 import com.minthive.security.UserContext;
 import com.sun.net.httpserver.HttpServer;
@@ -60,7 +62,8 @@ class CloudAiQuerySecurityTest {
         config.getCloud().setApiKey("test-only");
         config.getCloud().setModel("test-model");
         config.getCloud().setTimeout(2000L);
-        cloud = new CloudAiServiceImpl(config, mock(AiFallback.class), json);
+        cloud = new CloudAiServiceImpl(config, mock(AiFallback.class), json,
+                new BusinessMetrics(new SimpleMeterRegistry()));
         ReflectionTestUtils.setField(cloud, "aiToolService", tools);
         ReflectionTestUtils.setField(cloud, "intentParser", mock(IntentParser.class));
     }

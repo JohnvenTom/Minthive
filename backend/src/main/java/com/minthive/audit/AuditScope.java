@@ -20,6 +20,9 @@ public class AuditScope {
     /** 线程上下文 */
     private static final ThreadLocal<AuditScope> HOLDER = new ThreadLocal<>();
 
+    /** 异步任务审计抑制标记：@Async 线程中的派生写入不进入操作审计 */
+    private static final ThreadLocal<Boolean> SUPPRESSED = new ThreadLocal<>();
+
     /** 来源: HTTP/SYSTEM */
     private final String source;
 
@@ -159,6 +162,35 @@ public class AuditScope {
      */
     public static void clear() {
         HOLDER.remove();
+    }
+
+    /**
+     * 判断当前线程是否处于审计抑制状态
+     *
+     * @return true=@Async 派生线程，写入不记录审计
+     */
+    public static boolean isSuppressed() {
+        return Boolean.TRUE.equals(SUPPRESSED.get());
+    }
+
+    /**
+     * 包装异步任务，使其中的派生写入跳过审计
+     *
+     * <p>行为日志（浏览、向量刷新）由 @Async 线程写入，不属于用户可追责操作；
+     * 若不抑制，会在 GET 请求后生成无上下文的 SYSTEM 审计噪声</p>
+     *
+     * @param task 原始任务
+     * @return 带抑制标记的任务
+     */
+    public static Runnable suppress(Runnable task) {
+        return () -> {
+            SUPPRESSED.set(Boolean.TRUE);
+            try {
+                task.run();
+            } finally {
+                SUPPRESSED.remove();
+            }
+        };
     }
 
     /**
